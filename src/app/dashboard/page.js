@@ -50,7 +50,7 @@ export default function DashboardPage() {
       startOfMonth.setHours(0, 0, 0, 0)
 
       // Query dinámico para Ventas
-      let ventasQuery = supabase.from('ventas').select('total, meta_computable')
+      let ventasQuery = supabase.from('ventas').select('total, comision, utilidad').eq('estado', 'activa')
       if (!isAdmin) {
         ventasQuery = ventasQuery.eq('operativo_id', user.id)
       }
@@ -59,7 +59,7 @@ export default function DashboardPage() {
       const { data: ventasData } = await ventasQuery
 
       const totalV = ventasData?.reduce((acc, v) => acc + Number(v.total), 0) || 0
-      const totalMetaComp = ventasData?.reduce((acc, v) => acc + Number(v.meta_computable), 0) || 0
+      const totalMetaComp = ventasData?.reduce((acc, v) => acc + Number(v.comision) + Number(v.utilidad), 0) || 0
 
       // Query dinámico para Cotizaciones
       let quotesQuery = supabase
