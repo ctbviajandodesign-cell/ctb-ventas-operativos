@@ -29,21 +29,41 @@ export default function SalesModal() {
     const handleOpen = (e) => {
       const q = e.detail
       setQuote(q)
-      setFormData({
-        total: q.valor_total || 0,
-        abono_tarjeta: 0,
-        abono_1: 0,
-        abono_2: 0,
-        comision: q.valor_comision || 0,
-        utilidad: q.valor_utilidad || 0,
-        bono_counter: q.valor_bono || 0,
-        generar_voucher: false,
-        numero_proforma: q.codigo,
-        fecha_viaje_desde: q.fecha_viaje_desde || '',
-        fecha_viaje_hasta: q.fecha_viaje_hasta || '',
-        fecha_caducidad_voucher: '',
-        notas_voucher: ''
-      })
+      
+      if (q.existingSale) {
+        const s = q.existingSale
+        setFormData({
+          total: s.total || 0,
+          abono_tarjeta: s.abono_tarjeta || 0,
+          abono_1: s.abono_1 || 0,
+          abono_2: s.abono_2 || 0,
+          comision: s.comision || 0,
+          utilidad: s.utilidad || 0,
+          bono_counter: s.bono_counter || 0,
+          generar_voucher: false, // El voucher ya existe o se gestiona aparte
+          numero_proforma: s.numero_proforma,
+          fecha_viaje_desde: '', // Si quisiéramos editar voucher, iría aquí
+          fecha_viaje_hasta: '',
+          fecha_caducidad_voucher: '',
+          notas_voucher: ''
+        })
+      } else {
+        setFormData({
+          total: q.valor_total || 0,
+          abono_tarjeta: 0,
+          abono_1: 0,
+          abono_2: 0,
+          comision: q.valor_comision || 0,
+          utilidad: q.valor_utilidad || 0,
+          bono_counter: q.valor_bono || 0,
+          generar_voucher: false,
+          numero_proforma: q.codigo,
+          fecha_viaje_desde: q.fecha_viaje_desde || '',
+          fecha_viaje_hasta: q.fecha_viaje_hasta || '',
+          fecha_caducidad_voucher: '',
+          notas_voucher: ''
+        })
+      }
     }
     window.addEventListener('open-sales-modal', handleOpen)
     return () => window.removeEventListener('open-sales-modal', handleOpen)
@@ -56,52 +76,69 @@ export default function SalesModal() {
     setLoading(true)
 
     try {
-      // 1. Crear la Venta con desglose de pagos
-      const { data: venta, error: vError } = await supabase
-        .from('ventas')
-        .insert([{
-          cotizacion_id: quote.id,
-          operativo_id: quote.operativo_id,
-          total: formData.total,
-          abono_tarjeta: formData.abono_tarjeta,
-          abono_1: formData.abono_1,
-          abono_2: formData.abono_2,
-          comision: formData.comision,
-          utilidad: formData.utilidad,
-          bono_counter: formData.bono_counter,
-          numero_proforma: quote.codigo
-        }])
-        .select()
-        .single()
-
-      if (vError) throw vError
-
-      // 2. Actualizar estado de Cotización
-      await supabase
-        .from('cotizaciones')
-        .update({ estado: 'ganada' })
-        .eq('id', quote.id)
-
-      // 3. Generar Voucher si aplica
-      if (formData.generar_voucher) {
-        const voucherCode = `VCH-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`
-        const { error: vchError } = await supabase
-          .from('vouchers')
-          .insert([{
-            venta_id: venta.id,
-            operativo_id: quote.operativo_id,
-            codigo: voucherCode,
-            estado: 'activo',
-            fecha_viaje_desde: formData.fecha_viaje_desde,
-            fecha_viaje_hasta: formData.fecha_viaje_hasta,
-            fecha_caducidad: formData.fecha_caducidad_voucher,
-            notas: formData.notas_voucher
-          }])
+      if (quote.existingSale) {
+        // ACTUALIZAR VENTA EXISTENTE
+        const { error: vError } = await supabase
+          .from('ventas')
+          .update({
+            total: formData.total,
+            abono_tarjeta: formData.abono_tarjeta,
+            abono_1: formData.abono_1,
+            abono_2: formData.abono_2,
+            comision: formData.comision,
+            utilidad: formData.utilidad,
+            bono_counter: formData.bono_counter
+          })
+          .eq('id', quote.existingSale.id)
         
-        if (vchError) throw vchError
-        router.push('/dashboard/vouchers')
-      } else {
+        if (vError) throw vError
         window.location.reload()
+      } else {
+        // CREAR VENTA NUEVA
+        const { data: venta, error: vError } = await supabase
+          .from('ventas')
+          .insert([{
+            cotizacion_id: quote.id,
+            operativo_id: quote.operativo_id,
+            total: formData.total,
+            abono_tarjeta: formData.abono_tarjeta,
+            abono_1: formData.abono_1,
+            abono_2: formData.abono_2,
+            comision: formData.comision,
+            utilidad: formData.utilidad,
+            bono_counter: formData.bono_counter,
+            numero_proforma: quote.codigo
+          }])
+          .select()
+          .single()
+
+        if (vError) throw vError
+
+        await supabase
+          .from('cotizaciones')
+          .update({ estado: 'ganada' })
+          .eq('id', quote.id)
+
+        if (formData.generar_voucher) {
+          const voucherCode = `VCH-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`
+          const { error: vchError } = await supabase
+            .from('vouchers')
+            .insert([{
+              venta_id: venta.id,
+              operativo_id: quote.operativo_id,
+              codigo: voucherCode,
+              estado: 'activo',
+              fecha_viaje_desde: formData.fecha_viaje_desde,
+              fecha_viaje_hasta: formData.fecha_viaje_hasta,
+              fecha_caducidad: formData.fecha_caducidad_voucher,
+              notas: formData.notas_voucher
+            }])
+          
+          if (vchError) throw vchError
+          router.push('/dashboard/vouchers')
+        } else {
+          window.location.reload()
+        }
       }
     } catch (error) {
       alert('Error: ' + error.message)
