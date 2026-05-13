@@ -41,16 +41,21 @@ export default function UsuariosPage() {
     setLoading(true)
 
     try {
-      // 1. Crear en Auth (Requiere Service Role o invitar por correo)
-      // Nota: En una app real de producción, usaríamos supabase.auth.admin
-      // Aquí simulamos el flujo de creación de perfil para el Admin.
-      
-      alert('Para crear un usuario real, primero regístralo en la sección "Authentication > Users" de Supabase y luego asígnale su perfil aquí.')
-      
-      // El Admin puede insertar directamente en profiles si tiene el ID del usuario creado en Auth
-      // const { error } = await supabase.from('profiles').insert([formData])
+      const response = await fetch('/api/usuarios/crear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      })
+
+      const result = await response.json()
+
+      if (result.error) throw new Error(result.error)
+
+      alert('¡Operativo creado con éxito!')
+      setShowModal(false)
+      fetchUsers()
     } catch (error) {
-      alert(error.message)
+      alert('Error: ' + error.message)
     } finally {
       setLoading(false)
     }
@@ -123,6 +128,10 @@ export default function UsuariosPage() {
               <input 
                 placeholder="Correo Electrónico" className="input" type="email" required
                 onChange={e => setFormData({...formData, email: e.target.value})}
+              />
+              <input 
+                placeholder="Contraseña para el usuario" className="input" type="password" required
+                onChange={e => setFormData({...formData, password: e.target.value})}
               />
               <input 
                 placeholder="Meta Mensual ($)" className="input" type="number" required
