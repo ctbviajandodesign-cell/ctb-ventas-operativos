@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { X, Save, QrCode } from 'lucide-react'
 
 export default function SalesModal() {
+  const router = useRouter()
   const [quote, setQuote] = useState(null)
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -64,7 +66,7 @@ export default function SalesModal() {
       // 3. Generar Voucher si aplica
       if (formData.generar_voucher) {
         const voucherCode = `VCH-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`
-        await supabase
+        const { data: vData, error: vError } = await supabase
           .from('vouchers')
           .insert([{
             venta_id: venta.id,
@@ -72,12 +74,16 @@ export default function SalesModal() {
             codigo: voucherCode,
             estado: 'activo'
           }])
+          .select()
+          .single()
+        
+        if (vError) throw vError
+        
+        // Redirigir al archivo de vouchers para ver el resultado
+        router.push('/dashboard/vouchers')
+      } else {
+        window.location.reload()
       }
-
-      // 4. Notificar a Telegram (Llamada a Edge Function o similar)
-      // fetch('/api/telegram', { method: 'POST', body: JSON.stringify({ ...venta, operative: quote.profiles.nombre }) })
-
-      window.location.reload()
     } catch (error) {
       alert('Error: ' + error.message)
     } finally {
