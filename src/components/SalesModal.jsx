@@ -94,15 +94,9 @@ export default function SalesModal() {
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <label className="block text-xs font-bold text-gray-400 uppercase mb-1">N° Proforma Proveedor</label>
-              <input 
-                required
-                className="input"
-                placeholder="Ej: S-01262"
-                value={formData.numero_proforma}
-                onChange={e => setFormData({...formData, numero_proforma: e.target.value})}
-              />
+            <div className="col-span-2 bg-gray-50 p-3 rounded-xl border border-gray-100">
+              <p className="text-[10px] font-bold text-gray-400 uppercase">Referencia de Cotización</p>
+              <p className="text-sm font-bold text-gray-700">{quote.codigo}</p>
             </div>
             
             <div>
