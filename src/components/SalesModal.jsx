@@ -18,8 +18,16 @@ export default function SalesModal() {
 
   useEffect(() => {
     const handleOpen = (e) => {
-      setQuote(e.detail)
-      setFormData(prev => ({ ...prev, total: 0, comision: 0, utilidad: 0 }))
+      const q = e.detail
+      setQuote(q)
+      setFormData({
+        total: q.valor_total || 0,
+        comision: q.valor_comision || 0,
+        utilidad: q.valor_utilidad || 0,
+        bono_counter: q.valor_bono || 0,
+        generar_voucher: false,
+        numero_proforma: q.codigo
+      })
     }
     window.addEventListener('open-sales-modal', handleOpen)
     return () => window.removeEventListener('open-sales-modal', handleOpen)

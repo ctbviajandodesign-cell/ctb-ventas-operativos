@@ -67,7 +67,7 @@ export default function DashboardLayout({ children }) {
           <h2 className="font-semibold text-gray-800 uppercase text-sm tracking-wider">Sistema de Gestión</h2>
           <div className="flex items-center gap-4">
             <Link 
-              href="/dashboard/cotizaciones"
+              href="/dashboard/cotizaciones/nueva"
               className="btn-primary flex items-center gap-2 text-sm py-2"
             >
               <PlusCircle size={18} />
