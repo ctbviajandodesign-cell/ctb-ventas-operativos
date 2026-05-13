@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import Link from 'next/link'
 import { format, isPast, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { 
@@ -81,12 +82,22 @@ export default function QuotesTable({ quotes, onUpdate, isAdmin }) {
                 <td className="py-4 px-4 text-right">
                   <div className="flex items-center justify-end gap-2">
                     {quote.estado === 'abierta' && (
-                      <button 
-                        onClick={() => window.dispatchEvent(new CustomEvent('open-sales-modal', { detail: quote }))}
-                        className="p-2 text-success hover:bg-success/10 rounded-lg transition-colors title='Cerrar Venta'"
-                      >
-                        <CheckCircle2 size={18} />
-                      </button>
+                      <>
+                        <Link 
+                          href={`/dashboard/cotizaciones/editar/${quote.id}`}
+                          className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
+                          title="Editar Cotización"
+                        >
+                          <Edit size={18} />
+                        </Link>
+                        <button 
+                          onClick={() => window.dispatchEvent(new CustomEvent('open-sales-modal', { detail: quote }))}
+                          className="p-2 text-success hover:bg-success/10 rounded-lg transition-colors"
+                          title="Cerrar Venta"
+                        >
+                          <CheckCircle2 size={18} />
+                        </button>
+                      </>
                     )}
                     <button 
                       onClick={() => handleDelete(quote.id)}

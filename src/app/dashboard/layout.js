@@ -66,13 +66,7 @@ export default function DashboardLayout({ children }) {
         <header className="h-16 bg-white/80 backdrop-blur-md border-b border-gray-100 flex items-center justify-between px-8 sticky top-0 z-10">
           <h2 className="font-semibold text-gray-800 uppercase text-sm tracking-wider">Sistema de Gestión</h2>
           <div className="flex items-center gap-4">
-            <Link 
-              href="/dashboard/cotizaciones/nueva"
-              className="btn-primary flex items-center gap-2 text-sm py-2"
-            >
-              <PlusCircle size={18} />
-              Nueva Cotización
-            </Link>
+            {/* Botón removido por redundancia */}
           </div>
         </header>
         
