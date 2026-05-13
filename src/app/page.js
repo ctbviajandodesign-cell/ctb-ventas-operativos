@@ -1,0 +1,90 @@
+'use client'
+
+import { useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { LogIn } from 'lucide-react'
+
+export default function LoginPage() {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  const handleLogin = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+    
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (error) {
+      setError('Credenciales inválidas. Por favor intenta de nuevo.')
+      setLoading(false)
+    } else {
+      // Redirección manejada por middleware o estado de auth
+      window.location.href = '/dashboard'
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="card w-full max-w-md">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-primary mb-2">CTB VIAJANDO</h1>
+          <p className="text-gray-500 font-medium">Gestión de Ventas Operativas</p>
+        </div>
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold mb-1">Correo Electrónico</label>
+            <input 
+              type="email" 
+              className="input" 
+              placeholder="admin@ctbviajando.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1">Contraseña</label>
+            <input 
+              type="password" 
+              className="input" 
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+
+          {error && (
+            <div className="text-danger text-sm font-medium bg-red-50 p-2 rounded-lg border border-red-100">
+              {error}
+            </div>
+          )}
+
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="btn-primary w-full flex items-center justify-center gap-2"
+          >
+            {loading ? 'Entrando...' : (
+              <>
+                <LogIn size={20} />
+                Iniciar Sesión
+              </>
+            )}
+          </button>
+        </form>
+        
+        <p className="mt-8 text-center text-xs text-gray-400">
+          Desarrollado por Antigravity · 2025 · Confidencial
+        </p>
+      </div>
+    </div>
+  )
+}
