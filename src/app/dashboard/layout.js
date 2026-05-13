@@ -10,6 +10,7 @@ import {
   Users, 
   LogOut,
   PlusCircle,
+  DollarSign,
   QrCode
 } from 'lucide-react'
 
@@ -38,16 +39,26 @@ export default function DashboardLayout({ children }) {
         </div>
 
         <nav className="flex-1 px-4 space-y-1">
-          {menuItems.map((item) => (
-            <Link 
-              key={item.name} 
-              href={item.path}
-              className="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-primary/5 hover:text-primary rounded-xl transition-all group"
-            >
-              <item.icon size={20} className="group-hover:scale-110 transition-transform" />
-              <span className="font-medium">{item.name}</span>
-            </Link>
-          ))}
+          <Link href="/dashboard" className="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-primary/5 hover:text-primary rounded-xl transition-all font-bold group">
+            <LayoutDashboard size={20} className="group-hover:scale-110 transition-transform" />
+            Dashboard
+          </Link>
+          <Link href="/dashboard/cotizaciones" className="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-primary/5 hover:text-primary rounded-xl transition-all font-bold group">
+            <FileText size={20} className="group-hover:scale-110 transition-transform" />
+            Cotizaciones
+          </Link>
+          <Link href="/dashboard/ventas" className="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-primary/5 hover:text-primary rounded-xl transition-all font-bold group">
+            <DollarSign size={20} className="group-hover:scale-110 transition-transform" />
+            Ventas Cerradas
+          </Link>
+          <Link href="/dashboard/vouchers" className="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-primary/5 hover:text-primary rounded-xl transition-all font-bold group">
+            <QrCode size={20} className="group-hover:scale-110 transition-transform" />
+            Archivo Vouchers
+          </Link>
+          <Link href="/dashboard/usuarios" className="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-primary/5 hover:text-primary rounded-xl transition-all font-bold group">
+            <Users size={20} className="group-hover:scale-110 transition-transform" />
+            Equipo
+          </Link>
         </nav>
 
         <div className="p-4 border-t border-gray-50">
