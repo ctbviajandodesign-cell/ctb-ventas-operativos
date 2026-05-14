@@ -149,18 +149,16 @@ export default function SalesModal() {
           destino: quote.destino
         }])
         
+
         if (vchError) throw vchError
-        alert('¡Venta y Voucher generados con éxito!')
         window.location.href = '/dashboard/vouchers'
         return
       }
       
-      alert('¡Venta guardada correctamente!')
       window.location.reload()
     } catch (error) {
-      // Intento de guardado legacy si fallan las columnas nuevas (esto evita que el usuario se bloquee si no ha corrido el SQL)
+      // Intento de guardado legacy si fallan las columnas nuevas
       console.error("Error guardando en columnas nuevas, reintentando modo legacy...", error)
-      alert("Para usar el Plan de Pagos avanzado, por favor ejecuta el script SQL en Supabase. Guardando en modo básico por ahora.")
       
       // Reintento sin las columnas nuevas para no bloquear al usuario
       try {

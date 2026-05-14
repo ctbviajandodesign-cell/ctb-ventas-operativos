@@ -46,7 +46,7 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
 
   const handleMarcarPerdida = async (e) => {
     e.preventDefault()
-    if (!motivoPerdida) return alert('Por favor selecciona un motivo')
+    if (!motivoPerdida) return
     
     setLoadingClosing(true)
     try {
@@ -61,13 +61,11 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
         })
         .eq('id', closingQuote.id)
       
-      if (error) throw error
 
-      alert('Cierre negativo registrado con éxito')
       setClosingQuote(null)
       onUpdate()
     } catch (error) {
-      alert('Error al registrar cierre: ' + error.message)
+      console.error('Error al registrar cierre:', error)
     } finally {
       setLoadingClosing(false)
     }
