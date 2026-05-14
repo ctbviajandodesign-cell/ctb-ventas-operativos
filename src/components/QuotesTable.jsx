@@ -56,9 +56,6 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
     
     if (!error) {
       setClosingQuote(null)
-      setMotivoPerdida('')
-      setOtroMotivo('')
-      setObservacionPerdida('')
       onUpdate()
     }
   }
@@ -80,12 +77,11 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
           {quotes.map((quote) => {
             const rawStatus = (quote.estado || '').toString().trim().toLowerCase()
             const isGanada = rawStatus === 'ganada'
-            const isPerdida = rawStatus === 'perdida' || rawStatus === 'anulada'
             
             return (
               <tr 
                 key={quote.id} 
-                className={`group hover:bg-gray-50 transition-colors cursor-pointer ${!isGanada && !isPerdida ? '' : 'opacity-70'}`}
+                className={`group hover:bg-gray-50 transition-colors cursor-pointer ${isGanada ? 'opacity-70 bg-gray-50/30' : ''}`}
                 onClick={() => setViewingQuote(quote)}
               >
                 <td className="py-4 px-4 font-mono text-xs font-bold text-primary">{quote.codigo}</td>
@@ -104,7 +100,7 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
                   <div className="flex items-center justify-end gap-1.5">
                     <button onClick={() => setViewingQuote(quote)} className="p-2 text-gray-400 hover:text-success rounded-lg" title="Ver Detalle"><Eye size={18} /></button>
                     
-                    {!isGanada && !isPerdida && (
+                    {!isGanada && (
                       <>
                         <button 
                           onClick={() => window.dispatchEvent(new CustomEvent('open-sales-modal', { detail: quote }))}
@@ -180,7 +176,7 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
                   </div>
                 </div>
 
-                {(viewingQuote.estado?.toLowerCase() === 'perdida' || viewingQuote.estado?.toLowerCase() === 'anulada') && (
+                {((viewingQuote.estado || '').trim().toLowerCase() === 'perdida' || (viewingQuote.estado || '').trim().toLowerCase() === 'anulada') && (
                   <div className="bg-red-50 p-5 rounded-3xl border border-red-100 text-red-600">
                     <p className="text-[9px] font-black uppercase mb-1">Razón del Cierre Negativo</p>
                     <p className="text-sm font-black italic">"{viewingQuote.motivo_perdida}"</p>
@@ -191,11 +187,14 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
             </div>
 
             <div className="p-8 bg-gray-50 flex gap-3">
-              {viewingQuote.estado?.toLowerCase().trim() === 'abierta' && (
+              {(viewingQuote.estado || '').trim().toLowerCase() !== 'ganada' && (
                 <button 
                   onClick={() => {
+                    const q = {...viewingQuote}
                     setViewingQuote(null)
-                    window.dispatchEvent(new CustomEvent('open-sales-modal', { detail: viewingQuote }))
+                    setTimeout(() => {
+                      window.dispatchEvent(new CustomEvent('open-sales-modal', { detail: q }))
+                    }, 100)
                   }}
                   className="flex-1 bg-success text-white py-4 rounded-2xl font-black text-sm shadow-lg shadow-success/20 flex items-center justify-center gap-2"
                 >
@@ -208,7 +207,7 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
         </div>
       )}
 
-      {/* Modal de Anulación con Motivos OFICIALES */}
+      {/* Modal de Anulación */}
       {closingQuote && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
           <form onSubmit={handleMarcarPerdida} className="bg-white rounded-[2.5rem] max-w-md w-full overflow-hidden shadow-2xl animate-in zoom-in duration-300">
