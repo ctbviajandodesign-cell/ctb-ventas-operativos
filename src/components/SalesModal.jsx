@@ -100,7 +100,9 @@ export default function SalesModal() {
     setLoading(true)
 
     try {
-      // Formatear el plan de pagos como texto para guardarlo de forma segura en las notas del voucher
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("No hay sesión activa")
+
       const cronogramaTexto = milestones.map(m => `${m.label}: $${m.amount} (${m.status.toUpperCase()}) - F: ${m.date || 'S/F'}`).join(' | ')
 
       const payload = {
@@ -115,26 +117,28 @@ export default function SalesModal() {
       }
 
       let ventaId = quote.existingSale?.id
+
       if (quote.existingSale) {
         const { error } = await supabase.from('ventas').update(payload).eq('id', ventaId)
         if (error) throw error
       } else {
         const { data: venta, error: vError } = await supabase
           .from('ventas')
-          .insert([{ ...payload, cotizacion_id: quote.id, operativo_id: quote.operativo_id, numero_proforma: quote.codigo }])
+          .insert([{ ...payload, cotizacion_id: quote.id, operativo_id: user.id, numero_proforma: quote.codigo }])
           .select().single()
+        
         if (vError) throw vError
         ventaId = venta.id
+        
+        // Marcar cotización como ganada
         await supabase.from('cotizaciones').update({ estado: 'ganada' }).eq('id', quote.id)
       }
 
-      // Si se genera voucher, guardamos las inclusiones y el cronograma en las notas
       if (formData.generar_voucher) {
         const inclusionText = Object.entries(inclusions).filter(([_, v]) => v).map(([k]) => k.toUpperCase()).join(', ')
-        
         const { error: vchError } = await supabase.from('vouchers').insert([{
           venta_id: ventaId,
-          operativo_id: quote.operativo_id,
+          operativo_id: user.id,
           codigo: `VCH-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
           estado: 'activo',
           fecha_viaje_desde: formData.fecha_viaje_desde || null,
@@ -146,13 +150,17 @@ export default function SalesModal() {
           pasajeros: quote.nombres_pasajeros,
           destino: quote.destino
         }])
+        
         if (vchError) throw vchError
-        router.push('/dashboard/vouchers')
+        alert('¡Venta y Voucher generados con éxito!')
+        window.location.href = '/dashboard/vouchers'
         return
       }
+      
+      alert('¡Venta guardada correctamente!')
       window.location.reload()
     } catch (error) {
-      alert('Error de Sistema: ' + error.message)
+      alert('Error: ' + error.message)
     } finally {
       setLoading(false)
     }
@@ -166,36 +174,28 @@ export default function SalesModal() {
         
         <div className="bg-primary p-8 text-white flex justify-between items-center">
           <div>
-            <h2 className="text-2xl font-black uppercase tracking-tighter">Cierre y Emisión de Voucher</h2>
-            <p className="text-[10px] font-bold opacity-80 uppercase tracking-widest mt-1">Proforma: {quote.codigo}</p>
+            <h2 className="text-2xl font-black uppercase tracking-tighter">Confirmación de Venta</h2>
+            <p className="text-[10px] font-bold opacity-80 uppercase tracking-widest mt-1">Ref: {quote.codigo}</p>
           </div>
           <button onClick={() => setQuote(null)} className="p-2 hover:rotate-90 transition-all"><X size={28} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-8">
           
-          {/* Cronograma */}
           <div className="space-y-4">
             <div className="flex items-center justify-between border-b pb-2">
               <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                <Calendar size={16} /> Plan de Cobros (Fechas)
+                <Calendar size={16} /> Cronograma de Cobros
               </h3>
-              <button type="button" onClick={() => setMilestones([...milestones, { id: Date.now(), label: 'Nuevo Abono', amount: 0, percent: 0, date: '', status: 'pendiente' }])} className="text-[10px] font-black text-primary bg-primary/5 px-3 py-1.5 rounded-full">+ Agregar Pago</button>
+              <button type="button" onClick={() => setMilestones([...milestones, { id: Date.now(), label: 'Abono', amount: 0, percent: 0, date: '', status: 'pendiente' }])} className="text-[10px] font-black text-primary bg-primary/5 px-3 py-1.5 rounded-full">+ Añadir Pago</button>
             </div>
 
             <div className="space-y-3">
               {milestones.map((m) => (
                 <div key={m.id} className={`grid grid-cols-12 gap-2 p-3 rounded-2xl border transition-all ${m.status === 'pagado' ? 'bg-success/5 border-success/20' : 'bg-amber-50/50 border-amber-100'}`}>
-                  <div className="col-span-4">
-                    <input className="bg-transparent border-none text-[11px] font-black w-full" value={m.label} onChange={e => updateMilestone(m.id, 'label', e.target.value)} />
-                  </div>
-                  <div className="col-span-2 relative">
-                    <span className="absolute left-1 top-2 text-[10px] text-gray-400">$</span>
-                    <input type="number" className="bg-white border-none rounded-lg text-xs font-black w-full pl-4 py-1" value={m.amount} onChange={e => updateMilestone(m.id, 'amount', parseFloat(e.target.value))} />
-                  </div>
-                  <div className="col-span-3">
-                    <input type="date" className="bg-white border-none rounded-lg text-[10px] font-bold w-full py-1 px-2" value={m.date} onChange={e => updateMilestone(m.id, 'date', e.target.value)} />
-                  </div>
+                  <div className="col-span-4"><input className="bg-transparent border-none text-[11px] font-black w-full" value={m.label} onChange={e => updateMilestone(m.id, 'label', e.target.value)} /></div>
+                  <div className="col-span-2 relative"><span className="absolute left-1 top-2 text-[10px] text-gray-400">$</span><input type="number" className="bg-white border-none rounded-lg text-xs font-black w-full pl-4 py-1" value={m.amount} onChange={e => updateMilestone(m.id, 'amount', parseFloat(e.target.value))} /></div>
+                  <div className="col-span-3"><input type="date" className="bg-white border-none rounded-lg text-[10px] font-bold w-full py-1 px-2" value={m.date} onChange={e => updateMilestone(m.id, 'date', e.target.value)} /></div>
                   <div className="col-span-3 flex justify-end gap-2">
                     <button type="button" onClick={() => updateMilestone(m.id, 'status', m.status === 'pagado' ? 'pendiente' : 'pagado')} className={`p-2 rounded-lg transition-all ${m.status === 'pagado' ? 'text-success bg-white shadow-sm' : 'text-gray-300'}`}><CheckCircle2 size={20} /></button>
                     <button type="button" onClick={() => setMilestones(milestones.filter(x => x.id !== m.id))} className="text-gray-300 hover:text-danger"><Trash2 size={16} /></button>
@@ -205,21 +205,15 @@ export default function SalesModal() {
             </div>
             
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-success/10 p-5 rounded-[2rem] border border-success/20">
-                <p className="text-[10px] font-black text-success uppercase">Pagado</p>
-                <p className="text-2xl font-black text-gray-900">${totalPaid.toLocaleString()}</p>
-              </div>
-              <div className="bg-amber-50 p-5 rounded-[2rem] border border-amber-200">
-                <p className="text-[10px] font-black text-amber-600 uppercase">Por Cobrar</p>
-                <p className="text-2xl font-black text-gray-900">${faltante.toLocaleString()}</p>
-              </div>
+              <div className="bg-success/10 p-5 rounded-[2rem] border border-success/20"><p className="text-[10px] font-black text-success uppercase">Recibido</p><p className="text-2xl font-black text-gray-900">${totalPaid.toLocaleString()}</p></div>
+              <div className="bg-amber-50 p-5 rounded-[2rem] border border-amber-200"><p className="text-[10px] font-black text-amber-600 uppercase">Saldo</p><p className="text-2xl font-black text-gray-900">${faltante.toLocaleString()}</p></div>
             </div>
           </div>
 
           <div className="bg-gray-50 p-6 rounded-[2.5rem] grid grid-cols-3 gap-4">
             <div><label className="text-[10px] font-black text-gray-400 uppercase block mb-1">Comisión</label><input type="number" step="0.01" className="bg-transparent border-none font-black text-success text-xl p-0 w-full" value={formData.comision} onChange={e => setFormData({...formData, comision: parseFloat(e.target.value)})} /></div>
             <div><label className="text-[10px] font-black text-gray-400 uppercase block mb-1">Utilidad</label><input type="number" step="0.01" className="bg-transparent border-none font-black text-success text-xl p-0 w-full" value={formData.utilidad} onChange={e => setFormData({...formData, utilidad: parseFloat(e.target.value)})} /></div>
-            <div className="text-right"><p className="text-[10px] font-black text-primary uppercase">Total Meta</p><p className="text-xl font-black text-primary">${(formData.comision + formData.utilidad).toLocaleString()}</p></div>
+            <div className="text-right"><p className="text-[10px] font-black text-primary uppercase text-xs">Aporte Meta</p><p className="text-xl font-black text-primary">${(formData.comision + formData.utilidad).toLocaleString()}</p></div>
           </div>
 
           <div className="space-y-6">
@@ -252,7 +246,7 @@ export default function SalesModal() {
           </div>
 
           <button type="submit" disabled={loading} className="w-full bg-primary text-white py-6 rounded-[2.5rem] text-xl font-black uppercase tracking-tighter shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-95 transition-all">
-            {loading ? 'Procesando...' : 'Finalizar y Emitir Voucher'}
+            {loading ? 'Sincronizando con Base de Datos...' : 'Confirmar y Finalizar Venta'}
           </button>
         </form>
       </div>
