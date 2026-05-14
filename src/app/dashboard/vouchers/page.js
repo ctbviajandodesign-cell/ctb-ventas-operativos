@@ -16,9 +16,11 @@ export default function VouchersPage() {
   const [loading, setLoading] = useState(true)
   const [selectedVoucher, setSelectedVoucher] = useState(null)
   const [search, setSearch] = useState('')
+  const [baseUrl, setBaseUrl] = useState('')
 
   useEffect(() => {
     fetchVouchers()
+    setBaseUrl(window.location.origin)
   }, [])
 
   async function fetchVouchers() {
@@ -141,13 +143,13 @@ export default function VouchersPage() {
 
             {/* Hidden SVG for download logic */}
             <div className="hidden">
-              <QRCodeSVG 
-                id={voucher.codigo}
-                value={`https://ctb-ventas.vercel.app/v/${voucher.codigo}`}
-                size={512}
-                level="H"
-                includeMargin={true}
-              />
+                <QRCodeSVG 
+                  id={voucher.codigo}
+                  value={`${baseUrl}/v/${voucher.codigo}`}
+                  size={512}
+                  level="H"
+                  includeMargin={true}
+                />
             </div>
           </div>
         ))}
@@ -160,7 +162,7 @@ export default function VouchersPage() {
             <div className="bg-gray-900 p-8 text-center text-white space-y-4">
               <div className="inline-block bg-white p-4 rounded-2xl shadow-xl">
                 <QRCodeSVG 
-                  value={`https://ctb-ventas.vercel.app/v/${selectedVoucher.codigo}`}
+                  value={`${baseUrl}/v/${selectedVoucher.codigo}`}
                   size={200}
                   level="H"
                 />
