@@ -15,17 +15,22 @@ import {
   MapPin,
   Calendar,
   Building2,
-  DollarSign
+  DollarSign,
+  AlertTriangle
 } from 'lucide-react'
 
 export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
   const [viewingQuote, setViewingQuote] = useState(null)
+  const [closingQuote, setClosingQuote] = useState(null) // Para el modal de pérdida
+  const [motivoPerdida, setMotivoPerdida] = useState('')
+  const [observacionPerdida, setObservacionPerdida] = useState('')
   
   const getStatusBadge = (quote) => {
     const isExpired = quote.fecha_caducidad && isPast(parseISO(`${quote.fecha_caducidad}T${quote.hora_caducidad || '23:59:00'}`))
     
     if (quote.estado === 'ganada') return <span className="badge-success">GANADA</span>
     if (quote.estado === 'perdida') return <span className="badge-danger">PERDIDA</span>
+    if (quote.estado === 'anulada') return <span className="bg-gray-100 text-gray-500 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest">ANULADA</span>
     
     if (isExpired && quote.estado === 'abierta') {
       return (
@@ -42,6 +47,25 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
     if (!confirm('¿Seguro que quieres eliminar esta proforma?')) return
     const { error } = await supabase.from('cotizaciones').delete().eq('id', id)
     if (!error) onUpdate()
+  }
+
+  const handleMarcarPerdida = async (e) => {
+    e.preventDefault()
+    const { error } = await supabase
+      .from('cotizaciones')
+      .update({ 
+        estado: motivoPerdida === 'Anulada por Operativo' ? 'anulada' : 'perdida',
+        motivo_perdida: motivoPerdida,
+        notas_seguimiento: observacionPerdida
+      })
+      .eq('id', closingQuote.id)
+    
+    if (!error) {
+      setClosingQuote(null)
+      setMotivoPerdida('')
+      setObservacionPerdida('')
+      onUpdate()
+    }
   }
 
   return (
@@ -62,7 +86,7 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
           {quotes.map((quote) => (
             <tr 
               key={quote.id} 
-              className="group hover:bg-gray-50 transition-colors cursor-pointer"
+              className={`group hover:bg-gray-50 transition-colors cursor-pointer ${quote.estado !== 'abierta' ? 'opacity-60' : ''}`}
               onClick={() => setViewingQuote(quote)}
             >
               <td className="py-4 px-4 font-mono text-xs font-bold text-primary">{quote.codigo}</td>
@@ -99,13 +123,22 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
                     <Edit size={18} />
                   </Link>
                   {quote.estado === 'abierta' && (
-                    <button 
-                      onClick={() => window.dispatchEvent(new CustomEvent('open-sales-modal', { detail: quote }))}
-                      className="p-2 text-success hover:bg-success/10 rounded-lg transition-colors"
-                      title="Cerrar Venta"
-                    >
-                      <CheckCircle2 size={18} />
-                    </button>
+                    <>
+                      <button 
+                        onClick={() => window.dispatchEvent(new CustomEvent('open-sales-modal', { detail: quote }))}
+                        className="p-2 text-success hover:bg-success/10 rounded-lg transition-colors"
+                        title="Cerrar Venta"
+                      >
+                        <CheckCircle2 size={18} />
+                      </button>
+                      <button 
+                        onClick={() => setClosingQuote(quote)}
+                        className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg transition-colors"
+                        title="Marcar como Perdida/Anulada"
+                      >
+                        <AlertTriangle size={18} />
+                      </button>
+                    </>
                   )}
                   {isAdmin && (
                     <button 
@@ -173,6 +206,14 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
                   </div>
                 </div>
 
+                {viewingQuote.estado === 'perdida' || viewingQuote.estado === 'anulada' && (
+                  <div className="bg-red-50 p-5 rounded-3xl border border-red-100">
+                    <p className="text-[9px] font-black text-red-400 uppercase tracking-widest mb-1">Motivo de Cierre Negativo</p>
+                    <p className="text-xs font-black text-red-600">{viewingQuote.motivo_perdida}</p>
+                    {viewingQuote.notas_seguimiento && <p className="text-[10px] text-red-500 mt-2 italic">"{viewingQuote.notas_seguimiento}"</p>}
+                  </div>
+                )}
+
                 <div className="flex gap-4">
                   <div className="bg-primary/10 p-2 rounded-xl text-primary h-fit"><Calendar size={16} /></div>
                   <div className="grid grid-cols-2 gap-4 flex-1">
@@ -228,6 +269,60 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Modal de Anulación / Pérdida */}
+      {closingQuote && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+          <form onSubmit={handleMarcarPerdida} className="bg-white rounded-[2.5rem] max-w-md w-full overflow-hidden shadow-2xl animate-in zoom-in duration-300">
+            <div className="bg-amber-500 p-8 text-white">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-black">Cierre de Seguimiento</h2>
+                <button type="button" onClick={() => setClosingQuote(null)}><XCircle size={24} /></button>
+              </div>
+              <p className="text-xs opacity-80 mt-1 uppercase tracking-widest font-bold">Indica por qué no se concretó la venta</p>
+            </div>
+
+            <div className="p-8 space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Motivo Principal</label>
+                <select 
+                  required
+                  className="input text-sm font-bold"
+                  value={motivoPerdida}
+                  onChange={e => setMotivoPerdida(e.target.value)}
+                >
+                  <option value="">Selecciona un motivo...</option>
+                  <option value="Precio (Muy caro)">Precio (Muy caro)</option>
+                  <option value="Se fue con la competencia">Se fue con la competencia</option>
+                  <option value="Cambio de planes / No viaja">Cambio de planes / No viaja</option>
+                  <option value="Sin respuesta del cliente">Sin respuesta del cliente</option>
+                  <option value="Anulada por Operativo">Anulada (Error/Duplicada)</option>
+                  <option value="Otro">Otro</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Observación Adicional</label>
+                <textarea 
+                  className="input text-sm min-h-[100px]"
+                  placeholder="Escribe brevemente qué sucedió..."
+                  value={observacionPerdida}
+                  onChange={e => setObservacionPerdida(e.target.value)}
+                ></textarea>
+              </div>
+            </div>
+
+            <div className="p-8 bg-gray-50 flex gap-3">
+              <button 
+                type="submit"
+                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-4 rounded-2xl font-black text-sm transition-all"
+              >
+                Confirmar Cierre Negativo
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>
