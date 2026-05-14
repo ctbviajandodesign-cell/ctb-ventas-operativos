@@ -26,13 +26,14 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
   const [observacionPerdida, setObservacionPerdida] = useState('')
   
   const getStatusBadge = (quote) => {
+    const status = quote.estado?.toLowerCase()
     const isExpired = quote.fecha_caducidad && isPast(parseISO(`${quote.fecha_caducidad}T${quote.hora_caducidad || '23:59:00'}`))
     
-    if (quote.estado === 'ganada') return <span className="badge-success">GANADA</span>
-    if (quote.estado === 'perdida') return <span className="badge-danger">PERDIDA</span>
-    if (quote.estado === 'anulada') return <span className="bg-gray-100 text-gray-500 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest">ANULADA</span>
+    if (status === 'ganada') return <span className="badge-success">GANADA</span>
+    if (status === 'perdida') return <span className="badge-danger">PERDIDA</span>
+    if (status === 'anulada') return <span className="bg-gray-100 text-gray-500 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest">ANULADA</span>
     
-    if (isExpired && quote.estado === 'abierta') {
+    if (isExpired && status === 'abierta') {
       return (
         <span className="badge-danger animate-pulse flex items-center gap-1">
           <AlertCircle size={12} /> CADUCADA
@@ -83,76 +84,83 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-50">
-          {quotes.map((quote) => (
-            <tr 
-              key={quote.id} 
-              className={`group hover:bg-gray-50 transition-colors cursor-pointer ${quote.estado !== 'abierta' ? 'opacity-60' : ''}`}
-              onClick={() => setViewingQuote(quote)}
-            >
-              <td className="py-4 px-4 font-mono text-xs font-bold text-primary">{quote.codigo}</td>
-              <td className="py-4 px-4">
-                <div className="font-bold text-gray-800 text-sm">{quote.agencia}</div>
-                <div className="text-[10px] text-gray-400 uppercase tracking-wider">{quote.destino}</div>
-              </td>
-              <td className="py-4 px-4">
-                <div className="flex items-center gap-1 text-gray-500 text-xs">
-                  <UsersIcon size={14} /> {quote.nombres_pasajeros?.length || 0}
-                </div>
-              </td>
-              <td className="py-4 px-4 text-xs font-bold text-primary">{quote.profiles?.nombre}</td>
-              <td className="py-4 px-4">
-                <div className="flex items-center gap-1 text-gray-500 text-[10px] font-medium">
-                  <Clock size={12} /> {quote.fecha_caducidad ? format(parseISO(quote.fecha_caducidad), 'dd MMM', { locale: es }) : 'N/A'} {quote.hora_caducidad}
-                </div>
-              </td>
-              <td className="py-4 px-4">{getStatusBadge(quote)}</td>
-              <td className="py-4 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center justify-end gap-2">
-                  <button 
-                    onClick={() => setViewingQuote(quote)}
-                    className="p-2 text-gray-400 hover:text-success hover:bg-success/5 rounded-lg transition-colors"
-                    title="Ver Detalle"
-                  >
-                    <Eye size={18} />
-                  </button>
-                  <Link 
-                    href={`/dashboard/cotizaciones/editar/${quote.id}`}
-                    className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
-                    title="Editar Cotización"
-                  >
-                    <Edit size={18} />
-                  </Link>
-                  {quote.estado === 'abierta' && (
-                    <>
-                      <button 
-                        onClick={() => window.dispatchEvent(new CustomEvent('open-sales-modal', { detail: quote }))}
-                        className="p-2 text-success hover:bg-success/10 rounded-lg transition-colors"
-                        title="Cerrar Venta"
-                      >
-                        <CheckCircle2 size={18} />
-                      </button>
-                      <button 
-                        onClick={() => setClosingQuote(quote)}
-                        className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg transition-colors"
-                        title="Marcar como Perdida/Anulada"
-                      >
-                        <AlertTriangle size={18} />
-                      </button>
-                    </>
-                  )}
-                  {isAdmin && (
+          {quotes.map((quote) => {
+            const isAbierta = quote.estado?.toLowerCase() === 'abierta'
+            
+            return (
+              <tr 
+                key={quote.id} 
+                className={`group hover:bg-gray-50 transition-colors cursor-pointer ${!isAbierta ? 'opacity-70 bg-gray-50/30' : ''}`}
+                onClick={() => setViewingQuote(quote)}
+              >
+                <td className="py-4 px-4 font-mono text-xs font-bold text-primary">{quote.codigo}</td>
+                <td className="py-4 px-4">
+                  <div className="font-bold text-gray-800 text-sm leading-tight">{quote.agencia}</div>
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wider">{quote.destino}</div>
+                </td>
+                <td className="py-4 px-4">
+                  <div className="flex items-center gap-1 text-gray-500 text-xs">
+                    <UsersIcon size={14} /> {quote.nombres_pasajeros?.length || 0}
+                  </div>
+                </td>
+                <td className="py-4 px-4 text-xs font-bold text-primary">{quote.profiles?.nombre}</td>
+                <td className="py-4 px-4">
+                  <div className="flex items-center gap-1 text-gray-500 text-[10px] font-medium">
+                    <Clock size={12} /> {quote.fecha_caducidad ? format(parseISO(quote.fecha_caducidad), 'dd MMM', { locale: es }) : 'N/A'}
+                  </div>
+                </td>
+                <td className="py-4 px-4">{getStatusBadge(quote)}</td>
+                <td className="py-4 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center justify-end gap-1.5">
                     <button 
-                      onClick={() => handleDelete(quote.id)}
-                      className="p-2 text-gray-300 hover:text-danger hover:bg-red-50 rounded-lg transition-colors"
-                      title="Eliminar"
+                      onClick={() => setViewingQuote(quote)}
+                      className="p-2 text-gray-400 hover:text-success hover:bg-success/5 rounded-lg transition-colors"
+                      title="Ver Detalle"
                     >
-                      <Trash2 size={18} />
+                      <Eye size={18} />
                     </button>
-                  )}
-                </div>
-              </td>
-            </tr>
-          ))}
+                    
+                    {isAbierta && (
+                      <>
+                        <button 
+                          onClick={() => window.dispatchEvent(new CustomEvent('open-sales-modal', { detail: quote }))}
+                          className="p-2 text-success hover:bg-success/10 rounded-lg shadow-sm border border-success/20 transition-all scale-110"
+                          title="Aprobar Venta"
+                        >
+                          <CheckCircle2 size={18} />
+                        </button>
+                        <button 
+                          onClick={() => setClosingQuote(quote)}
+                          className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg shadow-sm border border-amber-200/50 transition-all"
+                          title="Anular Proforma"
+                        >
+                          <AlertTriangle size={18} />
+                        </button>
+                      </>
+                    )}
+
+                    <Link 
+                      href={`/dashboard/cotizaciones/editar/${quote.id}`}
+                      className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
+                      title="Editar"
+                    >
+                      <Edit size={18} />
+                    </Link>
+
+                    {isAdmin && (
+                      <button 
+                        onClick={() => handleDelete(quote.id)}
+                        className="p-2 text-gray-300 hover:text-danger hover:bg-red-50 rounded-lg transition-colors"
+                        title="Eliminar"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
 
@@ -178,7 +186,7 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
                     <Building2 size={10} /> Agencia
                   </p>
                   <p className="text-sm font-black text-gray-800 leading-tight">
-                    {viewingQuote.agencia}
+                    {viewingQuote.agencia || 'Particular'}
                   </p>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
@@ -186,7 +194,7 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
                     <MapPin size={10} /> Destino
                   </p>
                   <p className="text-sm font-black text-gray-800 leading-tight">
-                    {viewingQuote.destino}
+                    {viewingQuote.destino || 'No especificado'}
                   </p>
                 </div>
               </div>
@@ -206,29 +214,13 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
                   </div>
                 </div>
 
-                {viewingQuote.estado === 'perdida' || viewingQuote.estado === 'anulada' && (
+                {(viewingQuote.estado?.toLowerCase() === 'perdida' || viewingQuote.estado?.toLowerCase() === 'anulada') && (
                   <div className="bg-red-50 p-5 rounded-3xl border border-red-100">
                     <p className="text-[9px] font-black text-red-400 uppercase tracking-widest mb-1">Motivo de Cierre Negativo</p>
-                    <p className="text-xs font-black text-red-600">{viewingQuote.motivo_perdida}</p>
+                    <p className="text-xs font-black text-red-600">{viewingQuote.motivo_perdida || 'No especificado'}</p>
                     {viewingQuote.notas_seguimiento && <p className="text-[10px] text-red-500 mt-2 italic">"{viewingQuote.notas_seguimiento}"</p>}
                   </div>
                 )}
-
-                <div className="flex gap-4">
-                  <div className="bg-primary/10 p-2 rounded-xl text-primary h-fit"><Calendar size={16} /></div>
-                  <div className="grid grid-cols-2 gap-4 flex-1">
-                    <div>
-                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Caducidad</p>
-                      <p className="text-xs font-bold text-gray-800">
-                        {viewingQuote.fecha_caducidad} {viewingQuote.hora_caducidad}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Operativo</p>
-                      <p className="text-xs font-bold text-primary underline">{viewingQuote.profiles?.nombre}</p>
-                    </div>
-                  </div>
-                </div>
 
                 <div className="bg-gray-50 p-5 rounded-3xl border border-gray-100">
                   <div className="flex items-center gap-2 mb-3">
@@ -249,20 +241,26 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
                       </p>
                     </div>
                   </div>
+                  <div className="mt-3 pt-3 border-t border-gray-200/50 flex justify-between items-center">
+                    <p className="text-[10px] font-black text-gray-400 uppercase">Valor Total Estimado</p>
+                    <p className="text-base font-black text-gray-900">
+                      ${(Number(viewingQuote.valor_venta_pax || viewingQuote.valor_venta || 0) * (viewingQuote.nombres_pasajeros?.length || 1)).toLocaleString()}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
 
             <div className="p-8 bg-gray-50 flex gap-3">
-              {viewingQuote.estado === 'abierta' && (
+              {viewingQuote.estado?.toLowerCase() === 'abierta' && (
                 <button 
                   onClick={() => {
                     setViewingQuote(null)
                     window.dispatchEvent(new CustomEvent('open-sales-modal', { detail: viewingQuote }))
                   }}
-                  className="flex-1 btn-success py-4 flex items-center justify-center gap-2"
+                  className="flex-1 btn-success py-4 flex items-center justify-center gap-2 shadow-lg shadow-success/20"
                 >
-                  <CheckCircle2 size={20} /> Cerrar Venta
+                  <CheckCircle2 size={20} /> Aprobar Venta
                 </button>
               )}
               <button 
@@ -282,15 +280,15 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
           <form onSubmit={handleMarcarPerdida} className="bg-white rounded-[2.5rem] max-w-md w-full overflow-hidden shadow-2xl animate-in zoom-in duration-300">
             <div className="bg-amber-500 p-8 text-white">
               <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-black">Cierre de Seguimiento</h2>
+                <h2 className="text-2xl font-black">Anulación de Proforma</h2>
                 <button type="button" onClick={() => setClosingQuote(null)}><XCircle size={24} /></button>
               </div>
-              <p className="text-xs opacity-80 mt-1 uppercase tracking-widest font-bold">Indica por qué no se concretó la venta</p>
+              <p className="text-xs opacity-80 mt-1 uppercase tracking-widest font-bold">Registro de motivo de pérdida</p>
             </div>
 
             <div className="p-8 space-y-6">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Motivo Principal</label>
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">¿Por qué se anula?</label>
                 <select 
                   required
                   className="input text-sm font-bold"
@@ -308,10 +306,10 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Observación Adicional</label>
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Notas de Seguimiento</label>
                 <textarea 
                   className="input text-sm min-h-[100px]"
-                  placeholder="Escribe brevemente qué sucedió..."
+                  placeholder="Detalles adicionales..."
                   value={observacionPerdida}
                   onChange={e => setObservacionPerdida(e.target.value)}
                 ></textarea>
@@ -321,9 +319,9 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
             <div className="p-8 bg-gray-50 flex gap-3">
               <button 
                 type="submit"
-                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-4 rounded-2xl font-black text-sm transition-all"
+                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-4 rounded-2xl font-black text-sm transition-all shadow-lg shadow-amber-500/20"
               >
-                Confirmar Cierre Negativo
+                Confirmar Anulación
               </button>
             </div>
           </form>
