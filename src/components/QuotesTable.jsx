@@ -17,22 +17,21 @@ import {
   Building2,
   DollarSign,
   AlertTriangle,
-  TrendingUp
+  MessageSquare
 } from 'lucide-react'
 
 export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
   const [viewingQuote, setViewingQuote] = useState(null)
   const [closingQuote, setClosingQuote] = useState(null)
   const [motivoPerdida, setMotivoPerdida] = useState('')
+  const [otroMotivo, setOtroMotivo] = useState('')
   const [observacionPerdida, setObservacionPerdida] = useState('')
   
   const getStatusBadge = (quote) => {
     const status = (quote.estado || '').toString().trim().toLowerCase()
-    
     if (status === 'ganada') return <span className="badge-success">GANADA</span>
     if (status === 'perdida') return <span className="badge-danger">PERDIDA</span>
     if (status === 'anulada') return <span className="bg-gray-100 text-gray-500 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest">ANULADA</span>
-    
     return <span className="badge-warning">ABIERTA</span>
   }
 
@@ -44,17 +43,22 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
 
   const handleMarcarPerdida = async (e) => {
     e.preventDefault()
+    const motivoFinal = motivoPerdida === 'Otro' ? `Otro: ${otroMotivo}` : motivoPerdida
+    
     const { error } = await supabase
       .from('cotizaciones')
       .update({ 
-        estado: motivoPerdida === 'Anulada por Operativo' ? 'anulada' : 'perdida',
-        motivo_perdida: motivoPerdida,
+        estado: 'perdida',
+        motivo_perdida: motivoFinal,
         notas_seguimiento: observacionPerdida
       })
       .eq('id', closingQuote.id)
     
     if (!error) {
       setClosingQuote(null)
+      setMotivoPerdida('')
+      setOtroMotivo('')
+      setObservacionPerdida('')
       onUpdate()
     }
   }
@@ -68,47 +72,44 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
             <th className="py-4 px-4">Agencia / Destino</th>
             <th className="py-4 px-4">Pasajeros</th>
             <th className="py-4 px-4">Operativo</th>
-            <th className="py-4 px-4">Vencimiento</th>
             <th className="py-4 px-4">Estado</th>
-            <th className="py-4 px-4 text-right">Gestión</th>
+            <th className="py-4 px-4 text-right">Acciones</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-50">
           {quotes.map((quote) => {
             const rawStatus = (quote.estado || '').toString().trim().toLowerCase()
             const isGanada = rawStatus === 'ganada'
+            const isPerdida = rawStatus === 'perdida' || rawStatus === 'anulada'
             
             return (
               <tr 
                 key={quote.id} 
-                className={`group hover:bg-gray-50 transition-colors cursor-pointer ${isGanada ? 'opacity-70 bg-gray-50/30' : ''}`}
+                className={`group hover:bg-gray-50 transition-colors cursor-pointer ${!isGanada && !isPerdida ? '' : 'opacity-70'}`}
                 onClick={() => setViewingQuote(quote)}
               >
                 <td className="py-4 px-4 font-mono text-xs font-bold text-primary">{quote.codigo}</td>
                 <td className="py-4 px-4">
-                  <div className="font-bold text-gray-800 text-sm leading-tight">{quote.agencia}</div>
+                  <div className="font-bold text-gray-800 text-sm">{quote.agencia}</div>
                   <div className="text-[10px] text-gray-400 uppercase tracking-wider">{quote.destino}</div>
                 </td>
                 <td className="py-4 px-4">
-                  <div className="flex items-center gap-1 text-gray-500 text-xs font-bold">
+                  <div className="flex items-center gap-1 text-gray-500 text-xs">
                     <UsersIcon size={14} /> {quote.numero_pasajeros || quote.nombres_pasajeros?.length || 0}
                   </div>
                 </td>
-                <td className="py-4 px-4 text-xs font-bold text-primary italic uppercase">{quote.profiles?.nombre?.split(' ')[0]}</td>
-                <td className="py-4 px-4 text-[10px] font-bold text-gray-500">
-                  {quote.fecha_caducidad ? format(parseISO(quote.fecha_caducidad), 'dd MMM', { locale: es }) : 'N/A'}
-                </td>
+                <td className="py-4 px-4 text-xs font-bold text-primary uppercase">{quote.profiles?.nombre?.split(' ')[0]}</td>
                 <td className="py-4 px-4">{getStatusBadge(quote)}</td>
                 <td className="py-4 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-end gap-1.5">
                     <button onClick={() => setViewingQuote(quote)} className="p-2 text-gray-400 hover:text-success rounded-lg" title="Ver Detalle"><Eye size={18} /></button>
                     
-                    {!isGanada && (
+                    {!isGanada && !isPerdida && (
                       <>
                         <button 
                           onClick={() => window.dispatchEvent(new CustomEvent('open-sales-modal', { detail: quote }))}
-                          className="p-2 text-success hover:bg-success/10 rounded-lg border border-success/20 shadow-sm"
-                          title="Aprobar / Venta"
+                          className="p-2 text-success hover:bg-success/10 rounded-lg border border-success/20"
+                          title="Aprobar Venta"
                         >
                           <CheckCircle2 size={18} />
                         </button>
@@ -138,19 +139,15 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
           <div className="bg-white rounded-[3rem] max-w-lg w-full overflow-hidden shadow-2xl animate-in zoom-in duration-300">
             <div className="bg-primary p-8 text-white relative">
               <button onClick={() => setViewingQuote(null)} className="absolute top-6 right-6 hover:rotate-90 transition-transform"><XCircle size={24} /></button>
-              <h2 className="text-2xl font-black uppercase tracking-tighter">Detalle de Proforma</h2>
+              <h2 className="text-2xl font-black uppercase tracking-tighter">Expediente CTB</h2>
               <p className="text-xs opacity-80 mt-1 font-mono">{viewingQuote.codigo}</p>
             </div>
 
             <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
-              <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100 space-y-4">
-                <div className="flex items-center gap-2 border-b pb-2">
-                  <DollarSign size={16} className="text-success" />
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Resumen Económico</p>
-                </div>
+              <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-[9px] text-gray-400 font-bold uppercase">Valor Venta Total</p>
+                    <p className="text-[9px] text-gray-400 font-bold uppercase">Venta Total</p>
                     <p className="text-xl font-black text-gray-900">${Number(viewingQuote.valor_total || 0).toLocaleString()}</p>
                   </div>
                   <div>
@@ -158,25 +155,21 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
                     <p className="text-xl font-black text-success">${(Number(viewingQuote.valor_utilidad || 0) + Number(viewingQuote.valor_comision || 0)).toLocaleString()}</p>
                   </div>
                 </div>
-                <div className="pt-2 flex justify-between items-center text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                  <span>Bono Operativo:</span>
-                  <span className="text-gray-900">${Number(viewingQuote.valor_bono || 0).toLocaleString()}</span>
-                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
                   <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Agencia</p>
-                  <p className="text-sm font-black text-gray-800 leading-tight">{viewingQuote.agencia}</p>
+                  <p className="text-sm font-black text-gray-800 leading-tight">{viewingQuote.agencia || 'Directo'}</p>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
                   <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Destino</p>
-                  <p className="text-sm font-black text-gray-800 leading-tight">{viewingQuote.destino}</p>
+                  <p className="text-sm font-black text-gray-800 leading-tight uppercase">{viewingQuote.destino}</p>
                 </div>
               </div>
 
               <div className="space-y-4">
-                <div className="flex gap-4 border-l-4 border-primary pl-4">
+                <div className="flex gap-4">
                   <div className="flex-1">
                     <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Pasajeros ({viewingQuote.numero_pasajeros})</p>
                     <div className="flex flex-wrap gap-2">
@@ -187,17 +180,18 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
                   </div>
                 </div>
 
-                {(viewingQuote.estado?.toLowerCase().trim() === 'perdida' || viewingQuote.estado?.toLowerCase().trim() === 'anulada') && (
+                {(viewingQuote.estado?.toLowerCase() === 'perdida' || viewingQuote.estado?.toLowerCase() === 'anulada') && (
                   <div className="bg-red-50 p-5 rounded-3xl border border-red-100 text-red-600">
-                    <p className="text-[9px] font-black uppercase mb-1">Motivo de Pérdida</p>
-                    <p className="text-sm font-black">{viewingQuote.motivo_perdida}</p>
+                    <p className="text-[9px] font-black uppercase mb-1">Razón del Cierre Negativo</p>
+                    <p className="text-sm font-black italic">"{viewingQuote.motivo_perdida}"</p>
+                    {viewingQuote.notas_seguimiento && <p className="text-xs mt-2 opacity-80">{viewingQuote.notas_seguimiento}</p>}
                   </div>
                 )}
               </div>
             </div>
 
             <div className="p-8 bg-gray-50 flex gap-3">
-              {viewingQuote.estado?.toLowerCase().trim() !== 'ganada' && (
+              {viewingQuote.estado?.toLowerCase().trim() === 'abierta' && (
                 <button 
                   onClick={() => {
                     setViewingQuote(null)
@@ -208,31 +202,74 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
                   <CheckCircle2 size={20} /> Aprobar Venta
                 </button>
               )}
-              <button onClick={() => setViewingQuote(null)} className="flex-1 py-4 text-sm font-bold text-gray-400">Volver</button>
+              <button onClick={() => setViewingQuote(null)} className="flex-1 py-4 text-sm font-bold text-gray-400">Cerrar Expediente</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal de Anulación */}
+      {/* Modal de Anulación con Motivos OFICIALES */}
       {closingQuote && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
           <form onSubmit={handleMarcarPerdida} className="bg-white rounded-[2.5rem] max-w-md w-full overflow-hidden shadow-2xl animate-in zoom-in duration-300">
             <div className="bg-amber-500 p-8 text-white flex justify-between items-center">
-              <h2 className="text-2xl font-black">Anular Proforma</h2>
+              <div>
+                <h2 className="text-2xl font-black uppercase tracking-tighter">Cierre Negativo</h2>
+                <p className="text-[10px] font-bold opacity-80 uppercase tracking-widest">Análisis de pérdida de venta</p>
+              </div>
               <button type="button" onClick={() => setClosingQuote(null)}><XCircle size={24} /></button>
             </div>
-            <div className="p-8 space-y-4">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Motivo de Anulación</label>
-              <select required className="input font-bold" value={motivoPerdida} onChange={e => setMotivoPerdida(e.target.value)}>
-                <option value="">Selecciona un motivo...</option>
-                <option value="Precio (Muy caro)">Precio (Muy caro)</option>
-                <option value="Competencia">Competencia</option>
-                <option value="Cambio de planes">Cambio de planes</option>
-                <option value="Sin respuesta">Sin respuesta</option>
-                <option value="Anulada por Operativo">Anulada por Operativo</option>
-              </select>
-              <button type="submit" className="w-full bg-amber-500 text-white py-4 rounded-2xl font-black text-sm mt-4 shadow-lg shadow-amber-500/20">Confirmar Cierre Negativo</button>
+
+            <div className="p-8 space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Motivo Principal</label>
+                <select 
+                  required 
+                  className="input font-bold text-sm" 
+                  value={motivoPerdida} 
+                  onChange={e => setMotivoPerdida(e.target.value)}
+                >
+                  <option value="">Selecciona un motivo...</option>
+                  <option value="Precio">1. Precio</option>
+                  <option value="No cerró Agencia">2. No cerró Agencia</option>
+                  <option value="No contestó Operador">3. No contestó Operador</option>
+                  <option value="Otro">4. Otro (Especificar)</option>
+                </select>
+              </div>
+
+              {motivoPerdida === 'Otro' && (
+                <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
+                  <label className="text-[10px] font-black text-primary uppercase tracking-widest">Especificar Motivo</label>
+                  <input 
+                    required 
+                    className="input text-sm border-primary/20" 
+                    placeholder="Escribe el motivo..." 
+                    value={otroMotivo} 
+                    onChange={e => setOtroMotivo(e.target.value)} 
+                  />
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                  <MessageSquare size={12} /> Comentarios Adicionales
+                </label>
+                <textarea 
+                  className="input text-sm min-h-[100px]" 
+                  placeholder="Detalles sobre por qué se perdió..." 
+                  value={observacionPerdida} 
+                  onChange={e => setObservacionPerdida(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="p-8 bg-gray-50 flex gap-3">
+              <button 
+                type="submit" 
+                className="flex-1 bg-amber-500 text-white py-4 rounded-2xl font-black text-sm shadow-lg shadow-amber-500/20 hover:brightness-110 transition-all"
+              >
+                Registrar Cierre Negativo
+              </button>
             </div>
           </form>
         </div>
