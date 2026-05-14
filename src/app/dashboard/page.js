@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import StatsCard from '@/components/StatsCard'
 import QuotesTable from '@/components/QuotesTable'
 import SalesModal from '@/components/SalesModal'
+import PaymentAlerts from '@/components/PaymentAlerts'
 import { 
   DollarSign, 
   TrendingUp, 
@@ -154,6 +155,10 @@ export default function DashboardPage() {
       {/* Sección de Meta y Progreso */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
+          
+          {/* RADAR DE COBROS */}
+          {profile && <PaymentAlerts userId={profile.id} isAdmin={isAdmin} />}
+
           <div className="card">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-bold text-lg flex items-center gap-2">
