@@ -54,6 +54,7 @@ export default function VouchersPage() {
       .update({
         agencia: editingVoucher.agencia,
         valor_total: editingVoucher.valor_total,
+        destino: editingVoucher.destino,
         fecha_viaje_desde: editingVoucher.fecha_viaje_desde,
         fecha_viaje_hasta: editingVoucher.fecha_viaje_hasta,
         fecha_caducidad: editingVoucher.fecha_caducidad,
@@ -245,14 +246,23 @@ export default function VouchersPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-gray-400 uppercase">Valor Total ($)</label>
+                  <label className="text-[10px] font-black text-gray-400 uppercase">Destino</label>
                   <input 
-                    type="number"
-                    className="input text-sm font-bold" 
-                    value={editingVoucher.valor_total || 0}
-                    onChange={e => setEditingVoucher({...editingVoucher, valor_total: e.target.value})}
+                    className="input text-sm" 
+                    value={editingVoucher.destino || ''}
+                    onChange={e => setEditingVoucher({...editingVoucher, destino: e.target.value})}
                   />
                 </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-gray-400 uppercase">Valor Total ($)</label>
+                <input 
+                  type="number"
+                  className="input text-sm font-bold" 
+                  value={editingVoucher.valor_total || 0}
+                  onChange={e => setEditingVoucher({...editingVoucher, valor_total: e.target.value})}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">

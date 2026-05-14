@@ -134,7 +134,8 @@ export default function SalesModal() {
               notas: formData.notas_voucher,
               agencia: quote.agencia,
               valor_total: formData.total,
-              pasajeros: quote.nombres_pasajeros
+              pasajeros: quote.nombres_pasajeros,
+              destino: quote.destino
             }])
           
           if (vchError) throw vchError
