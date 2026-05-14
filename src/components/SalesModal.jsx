@@ -131,7 +131,10 @@ export default function SalesModal() {
               fecha_viaje_desde: formData.fecha_viaje_desde,
               fecha_viaje_hasta: formData.fecha_viaje_hasta,
               fecha_caducidad: formData.fecha_caducidad_voucher,
-              notas: formData.notas_voucher
+              notas: formData.notas_voucher,
+              agencia: quote.agencia,
+              valor_total: formData.total,
+              pasajeros: quote.nombres_pasajeros
             }])
           
           if (vchError) throw vchError

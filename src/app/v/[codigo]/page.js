@@ -30,17 +30,7 @@ export default function VoucherVerificationPage() {
     try {
       const { data, error } = await supabase
         .from('vouchers')
-        .select(`
-          *,
-          ventas (
-            total,
-            cotizaciones (
-              agencia,
-              nombres_pasajeros,
-              valor_total
-            )
-          )
-        `)
+        .select('*')
         .eq('codigo', codigo)
         .single()
       
@@ -106,7 +96,7 @@ export default function VoucherVerificationPage() {
                 <Building2 size={10} /> Agencia Emisora
               </p>
               <p className="text-sm font-black text-gray-800 leading-tight">
-                {voucher.ventas?.cotizaciones?.agencia || 'CTB Directo'}
+                {voucher.agencia || 'CTB Directo'}
               </p>
             </div>
             <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
@@ -114,7 +104,7 @@ export default function VoucherVerificationPage() {
                 <DollarSign size={10} /> Valor Total
               </p>
               <p className="text-lg font-black text-primary">
-                ${Number(voucher.ventas?.total || 0).toLocaleString()}
+                ${Number(voucher.valor_total || 0).toLocaleString()}
               </p>
             </div>
           </div>
@@ -132,7 +122,7 @@ export default function VoucherVerificationPage() {
               <div>
                 <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Titulares del Viaje</p>
                 <div className="mt-1">
-                  {voucher.ventas?.cotizaciones?.nombres_pasajeros?.map((n, i) => (
+                  {voucher.pasajeros?.map((n, i) => (
                     <p key={i} className="text-sm font-bold text-gray-800">{n}</p>
                   ))}
                 </div>
