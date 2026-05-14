@@ -41,22 +41,34 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
     if (!error) onUpdate()
   }
 
+  const [loadingClosing, setLoadingClosing] = useState(false)
+
   const handleMarcarPerdida = async (e) => {
     e.preventDefault()
-    const motivoFinal = motivoPerdida === 'Otro' ? `Otro: ${otroMotivo}` : motivoPerdida
+    if (!motivoPerdida) return alert('Por favor selecciona un motivo')
     
-    const { error } = await supabase
-      .from('cotizaciones')
-      .update({ 
-        estado: 'perdida',
-        motivo_perdida: motivoFinal,
-        notas_seguimiento: observacionPerdida
-      })
-      .eq('id', closingQuote.id)
-    
-    if (!error) {
+    setLoadingClosing(true)
+    try {
+      const motivoFinal = motivoPerdida === 'Otro' ? `Otro: ${otroMotivo}` : motivoPerdida
+      
+      const { error } = await supabase
+        .from('cotizaciones')
+        .update({ 
+          estado: 'perdida',
+          motivo_perdida: motivoFinal,
+          notas_seguimiento: observacionPerdida
+        })
+        .eq('id', closingQuote.id)
+      
+      if (error) throw error
+
+      alert('Cierre negativo registrado con éxito')
       setClosingQuote(null)
       onUpdate()
+    } catch (error) {
+      alert('Error al registrar cierre: ' + error.message)
+    } finally {
+      setLoadingClosing(false)
     }
   }
 
@@ -265,9 +277,10 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
             <div className="p-8 bg-gray-50 flex gap-3">
               <button 
                 type="submit" 
-                className="flex-1 bg-amber-500 text-white py-4 rounded-2xl font-black text-sm shadow-lg shadow-amber-500/20 hover:brightness-110 transition-all"
+                disabled={loadingClosing}
+                className={`flex-1 ${loadingClosing ? 'bg-gray-400' : 'bg-amber-500'} text-white py-4 rounded-2xl font-black text-sm shadow-lg shadow-amber-500/20 hover:brightness-110 transition-all`}
               >
-                Registrar Cierre Negativo
+                {loadingClosing ? 'Registrando...' : 'Registrar Cierre Negativo'}
               </button>
             </div>
           </form>
