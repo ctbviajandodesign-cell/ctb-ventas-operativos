@@ -1,5 +1,4 @@
 import { useState } from 'react'
-// Force deploy comment - v1.0.1
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { format, isPast, parseISO } from 'date-fns'
@@ -22,7 +21,7 @@ import {
 
 export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
   const [viewingQuote, setViewingQuote] = useState(null)
-  const [closingQuote, setClosingQuote] = useState(null) // Para el modal de pérdida
+  const [closingQuote, setClosingQuote] = useState(null)
   const [motivoPerdida, setMotivoPerdida] = useState('')
   const [observacionPerdida, setObservacionPerdida] = useState('')
   
@@ -239,11 +238,15 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-[8px] text-gray-400 uppercase font-black">Neto por Pax</p>
-                      <p className="text-sm font-black text-gray-800">${viewingQuote.valor_neto_pax}</p>
+                      <p className="text-sm font-black text-gray-800">
+                        ${Number(viewingQuote.valor_neto_pax || viewingQuote.valor_neto || 0).toLocaleString()}
+                      </p>
                     </div>
                     <div>
                       <p className="text-[8px] text-gray-400 uppercase font-black">Venta por Pax</p>
-                      <p className="text-sm font-black text-success">${viewingQuote.valor_venta_pax}</p>
+                      <p className="text-sm font-black text-success">
+                        ${Number(viewingQuote.valor_venta_pax || viewingQuote.valor_venta || 0).toLocaleString()}
+                      </p>
                     </div>
                   </div>
                 </div>
