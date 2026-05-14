@@ -11,16 +11,23 @@ import {
   Edit,
   XCircle,
   Save,
-  QrCode as QrIcon
+  QrCode as QrIcon,
+  Trash2,
+  MapPin,
+  Users,
+  Clock,
+  Building2,
+  DollarSign
 } from 'lucide-react'
 
 export default function VouchersPage() {
   const [vouchers, setVouchers] = useState([])
   const [loading, setLoading] = useState(true)
-  const [selectedVoucher, setSelectedVoucher] = useState(null)
   const [editingVoucher, setEditingVoucher] = useState(null)
+  const [viewingVoucher, setViewingVoucher] = useState(null)
   const [search, setSearch] = useState('')
   const [baseUrl, setBaseUrl] = useState('')
+  const [profile, setProfile] = useState(null)
 
   useEffect(() => {
     fetchVouchers()
@@ -31,20 +38,27 @@ export default function VouchersPage() {
 
   async function fetchVouchers() {
     const { data: { user } } = await supabase.auth.getUser()
-    const { data: profile } = await supabase.from('profiles').select('rol').eq('id', user.id).single()
+    const { data: p } = await supabase.from('profiles').select('rol').eq('id', user.id).single()
+    setProfile(p)
     
     let query = supabase
       .from('vouchers')
       .select('*')
       .order('created_at', { ascending: false })
 
-    if (profile?.rol !== 'admin') {
+    if (p?.rol !== 'admin') {
       query = query.eq('operativo_id', user.id)
     }
 
     const { data } = await query
     setVouchers(data || [])
     setLoading(false)
+  }
+
+  const handleDeleteVoucher = async (id) => {
+    if (!confirm('¿Seguro que quieres eliminar este voucher permanentemente?')) return
+    const { error } = await supabase.from('vouchers').delete().eq('id', id)
+    if (!error) fetchVouchers()
   }
 
   const handleUpdateVoucher = async (e) => {
@@ -123,17 +137,20 @@ export default function VouchersPage() {
                 <th className="py-4 px-6">Agencia / Destino</th>
                 <th className="py-4 px-6 text-right">Valor</th>
                 <th className="py-4 px-6">Vigencia</th>
-                <th className="py-4 px-6">Estado</th>
                 <th className="py-4 px-6 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filtered.map((voucher) => (
-                <tr key={voucher.id} className="group hover:bg-gray-50 transition-colors">
+                <tr 
+                  key={voucher.id} 
+                  className="group hover:bg-gray-50 transition-colors cursor-pointer"
+                  onClick={() => setViewingVoucher(voucher)}
+                >
                   <td className="py-4 px-6 font-mono text-xs font-bold text-success">{voucher.codigo}</td>
                   <td className="py-4 px-6">
                     <div className="font-bold text-gray-800 text-sm">{voucher.agencia || 'CTB Directo'}</div>
-                    <div className="text-[10px] text-gray-400">{voucher.destino}</div>
+                    <div className="text-[10px] text-gray-400 uppercase tracking-wider">{voucher.destino}</div>
                   </td>
                   <td className="py-4 px-6 text-right font-black text-gray-900">
                     ${Number(voucher.valor_total || 0).toLocaleString()}
@@ -143,15 +160,12 @@ export default function VouchersPage() {
                       {voucher.fecha_viaje_desde} al {voucher.fecha_viaje_hasta}
                     </div>
                   </td>
-                  <td className="py-4 px-6">
-                    <span className="badge-success">ACTIVO</span>
-                  </td>
-                  <td className="py-4 px-6 text-right">
+                  <td className="py-4 px-6 text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-2">
                       <button 
-                        onClick={() => setSelectedVoucher(voucher)}
+                        onClick={() => setViewingVoucher(voucher)}
                         className="p-2 text-gray-400 hover:text-success hover:bg-success/5 rounded-lg transition-colors"
-                        title="Ver QR"
+                        title="Ver Detalle"
                       >
                         <QrIcon size={18} />
                       </button>
@@ -169,6 +183,15 @@ export default function VouchersPage() {
                       >
                         <Download size={18} />
                       </button>
+                      {profile?.rol === 'admin' && (
+                        <button 
+                          onClick={() => handleDeleteVoucher(voucher.id)}
+                          className="p-2 text-danger hover:bg-red-50 rounded-lg transition-colors"
+                          title="Eliminar"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      )}
                     </div>
                     {/* Hidden SVG for download */}
                     <div className="hidden">
@@ -188,35 +211,102 @@ export default function VouchersPage() {
         </div>
       </div>
 
-      {/* Modal Visualizador de QR */}
-      {selectedVoucher && (
+      {/* Modal Visualizador de Voucher COMPLETO */}
+      {viewingVoucher && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[3rem] max-w-sm w-full overflow-hidden shadow-2xl animate-in zoom-in duration-300">
-            <div className="bg-gray-900 p-10 text-center text-white space-y-6">
-              <div className="inline-block bg-white p-6 rounded-[2rem] shadow-2xl">
+          <div className="bg-white rounded-[3rem] max-w-lg w-full overflow-hidden shadow-2xl animate-in zoom-in duration-300">
+            <div className="bg-gray-900 p-8 text-center text-white space-y-4">
+              <div className="inline-block bg-white p-4 rounded-2xl shadow-xl">
                 <QRCodeSVG 
-                  value={`${baseUrl}/v/${selectedVoucher.codigo}`}
-                  size={200}
+                  value={`${baseUrl}/v/${viewingVoucher.codigo}`}
+                  size={150}
                   level="H"
                 />
               </div>
               <div>
-                <h2 className="text-3xl font-black">{selectedVoucher.codigo}</h2>
-                <p className="text-[10px] text-gray-400 uppercase tracking-[0.3em] mt-2">Certificado de Seguridad CTB</p>
+                <h2 className="text-2xl font-black">{viewingVoucher.codigo}</h2>
+                <span className="badge-success inline-block mt-2">VOUCHER ACTIVO</span>
               </div>
             </div>
-            <div className="p-10 flex flex-col gap-3">
+
+            <div className="p-8 space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                    <Building2 size={10} /> Agencia
+                  </p>
+                  <p className="text-sm font-black text-gray-800 leading-tight">
+                    {viewingVoucher.agencia || 'CTB Directo'}
+                  </p>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                    <DollarSign size={10} /> Valor
+                  </p>
+                  <p className="text-lg font-black text-primary leading-none">
+                    ${Number(viewingVoucher.valor_total || 0).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex gap-4">
+                  <div className="bg-primary/10 p-2 rounded-xl text-primary h-fit"><MapPin size={16} /></div>
+                  <div>
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Destino</p>
+                    <p className="text-sm font-bold text-gray-800">{viewingVoucher.destino || 'Sin destino'}</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <div className="bg-primary/10 p-2 rounded-xl text-primary h-fit"><Users size={16} /></div>
+                  <div>
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Pasajeros</p>
+                    <div className="mt-1">
+                      {Array.isArray(viewingVoucher.pasajeros) ? viewingVoucher.pasajeros.map((n, i) => (
+                        <p key={i} className="text-xs font-bold text-gray-800">{n}</p>
+                      )) : (
+                        <p className="text-xs font-bold text-gray-400 italic">No especificados</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <div className="bg-primary/10 p-2 rounded-xl text-primary h-fit"><Clock size={16} /></div>
+                  <div className="grid grid-cols-2 gap-4 flex-1">
+                    <div>
+                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Inicio Viaje</p>
+                      <p className="text-xs font-bold text-gray-800">{viewingVoucher.fecha_viaje_desde}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Caducidad QR</p>
+                      <p className="text-xs font-bold text-danger">{viewingVoucher.fecha_caducidad}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {viewingVoucher.notas && (
+                <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 italic text-xs text-amber-800">
+                  <p className="font-black text-[9px] uppercase tracking-widest mb-1 opacity-60">Notas del Operativo</p>
+                  "{viewingVoucher.notas}"
+                </div>
+              )}
+            </div>
+
+            <div className="p-8 bg-gray-50 flex flex-col gap-2">
               <button 
-                onClick={() => downloadQR(selectedVoucher.codigo)}
+                onClick={() => downloadQR(viewingVoucher.codigo)}
                 className="btn-primary py-4 flex items-center justify-center gap-2"
               >
-                <Download size={20} /> Guardar Imagen
+                <Download size={20} /> Descargar Certificado
               </button>
               <button 
-                onClick={() => setSelectedVoucher(null)}
+                onClick={() => setViewingVoucher(null)}
                 className="py-3 text-sm font-bold text-gray-400 hover:text-gray-600 transition-colors"
               >
-                Cerrar
+                Cerrar Detalle
               </button>
             </div>
           </div>
@@ -225,7 +315,7 @@ export default function VouchersPage() {
 
       {/* Modal Editar Voucher */}
       {editingVoucher && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
           <form onSubmit={handleUpdateVoucher} className="bg-white rounded-[2.5rem] max-w-lg w-full overflow-hidden shadow-2xl animate-in zoom-in duration-300">
             <div className="bg-primary p-8 text-white">
               <div className="flex justify-between items-center">
