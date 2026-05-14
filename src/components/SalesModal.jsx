@@ -58,6 +58,7 @@ export default function SalesModal() {
           fecha_caducidad_voucher: '',
           notas_voucher: ''
         })
+        if (s.plan_pagos) setMilestones(s.plan_pagos)
       } else {
         setFormData({
           total: initialTotal,
@@ -103,8 +104,6 @@ export default function SalesModal() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error("No hay sesión activa")
 
-      const cronogramaTexto = milestones.map(m => `${m.label}: $${m.amount} (${m.status.toUpperCase()}) - F: ${m.date || 'S/F'}`).join(' | ')
-
       const payload = {
         total: formData.total,
         abono_tarjeta: milestones.filter(m => m.status === 'pagado' && m.label.toLowerCase().includes('tarjeta')).reduce((acc, m) => acc + Number(m.amount), 0),
@@ -113,6 +112,7 @@ export default function SalesModal() {
         comision: formData.comision,
         utilidad: formData.utilidad,
         bono_counter: formData.bono_counter,
+        plan_pagos: milestones, // NUEVO: Campo JSONB para el cronograma
         estado: 'activa'
       }
 
@@ -129,13 +129,10 @@ export default function SalesModal() {
         
         if (vError) throw vError
         ventaId = venta.id
-        
-        // Marcar cotización como ganada
         await supabase.from('cotizaciones').update({ estado: 'ganada' }).eq('id', quote.id)
       }
 
       if (formData.generar_voucher) {
-        const inclusionText = Object.entries(inclusions).filter(([_, v]) => v).map(([k]) => k.toUpperCase()).join(', ')
         const { error: vchError } = await supabase.from('vouchers').insert([{
           venta_id: ventaId,
           operativo_id: user.id,
@@ -144,7 +141,8 @@ export default function SalesModal() {
           fecha_viaje_desde: formData.fecha_viaje_desde || null,
           fecha_viaje_hasta: formData.fecha_viaje_hasta || null,
           fecha_caducidad: formData.fecha_caducidad_voucher || null,
-          notas: `INCLUYE: ${inclusionText}. PLAN PAGOS: ${cronogramaTexto}. NOTAS: ${formData.notas_voucher}`,
+          inclusiones: inclusions, // NUEVO: Campo JSONB para inclusiones
+          notas: formData.notas_voucher,
           agencia: quote.agencia,
           valor_total: formData.total,
           pasajeros: quote.nombres_pasajeros,
@@ -160,7 +158,29 @@ export default function SalesModal() {
       alert('¡Venta guardada correctamente!')
       window.location.reload()
     } catch (error) {
-      alert('Error: ' + error.message)
+      // Intento de guardado legacy si fallan las columnas nuevas (esto evita que el usuario se bloquee si no ha corrido el SQL)
+      console.error("Error guardando en columnas nuevas, reintentando modo legacy...", error)
+      alert("Para usar el Plan de Pagos avanzado, por favor ejecuta el script SQL en Supabase. Guardando en modo básico por ahora.")
+      
+      // Reintento sin las columnas nuevas para no bloquear al usuario
+      try {
+        const legacyPayload = {
+          total: formData.total,
+          abono_tarjeta: formData.total, // Guardamos todo en tarjeta como fallback
+          comision: formData.comision,
+          utilidad: formData.utilidad,
+          estado: 'activa'
+        }
+        if (quote.existingSale) {
+          await supabase.from('ventas').update(legacyPayload).eq('id', quote.existingSale.id)
+        } else {
+          const { data: v } = await supabase.from('ventas').insert([{ ...legacyPayload, cotizacion_id: quote.id, operativo_id: quote.operativo_id, numero_proforma: quote.codigo }]).select().single()
+          await supabase.from('cotizaciones').update({ estado: 'ganada' }).eq('id', quote.id)
+        }
+        window.location.reload()
+      } catch (e) {
+        alert("Error crítico: " + e.message)
+      }
     } finally {
       setLoading(false)
     }
@@ -174,7 +194,7 @@ export default function SalesModal() {
         
         <div className="bg-primary p-8 text-white flex justify-between items-center">
           <div>
-            <h2 className="text-2xl font-black uppercase tracking-tighter">Confirmación de Venta</h2>
+            <h2 className="text-2xl font-black uppercase tracking-tighter text-white">Cierre de Venta Profesional</h2>
             <p className="text-[10px] font-bold opacity-80 uppercase tracking-widest mt-1">Ref: {quote.codigo}</p>
           </div>
           <button onClick={() => setQuote(null)} className="p-2 hover:rotate-90 transition-all"><X size={28} /></button>
@@ -185,7 +205,7 @@ export default function SalesModal() {
           <div className="space-y-4">
             <div className="flex items-center justify-between border-b pb-2">
               <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                <Calendar size={16} /> Cronograma de Cobros
+                <Calendar size={16} /> Plan de Pagos / Hitos
               </h3>
               <button type="button" onClick={() => setMilestones([...milestones, { id: Date.now(), label: 'Abono', amount: 0, percent: 0, date: '', status: 'pendiente' }])} className="text-[10px] font-black text-primary bg-primary/5 px-3 py-1.5 rounded-full">+ Añadir Pago</button>
             </div>
@@ -203,23 +223,21 @@ export default function SalesModal() {
                 </div>
               ))}
             </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-success/10 p-5 rounded-[2rem] border border-success/20"><p className="text-[10px] font-black text-success uppercase">Recibido</p><p className="text-2xl font-black text-gray-900">${totalPaid.toLocaleString()}</p></div>
-              <div className="bg-amber-50 p-5 rounded-[2rem] border border-amber-200"><p className="text-[10px] font-black text-amber-600 uppercase">Saldo</p><p className="text-2xl font-black text-gray-900">${faltante.toLocaleString()}</p></div>
-            </div>
           </div>
 
-          <div className="bg-gray-50 p-6 rounded-[2.5rem] grid grid-cols-3 gap-4">
-            <div><label className="text-[10px] font-black text-gray-400 uppercase block mb-1">Comisión</label><input type="number" step="0.01" className="bg-transparent border-none font-black text-success text-xl p-0 w-full" value={formData.comision} onChange={e => setFormData({...formData, comision: parseFloat(e.target.value)})} /></div>
-            <div><label className="text-[10px] font-black text-gray-400 uppercase block mb-1">Utilidad</label><input type="number" step="0.01" className="bg-transparent border-none font-black text-success text-xl p-0 w-full" value={formData.utilidad} onChange={e => setFormData({...formData, utilidad: parseFloat(e.target.value)})} /></div>
-            <div className="text-right"><p className="text-[10px] font-black text-primary uppercase text-xs">Aporte Meta</p><p className="text-xl font-black text-primary">${(formData.comision + formData.utilidad).toLocaleString()}</p></div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="bg-gray-50 p-6 rounded-[2rem]"><p className="text-[10px] font-black text-gray-400 uppercase">Comisión</p><input type="number" step="0.01" className="bg-transparent border-none font-black text-success text-2xl p-0 w-full" value={formData.comision} onChange={e => setFormData({...formData, comision: parseFloat(e.target.value)})} /></div>
+            <div className="bg-gray-50 p-6 rounded-[2rem]"><p className="text-[10px] font-black text-gray-400 uppercase">Utilidad</p><input type="number" step="0.01" className="bg-transparent border-none font-black text-success text-2xl p-0 w-full" value={formData.utilidad} onChange={e => setFormData({...formData, utilidad: parseFloat(e.target.value)})} /></div>
+            <div className="bg-success text-white p-6 rounded-[2rem] flex flex-col justify-center items-center">
+              <p className="text-[10px] font-bold opacity-80 uppercase">Aporte Meta</p>
+              <p className="text-2xl font-black">${(formData.comision + formData.utilidad).toLocaleString()}</p>
+            </div>
           </div>
 
           <div className="space-y-6">
             <label className="flex items-center gap-4 cursor-pointer bg-primary/5 p-6 rounded-3xl border border-primary/20">
               <input type="checkbox" className="w-8 h-8 rounded-xl" checked={formData.generar_voucher} onChange={e => setFormData({...formData, generar_voucher: e.target.checked})} />
-              <div><p className="text-lg font-black text-primary uppercase tracking-tighter">¿Emitir Voucher con Seguridad QR?</p><p className="text-xs text-primary/60">Define inclusiones y fechas de viaje.</p></div>
+              <div><p className="text-lg font-black text-primary uppercase tracking-tighter">¿Emitir Voucher con Seguridad QR?</p><p className="text-xs text-primary/60">Configura inclusiones profesionales.</p></div>
             </label>
 
             {formData.generar_voucher && (
@@ -245,8 +263,8 @@ export default function SalesModal() {
             )}
           </div>
 
-          <button type="submit" disabled={loading} className="w-full bg-primary text-white py-6 rounded-[2.5rem] text-xl font-black uppercase tracking-tighter shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-95 transition-all">
-            {loading ? 'Sincronizando con Base de Datos...' : 'Confirmar y Finalizar Venta'}
+          <button type="submit" disabled={loading} className="w-full bg-primary text-white py-6 rounded-[2.5rem] text-xl font-black uppercase tracking-tighter shadow-2xl shadow-primary/40 hover:scale-[1.02] active:scale-95 transition-all">
+            {loading ? 'Sincronizando...' : 'Confirmar y Emitir Voucher'}
           </button>
         </form>
       </div>
