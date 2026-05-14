@@ -17,7 +17,8 @@ import {
   Building2,
   DollarSign,
   AlertTriangle,
-  MessageSquare
+  MessageSquare,
+  ChevronDown
 } from 'lucide-react'
 
 export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
@@ -219,41 +220,56 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
         </div>
       )}
 
-      {/* Modal de Anulación */}
+      {/* Modal de Anulación Premium */}
       {closingQuote && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
-          <form onSubmit={handleMarcarPerdida} className="bg-white rounded-[2.5rem] max-w-md w-full overflow-hidden shadow-2xl animate-in zoom-in duration-300">
-            <div className="bg-amber-500 p-8 text-white flex justify-between items-center">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[110] flex items-center justify-center p-4">
+          <form onSubmit={handleMarcarPerdida} className="bg-white rounded-[3rem] max-w-md w-full overflow-hidden shadow-2xl animate-in zoom-in duration-300">
+            <div className="bg-[#f5a623] p-10 text-white flex justify-between items-start">
               <div>
-                <h2 className="text-2xl font-black uppercase tracking-tighter">Cierre Negativo</h2>
-                <p className="text-[10px] font-bold opacity-80 uppercase tracking-widest">Análisis de pérdida de venta</p>
+                <h2 className="text-4xl font-black uppercase tracking-tighter leading-none">Cierre Negativo</h2>
+                <p className="text-[11px] font-bold opacity-90 uppercase tracking-[0.2em] mt-2">Análisis de pérdida de venta</p>
               </div>
-              <button type="button" onClick={() => setClosingQuote(null)}><XCircle size={24} /></button>
+              <button 
+                type="button" 
+                onClick={() => setClosingQuote(null)}
+                className="w-10 h-10 rounded-full border-2 border-white/40 flex items-center justify-center hover:bg-white hover:text-[#f5a623] transition-all group"
+              >
+                <span className="font-black text-xl leading-none">×</span>
+              </button>
             </div>
 
-            <div className="p-8 space-y-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Motivo Principal</label>
-                <select 
-                  required 
-                  className="input font-bold text-sm" 
-                  value={motivoPerdida} 
-                  onChange={e => setMotivoPerdida(e.target.value)}
-                >
-                  <option value="">Selecciona un motivo...</option>
-                  <option value="Precio">1. Precio</option>
-                  <option value="No cerró Agencia">2. No cerró Agencia</option>
-                  <option value="No contestó Operador">3. No contestó Operador</option>
-                  <option value="Otro">4. Otro (Especificar)</option>
-                </select>
+            <div className="p-10 space-y-8">
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block ml-1">
+                  Motivo Principal
+                </label>
+                <div className="relative">
+                  <select 
+                    required 
+                    className="w-full bg-white border border-gray-100 rounded-2xl py-4 px-5 font-bold text-gray-800 text-sm appearance-none shadow-sm focus:ring-2 focus:ring-[#f5a623]/20 transition-all outline-none" 
+                    value={motivoPerdida} 
+                    onChange={e => setMotivoPerdida(e.target.value)}
+                  >
+                    <option value="">Selecciona un motivo...</option>
+                    <option value="Precio">1. Precio</option>
+                    <option value="No cerró Agencia">2. No cerró Agencia</option>
+                    <option value="No contestó Operador">3. No contestó Operador</option>
+                    <option value="Otro">4. Otro (Especificar)</option>
+                  </select>
+                  <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                    <ChevronDown size={18} />
+                  </div>
+                </div>
               </div>
 
               {motivoPerdida === 'Otro' && (
-                <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
-                  <label className="text-[10px] font-black text-primary uppercase tracking-widest">Especificar Motivo</label>
+                <div className="space-y-3 animate-in slide-in-from-top-2 duration-300">
+                  <label className="text-[10px] font-black text-[#f5a623] uppercase tracking-widest block ml-1">
+                    Especificar Motivo
+                  </label>
                   <input 
                     required 
-                    className="input text-sm border-primary/20" 
+                    className="w-full bg-white border border-[#f5a623]/20 rounded-2xl py-4 px-5 font-bold text-gray-800 text-sm shadow-sm outline-none focus:border-[#f5a623] transition-all" 
                     placeholder="Escribe el motivo..." 
                     value={otroMotivo} 
                     onChange={e => setOtroMotivo(e.target.value)} 
@@ -261,12 +277,12 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
                 </div>
               )}
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                  <MessageSquare size={12} /> Comentarios Adicionales
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2 ml-1">
+                  <MessageSquare size={14} className="opacity-50" /> Comentarios Adicionales
                 </label>
                 <textarea 
-                  className="input text-sm min-h-[100px]" 
+                  className="w-full bg-white border border-gray-100 rounded-[2rem] py-5 px-6 font-bold text-gray-800 text-sm min-h-[140px] shadow-sm focus:ring-2 focus:ring-[#f5a623]/20 transition-all outline-none resize-none" 
                   placeholder="Detalles sobre por qué se perdió..." 
                   value={observacionPerdida} 
                   onChange={e => setObservacionPerdida(e.target.value)}
@@ -274,11 +290,11 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
               </div>
             </div>
 
-            <div className="p-8 bg-gray-50 flex gap-3">
+            <div className="p-10 bg-gray-50/50">
               <button 
                 type="submit" 
                 disabled={loadingClosing}
-                className={`flex-1 ${loadingClosing ? 'bg-gray-400' : 'bg-amber-500'} text-white py-4 rounded-2xl font-black text-sm shadow-lg shadow-amber-500/20 hover:brightness-110 transition-all`}
+                className={`w-full ${loadingClosing ? 'bg-gray-300' : 'bg-[#f5a623]'} text-white py-6 rounded-[2rem] font-black text-lg shadow-xl shadow-[#f5a623]/30 hover:scale-[1.02] active:scale-98 transition-all uppercase tracking-tight`}
               >
                 {loadingClosing ? 'Registrando...' : 'Registrar Cierre Negativo'}
               </button>
