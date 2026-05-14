@@ -122,9 +122,11 @@ export default function VoucherVerificationPage() {
               <div>
                 <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Titulares del Viaje</p>
                 <div className="mt-1">
-                  {voucher.pasajeros?.map((n, i) => (
+                  {Array.isArray(voucher.pasajeros) ? voucher.pasajeros.map((n, i) => (
                     <p key={i} className="text-sm font-bold text-gray-800">{n}</p>
-                  ))}
+                  )) : (
+                    <p className="text-sm font-bold text-gray-400 italic">No especificados</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -143,13 +145,13 @@ export default function VoucherVerificationPage() {
                 <div>
                   <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Válido Desde</p>
                   <p className="text-xs font-bold text-gray-800">
-                    {voucher.fecha_viaje_desde ? format(parseISO(voucher.fecha_viaje_desde), 'dd MMM yyyy', { locale: es }) : 'N/A'}
+                    {voucher.fecha_viaje_desde ? format(parseISO(voucher.fecha_viaje_desde), 'dd MMM yyyy', { locale: es }) : 'No definida'}
                   </p>
                 </div>
                 <div>
                   <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Válido Hasta</p>
                   <p className={`text-xs font-bold ${isExpired ? 'text-danger' : 'text-gray-800'}`}>
-                    {voucher.fecha_caducidad ? format(parseISO(voucher.fecha_caducidad), 'dd MMM yyyy', { locale: es }) : 'N/A'}
+                    {voucher.fecha_caducidad ? format(parseISO(voucher.fecha_caducidad), 'dd MMM yyyy', { locale: es }) : 'No definida'}
                   </p>
                 </div>
               </div>
