@@ -71,7 +71,21 @@ export default function PaymentAlerts({ userId, isAdmin }) {
     }
   }
 
-  if (loading || alerts.length === 0) return null
+  if (loading) return null
+
+  if (alerts.length === 0) return (
+    <div className="card border-success/20 bg-success/5 animate-in fade-in duration-700">
+      <div className="flex items-center gap-4">
+        <div className="bg-success p-3 rounded-2xl text-white shadow-lg shadow-success/20">
+          <CheckCircle2 size={24} />
+        </div>
+        <div>
+          <h3 className="font-black text-success uppercase tracking-tighter leading-none">Cartera Limpia</h3>
+          <p className="text-[10px] font-bold text-success/60 uppercase tracking-widest mt-1">No hay cobros pendientes para hoy</p>
+        </div>
+      </div>
+    </div>
+  )
 
   return (
     <div className="card border-amber-200 bg-amber-50/30 animate-in slide-in-from-top-4 duration-500">
@@ -86,29 +100,32 @@ export default function PaymentAlerts({ userId, isAdmin }) {
       </div>
 
       <div className="space-y-3">
-        {alerts.slice(0, 4).map((alert, idx) => (
-          <div key={idx} className="flex items-center justify-between bg-white p-3 rounded-2xl border border-amber-100 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-xl ${alert.isOverdue ? 'bg-danger/10 text-danger' : 'bg-amber-100 text-amber-600'}`}>
-                <Clock size={16} />
+        {alerts.slice(0, 4).map((alert, idx) => {
+          const pasajeroName = Array.isArray(alert.pasajero) ? alert.pasajero[0] : alert.pasajero
+          return (
+            <div key={idx} className="flex items-center justify-between bg-white p-3 rounded-2xl border border-amber-100 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-xl ${alert.isOverdue ? 'bg-danger/10 text-danger' : 'bg-amber-100 text-amber-600'}`}>
+                  <Clock size={16} />
+                </div>
+                <div>
+                  <p className="text-[11px] font-black text-gray-900 leading-none mb-1">
+                    {pasajeroName?.split(',')[0] || 'N/A'}
+                  </p>
+                  <p className="text-[9px] font-bold text-gray-400 uppercase">
+                    {alert.label} • {alert.proforma}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-[11px] font-black text-gray-900 leading-none mb-1">
-                  {alert.pasajero.split(',')[0]}
-                </p>
-                <p className="text-[9px] font-bold text-gray-400 uppercase">
-                  {alert.label} • {alert.proforma}
+              <div className="text-right">
+                <p className="text-xs font-black text-gray-900">${(Number(alert.monto) || 0).toLocaleString()}</p>
+                <p className={`text-[9px] font-black uppercase ${alert.isOverdue ? 'text-danger' : 'text-amber-600'}`}>
+                  {alert.isOverdue ? 'Vencido' : 'Vence Hoy'}
                 </p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-xs font-black text-gray-900">${alert.monto.toLocaleString()}</p>
-              <p className={`text-[9px] font-black uppercase ${alert.isOverdue ? 'text-danger' : 'text-amber-600'}`}>
-                {alert.isOverdue ? 'Vencido' : 'Vence Hoy'}
-              </p>
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {alerts.length > 4 && (
@@ -119,3 +136,5 @@ export default function PaymentAlerts({ userId, isAdmin }) {
     </div>
   )
 }
+
+import { CheckCircle2 } from 'lucide-react'

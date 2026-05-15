@@ -68,8 +68,8 @@ export default function DashboardPage() {
         .single()
       
       setProfile(profileData)
-      const isAdmin = profileData.rol === 'admin'
-      const activeOpId = (!isAdmin || selectedOperative === 'global') ? user.id : selectedOperative
+      const isAdmin = profileData?.rol === 'admin'
+      const activeOpId = isAdmin && selectedOperative !== 'global' ? selectedOperative : user.id
 
       // Si es admin, cargar lista de operativos
       if (isAdmin && operatives.length === 0) {
@@ -88,20 +88,20 @@ export default function DashboardPage() {
       ventasQuery = ventasQuery.gte('created_at', startOfMonth.toISOString())
 
       const { data: ventasData } = await ventasQuery
-      const totalV = ventasData?.reduce((acc, v) => acc + Number(v.total), 0) || 0
-      const totalMetaComp = ventasData?.reduce((acc, v) => acc + Number(v.comision) + Number(v.utilidad), 0) || 0
+      const totalV = ventasData?.reduce((acc, v) => acc + (Number(v.total) || 0), 0) || 0
+      const totalMetaComp = ventasData?.reduce((acc, v) => acc + (Number(v.comision) || 0) + (Number(v.utilidad) || 0), 0) || 0
 
-      // 2. Pipeline y Análisis de Estados (Solo si es individual)
+      // 2. Pipeline y Análisis de Estados
       let quotesQuery = supabase.from('cotizaciones').select('*, profiles(nombre)').order('created_at', { ascending: false })
       let pipelineQuery = supabase.from('cotizaciones').select('valor_total, destino, estado').eq('estado', 'abierta')
       
-      if (!isAdmin || selectedOperative !== 'global') {
-        const targetId = !isAdmin ? user.id : selectedOperative
-        quotesQuery = quotesQuery.eq('operativo_id', targetId)
-        pipelineQuery = pipelineQuery.eq('operativo_id', targetId)
+      const targetIdForIndividual = (!isAdmin || selectedOperative !== 'global') ? (isAdmin ? selectedOperative : user.id) : null
 
-        // Análisis de estados para el gráfico individual
-        const { data: statusData } = await supabase.from('cotizaciones').select('estado').eq('operativo_id', targetId)
+      if (targetIdForIndividual) {
+        quotesQuery = quotesQuery.eq('operativo_id', targetIdForIndividual)
+        pipelineQuery = pipelineQuery.eq('operativo_id', targetIdForIndividual)
+
+        const { data: statusData } = await supabase.from('cotizaciones').select('estado').eq('operativo_id', targetIdForIndividual)
         const stats = [
           { name: 'Ganadas', value: statusData?.filter(q => q.estado === 'ganada').length || 0, color: '#16A34A' },
           { name: 'Abiertas', value: statusData?.filter(q => q.estado === 'abierta').length || 0, color: '#0066CC' },
@@ -110,42 +110,48 @@ export default function DashboardPage() {
         ]
         setIndividualStats(stats)
 
-        // Conteo de Vouchers
-        const { count: vCount } = await supabase.from('vouchers').select('*', { count: 'exact', head: true }).eq('operativo_id', targetId)
+        const { count: vCount } = await supabase.from('vouchers').select('*', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual)
         
-        const totalQ = statusData?.length || 1
+        const totalQ = statusData?.length || 0
         const wonQ = statusData?.filter(q => q.estado === 'ganada').length || 0
 
         setMetrics(prev => ({
           ...prev,
           vouchersEmitidos: vCount || 0,
-          conversionRate: (wonQ / totalQ) * 100
+          conversionRate: totalQ > 0 ? (wonQ / totalQ) * 100 : 0
         }))
       }
 
       const { data: pipelineData } = await pipelineQuery
-      const totalPipeline = pipelineData?.reduce((acc, q) => acc + Number(q.valor_total || 0), 0) || 0
-      const popular = pipelineData?.map(q => q.destino).filter(Boolean).sort((a,b) => pipelineData.filter(v => v===a).length - pipelineData.filter(v => v===b).length).pop() || 'N/A'
+      const totalPipeline = pipelineData?.reduce((acc, q) => acc + (Number(q.valor_total) || 0), 0) || 0
+      
+      // Optimización del destino más popular
+      const destMap = {}
+      pipelineData?.forEach(q => { if(q.destino) destMap[q.destino] = (destMap[q.destino] || 0) + 1 })
+      const popular = Object.keys(destMap).sort((a,b) => destMap[b] - destMap[a])[0] || 'N/A'
 
       // 3. Leaderboard y Gráficos Globales
       if (isAdmin) {
         const { data: allOps } = await supabase.from('profiles').select('id, nombre, meta_mensual').eq('rol', 'operativo')
         const board = allOps?.map(op => {
           const opVentas = (ventasData || []).filter(v => v.operativo_id === op.id)
-          const totalOp = opVentas.reduce((acc, v) => acc + Number(v.comision) + Number(v.utilidad), 0) || 0
+          const totalOp = opVentas.reduce((acc, v) => acc + (Number(v.comision) || 0) + (Number(v.utilidad) || 0), 0) || 0
+          const meta = Number(op.meta_mensual) || 5000
           return {
             id: op.id,
-            nombre: op.nombre.split(' ')[0],
+            nombre: op.nombre?.split(' ')[0] || 'N/A',
             total: totalOp,
-            cumplimiento: (totalOp / (op.meta_mensual || 5000)) * 100,
-            avatar: op.nombre.charAt(0)
+            cumplimiento: (totalOp / meta) * 100,
+            avatar: op.nombre?.charAt(0) || '?'
           }
         }).sort((a, b) => b.total - a.total)
         
         setLeaderboard(board || [])
         if (selectedOperative === 'global') setChartData(board || [])
 
-        const globalM = allOps?.reduce((acc, op) => acc + Number(op.meta_mensual || 0), 0) || 50000
+        const globalM = allOps?.reduce((acc, op) => acc + (Number(op.meta_mensual) || 0), 0) || 50000
+        const currentMeta = selectedOperative === 'global' ? globalM : (Number(allOps.find(o => o.id === selectedOperative)?.meta_mensual) || 5000)
+
         setMetrics(prev => ({
           ...prev,
           totalVendido: totalV,
@@ -153,7 +159,7 @@ export default function DashboardPage() {
           pipeline: totalPipeline,
           topDestino: popular,
           globalGoal: globalM,
-          porcentajeMeta: (totalMetaComp / (selectedOperative === 'global' ? globalM : (allOps.find(o => o.id === selectedOperative)?.meta_mensual || 5000))) * 100
+          porcentajeMeta: currentMeta > 0 ? (totalMetaComp / currentMeta) * 100 : 0
         }))
       }
 
@@ -161,11 +167,12 @@ export default function DashboardPage() {
       setQuotes(quotesData || [])
 
       if (!isAdmin) {
+        const meta = Number(profileData?.meta_mensual) || 5000
         setMetrics(prev => ({
           ...prev,
           totalVendido: totalV,
           metaComputable: totalMetaComp,
-          porcentajeMeta: (totalMetaComp / (profileData?.meta_mensual || 5000)) * 100,
+          porcentajeMeta: meta > 0 ? (totalMetaComp / meta) * 100 : 0,
           pipeline: totalPipeline,
           topDestino: popular
         }))

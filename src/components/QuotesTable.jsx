@@ -85,33 +85,46 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-50">
-          {quotes.map((quote) => {
+          {quotes.length === 0 ? (
+            <tr>
+              <td colSpan="6" className="py-20 text-center">
+                <div className="flex flex-col items-center gap-2 opacity-30">
+                  <FileText size={48} />
+                  <p className="text-xs font-black uppercase tracking-widest">No hay expedientes registrados</p>
+                </div>
+              </td>
+            </tr>
+          ) : quotes.map((quote) => {
             const rawStatus = (quote.estado || '').toString().trim().toLowerCase()
             const isGanada = rawStatus === 'ganada'
+            const isPerdida = rawStatus === 'perdida' || rawStatus === 'anulada'
             
             return (
               <tr 
                 key={quote.id} 
-                className={`group hover:bg-gray-50 transition-colors cursor-pointer ${isGanada ? 'opacity-70 bg-gray-50/30' : ''}`}
+                className={`group hover:bg-gray-50 transition-colors cursor-pointer ${isGanada ? 'opacity-80 bg-gray-50/50' : ''}`}
                 onClick={() => setViewingQuote(quote)}
               >
-                <td className="py-4 px-4 font-mono text-xs font-bold text-primary">{quote.codigo}</td>
+                <td className="py-4 px-4 font-mono text-xs font-black text-primary">{quote.codigo}</td>
                 <td className="py-4 px-4">
-                  <div className="font-bold text-gray-800 text-sm">{quote.agencia}</div>
-                  <div className="text-[10px] text-gray-400 uppercase tracking-wider">{quote.destino}</div>
+                  <div className="font-black text-gray-800 text-sm">{quote.agencia || 'Directo'}</div>
+                  <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{quote.destino || 'S/D'}</div>
                 </td>
                 <td className="py-4 px-4">
-                  <div className="flex items-center gap-1 text-gray-500 text-xs">
-                    <UsersIcon size={14} /> {quote.numero_pasajeros || quote.nombres_pasajeros?.length || 0}
+                  <div className="flex items-center gap-1.5 text-gray-500 text-xs font-bold">
+                    <UsersIcon size={14} className="text-gray-300" /> 
+                    {quote.numero_pasajeros || (Array.isArray(quote.nombres_pasajeros) ? quote.nombres_pasajeros.length : 0)}
                   </div>
                 </td>
-                <td className="py-4 px-4 text-xs font-bold text-primary uppercase">{quote.profiles?.nombre?.split(' ')[0]}</td>
+                <td className="py-4 px-4 text-[10px] font-black text-primary uppercase tracking-tighter">
+                  {quote.profiles?.nombre?.split(' ')[0] || '---'}
+                </td>
                 <td className="py-4 px-4">{getStatusBadge(quote)}</td>
                 <td className="py-4 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-end gap-1.5">
                     <button onClick={() => setViewingQuote(quote)} className="p-2 text-gray-400 hover:text-success rounded-lg" title="Ver Detalle"><Eye size={18} /></button>
                     
-                    {!isGanada && (
+                    {!isGanada && !isPerdida && (
                       <>
                         <button 
                           onClick={() => window.dispatchEvent(new CustomEvent('open-sales-modal', { detail: quote }))}

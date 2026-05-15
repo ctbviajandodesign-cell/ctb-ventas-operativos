@@ -85,16 +85,17 @@ export default function SalesModal() {
     setMilestones(milestones.map(m => {
       if (m.id === id) {
         let newM = { ...m, [field]: value }
-        if (field === 'percent') newM.amount = (value / 100) * formData.total
-        else if (field === 'amount') newM.percent = (value / formData.total) * 100
+        const currentTotal = Number(formData.total) || 0
+        if (field === 'percent') newM.amount = ((Number(value) || 0) / 100) * currentTotal
+        else if (field === 'amount') newM.percent = currentTotal > 0 ? ((Number(value) || 0) / currentTotal) * 100 : 0
         return newM
       }
       return m
     }))
   }
 
-  const totalPaid = milestones.filter(m => m.status === 'pagado').reduce((acc, m) => acc + Number(m.amount), 0)
-  const faltante = formData.total - totalPaid
+  const totalPaid = milestones.filter(m => m.status === 'pagado').reduce((acc, m) => acc + (Number(m.amount) || 0), 0)
+  const faltante = (Number(formData.total) || 0) - totalPaid
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -105,14 +106,14 @@ export default function SalesModal() {
       if (!user) throw new Error("No hay sesión activa")
 
       const payload = {
-        total: formData.total,
-        abono_tarjeta: milestones.filter(m => m.status === 'pagado' && m.label.toLowerCase().includes('tarjeta')).reduce((acc, m) => acc + Number(m.amount), 0),
+        total: Number(formData.total) || 0,
+        abono_tarjeta: milestones.filter(m => m.status === 'pagado' && m.label.toLowerCase().includes('tarjeta')).reduce((acc, m) => acc + (Number(m.amount) || 0), 0),
         abono_1: milestones.filter(m => m.status === 'pagado' && !m.label.toLowerCase().includes('tarjeta'))[0]?.amount || 0,
-        abono_2: milestones.filter(m => m.status === 'pagado' && !m.label.toLowerCase().includes('tarjeta')).slice(1).reduce((acc, m) => acc + Number(m.amount), 0),
-        comision: formData.comision,
-        utilidad: formData.utilidad,
-        bono_counter: formData.bono_counter,
-        plan_pagos: milestones, // NUEVO: Campo JSONB para el cronograma
+        abono_2: milestones.filter(m => m.status === 'pagado' && !m.label.toLowerCase().includes('tarjeta')).slice(1).reduce((acc, m) => acc + (Number(m.amount) || 0), 0),
+        comision: Number(formData.comision) || 0,
+        utilidad: Number(formData.utilidad) || 0,
+        bono_counter: Number(formData.bono_counter) || 0,
+        plan_pagos: milestones,
         estado: 'activa'
       }
 
@@ -141,15 +142,14 @@ export default function SalesModal() {
           fecha_viaje_desde: formData.fecha_viaje_desde || null,
           fecha_viaje_hasta: formData.fecha_viaje_hasta || null,
           fecha_caducidad: formData.fecha_caducidad_voucher || null,
-          inclusiones: inclusions, // NUEVO: Campo JSONB para inclusiones
+          inclusiones: inclusions,
           notas: formData.notas_voucher,
           agencia: quote.agencia,
-          valor_total: formData.total,
+          valor_total: Number(formData.total) || 0,
           pasajeros: quote.nombres_pasajeros,
           destino: quote.destino
         }])
         
-
         if (vchError) throw vchError
         window.location.href = '/dashboard/vouchers'
         return
@@ -157,28 +157,8 @@ export default function SalesModal() {
       
       window.location.reload()
     } catch (error) {
-      // Intento de guardado legacy si fallan las columnas nuevas
-      console.error("Error guardando en columnas nuevas, reintentando modo legacy...", error)
-      
-      // Reintento sin las columnas nuevas para no bloquear al usuario
-      try {
-        const legacyPayload = {
-          total: formData.total,
-          abono_tarjeta: formData.total, // Guardamos todo en tarjeta como fallback
-          comision: formData.comision,
-          utilidad: formData.utilidad,
-          estado: 'activa'
-        }
-        if (quote.existingSale) {
-          await supabase.from('ventas').update(legacyPayload).eq('id', quote.existingSale.id)
-        } else {
-          const { data: v } = await supabase.from('ventas').insert([{ ...legacyPayload, cotizacion_id: quote.id, operativo_id: quote.operativo_id, numero_proforma: quote.codigo }]).select().single()
-          await supabase.from('cotizaciones').update({ estado: 'ganada' }).eq('id', quote.id)
-        }
-        window.location.reload()
-      } catch (e) {
-        alert("Error crítico: " + e.message)
-      }
+      console.error("Error crítico en el cierre:", error)
+      alert("Error al procesar la venta: " + (error.message || "Error desconocido"))
     } finally {
       setLoading(false)
     }
@@ -211,12 +191,12 @@ export default function SalesModal() {
             <div className="space-y-3">
               {milestones.map((m) => (
                 <div key={m.id} className={`grid grid-cols-12 gap-2 p-3 rounded-2xl border transition-all ${m.status === 'pagado' ? 'bg-success/5 border-success/20' : 'bg-amber-50/50 border-amber-100'}`}>
-                  <div className="col-span-4"><input className="bg-transparent border-none text-[11px] font-black w-full" value={m.label} onChange={e => updateMilestone(m.id, 'label', e.target.value)} /></div>
-                  <div className="col-span-2 relative"><span className="absolute left-1 top-2 text-[10px] text-gray-400">$</span><input type="number" className="bg-white border-none rounded-lg text-xs font-black w-full pl-4 py-1" value={m.amount} onChange={e => updateMilestone(m.id, 'amount', parseFloat(e.target.value))} /></div>
-                  <div className="col-span-3"><input type="date" className="bg-white border-none rounded-lg text-[10px] font-bold w-full py-1 px-2" value={m.date} onChange={e => updateMilestone(m.id, 'date', e.target.value)} /></div>
+                  <div className="col-span-4"><input className="bg-transparent border-none text-[11px] font-black w-full outline-none" value={m.label} onChange={e => updateMilestone(m.id, 'label', e.target.value)} /></div>
+                  <div className="col-span-2 relative"><span className="absolute left-1 top-2 text-[10px] text-gray-400">$</span><input type="number" className="bg-white border-none rounded-lg text-xs font-black w-full pl-4 py-1 outline-none" value={m.amount} onChange={e => updateMilestone(m.id, 'amount', e.target.value)} /></div>
+                  <div className="col-span-3"><input type="date" className="bg-white border-none rounded-lg text-[10px] font-bold w-full py-1 px-2 outline-none" value={m.date} onChange={e => updateMilestone(m.id, 'date', e.target.value)} /></div>
                   <div className="col-span-3 flex justify-end gap-2">
                     <button type="button" onClick={() => updateMilestone(m.id, 'status', m.status === 'pagado' ? 'pendiente' : 'pagado')} className={`p-2 rounded-lg transition-all ${m.status === 'pagado' ? 'text-success bg-white shadow-sm' : 'text-gray-300'}`}><CheckCircle2 size={20} /></button>
-                    <button type="button" onClick={() => setMilestones(milestones.filter(x => x.id !== m.id))} className="text-gray-300 hover:text-danger"><Trash2 size={16} /></button>
+                    <button type="button" onClick={() => setMilestones(milestones.filter(x => x.id !== m.id))} className="text-gray-300 hover:text-danger transition-colors"><Trash2 size={16} /></button>
                   </div>
                 </div>
               ))}
@@ -224,11 +204,11 @@ export default function SalesModal() {
           </div>
 
           <div className="grid grid-cols-3 gap-4">
-            <div className="bg-gray-50 p-6 rounded-[2rem]"><p className="text-[10px] font-black text-gray-400 uppercase">Comisión</p><input type="number" step="0.01" className="bg-transparent border-none font-black text-success text-2xl p-0 w-full" value={formData.comision} onChange={e => setFormData({...formData, comision: parseFloat(e.target.value)})} /></div>
-            <div className="bg-gray-50 p-6 rounded-[2rem]"><p className="text-[10px] font-black text-gray-400 uppercase">Utilidad</p><input type="number" step="0.01" className="bg-transparent border-none font-black text-success text-2xl p-0 w-full" value={formData.utilidad} onChange={e => setFormData({...formData, utilidad: parseFloat(e.target.value)})} /></div>
-            <div className="bg-success text-white p-6 rounded-[2rem] flex flex-col justify-center items-center">
-              <p className="text-[10px] font-bold opacity-80 uppercase">Aporte Meta</p>
-              <p className="text-2xl font-black">${(formData.comision + formData.utilidad).toLocaleString()}</p>
+            <div className="bg-gray-50 p-6 rounded-[2rem]"><p className="text-[10px] font-black text-gray-400 uppercase">Comisión</p><input type="number" step="0.01" className="bg-transparent border-none font-black text-success text-2xl p-0 w-full outline-none" value={formData.comision} onChange={e => setFormData({...formData, comision: e.target.value})} /></div>
+            <div className="bg-gray-50 p-6 rounded-[2rem]"><p className="text-[10px] font-black text-gray-400 uppercase">Utilidad</p><input type="number" step="0.01" className="bg-transparent border-none font-black text-success text-2xl p-0 w-full outline-none" value={formData.utilidad} onChange={e => setFormData({...formData, utilidad: e.target.value})} /></div>
+            <div className="bg-success text-white p-6 rounded-[2rem] flex flex-col justify-center items-center shadow-lg shadow-success/10">
+              <p className="text-[10px] font-bold opacity-80 uppercase tracking-widest">Aporte Meta</p>
+              <p className="text-2xl font-black">${(Number(formData.comision || 0) + Number(formData.utilidad || 0)).toLocaleString()}</p>
             </div>
           </div>
 
