@@ -19,7 +19,8 @@ import {
   Filter,
   BarChart3,
   PieChart as PieIcon,
-  ChevronRight
+  ChevronRight,
+  Plus
 } from 'lucide-react'
 import { 
   BarChart, 
@@ -164,7 +165,8 @@ export default function DashboardPage() {
       }).sort((a, b) => b.cumplimiento - a.cumplimiento) // ordenar por % cumplimiento
 
       setLeaderboard(board || [])
-      if (isAdmin && selectedOperative === 'global') setChartData(board || [])
+      // Siempre actualizar chartData para gráfico de barras
+      setChartData(board || [])
 
       const globalM = allOps?.reduce((acc, op) => acc + (Number(op.meta_mensual) || 0), 0) || 50000
       const myMeta = !isAdmin
@@ -348,6 +350,14 @@ export default function DashboardPage() {
             </select>
           </div>
         )}
+
+        {/* QUICK ACTION — Nueva Cotización (visible para todos) */}
+        <Link
+          href="/dashboard/cotizaciones/nueva"
+          className="flex items-center gap-2 bg-primary text-white px-5 py-3 rounded-2xl font-black text-sm uppercase tracking-tighter shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all whitespace-nowrap"
+        >
+          <Plus size={18} /> Nueva Cotización
+        </Link>
       </div>
 
       {/* KPI GRID */}

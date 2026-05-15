@@ -23,7 +23,8 @@ export default function SalesModal() {
     total: 0, comision: 0, utilidad: 0, bono_counter: 0,
     generar_voucher: false, numero_proforma: '',
     fecha_viaje_desde: '', fecha_viaje_hasta: '',
-    fecha_caducidad_voucher: '', notas_voucher: ''
+    fecha_caducidad_voucher: '', notas_voucher: '',
+    pasajeros_voucher: ''
   })
 
   useEffect(() => {
@@ -43,7 +44,8 @@ export default function SalesModal() {
           generar_voucher: false,
           numero_proforma: s.numero_proforma || q.codigo || '',
           fecha_viaje_desde: '', fecha_viaje_hasta: '',
-          fecha_caducidad_voucher: '', notas_voucher: ''
+          fecha_caducidad_voucher: '', notas_voucher: '',
+          pasajeros_voucher: Array.isArray(q.nombres_pasajeros) ? q.nombres_pasajeros.join('\n') : (q.nombres_pasajeros || '')
         })
         if (s.plan_pagos?.length) setMilestones(s.plan_pagos)
         else setMilestones([{ id: Date.now(), label: 'Pago Inicial / Reserva', amount: s.total || 0, percent: 100, date: new Date().toISOString().split('T')[0], status: 'pagado' }])
@@ -51,10 +53,15 @@ export default function SalesModal() {
         // Cargar voucher existente
         const { data: voucher } = await supabase
           .from('vouchers')
-          .select('id, codigo, estado')
+          .select('id, codigo, estado, pasajeros')
           .eq('venta_id', s.id)
           .single()
-        if (voucher) setExistingVoucher(voucher)
+        if (voucher) {
+          setExistingVoucher(voucher)
+          if (voucher.pasajeros) {
+            setFormData(prev => ({ ...prev, pasajeros_voucher: Array.isArray(voucher.pasajeros) ? voucher.pasajeros.join('\n') : voucher.pasajeros }))
+          }
+        }
       } else {
         setFormData({
           total: initialTotal,
@@ -65,7 +72,8 @@ export default function SalesModal() {
           numero_proforma: q.codigo || '',
           fecha_viaje_desde: q.fecha_viaje_desde || '',
           fecha_viaje_hasta: q.fecha_viaje_hasta || '',
-          fecha_caducidad_voucher: '', notas_voucher: ''
+          fecha_caducidad_voucher: '', notas_voucher: '',
+          pasajeros_voucher: Array.isArray(q.nombres_pasajeros) ? q.nombres_pasajeros.join('\n') : (q.nombres_pasajeros || '')
         })
         setMilestones([
           { id: Date.now(), label: 'Pago Inicial / Reserva', amount: initialTotal, percent: 100, date: new Date().toISOString().split('T')[0], status: 'pagado' }
@@ -114,6 +122,14 @@ export default function SalesModal() {
       if (isEditing) {
         const { error } = await supabase.from('ventas').update(payload).eq('id', ventaId)
         if (error) throw error
+        // Actualizar cotización original con los valores reales
+        await supabase.from('cotizaciones').update({
+          valor_total: Number(formData.total) || 0,
+          valor_comision: Number(formData.comision) || 0,
+          valor_utilidad: Number(formData.utilidad) || 0,
+          valor_bono: Number(formData.bono_counter) || 0,
+          nombres_pasajeros: formData.pasajeros_voucher ? formData.pasajeros_voucher.split('\n').map(s => s.trim()).filter(Boolean) : []
+        }).eq('id', quote.id)
       } else {
         const { data: venta, error: vError } = await supabase
           .from('ventas')
@@ -121,8 +137,17 @@ export default function SalesModal() {
           .select().single()
         if (vError) throw vError
         ventaId = venta.id
-        await supabase.from('cotizaciones').update({ estado: 'ganada' }).eq('id', quote.id)
+        await supabase.from('cotizaciones').update({ 
+          estado: 'ganada',
+          valor_total: Number(formData.total) || 0,
+          valor_comision: Number(formData.comision) || 0,
+          valor_utilidad: Number(formData.utilidad) || 0,
+          valor_bono: Number(formData.bono_counter) || 0,
+          nombres_pasajeros: formData.pasajeros_voucher ? formData.pasajeros_voucher.split('\n').map(s => s.trim()).filter(Boolean) : []
+        }).eq('id', quote.id)
       }
+
+      const pasajerosArr = formData.pasajeros_voucher ? formData.pasajeros_voucher.split('\n').map(s => s.trim()).filter(Boolean) : []
 
       // Solo crear voucher si es nueva venta y se marcó la opción
       if (!isEditing && formData.generar_voucher) {
@@ -138,13 +163,14 @@ export default function SalesModal() {
           notas: formData.notas_voucher,
           agencia: quote.agencia,
           valor_total: Number(formData.total) || 0,
-          pasajeros: quote.nombres_pasajeros,
+          pasajeros: pasajerosArr,
           destino: quote.destino
         }])
         if (vchError) throw vchError
         window.location.href = '/dashboard/vouchers'
         return
       }
+
 
       window.location.reload()
     } catch (error) {
@@ -223,25 +249,35 @@ export default function SalesModal() {
             <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
               <DollarSign size={13} /> Valores Financieros
             </p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-gray-50 p-5 rounded-2xl">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="bg-gray-50 p-4 rounded-2xl">
                 <p className="text-[9px] font-black text-gray-400 uppercase mb-1">Total Venta</p>
                 <div className="flex items-baseline gap-1">
                   <span className="text-gray-400 font-bold">$</span>
-                  <input type="number" step="0.01" className="bg-transparent border-none font-black text-gray-900 text-2xl p-0 w-full outline-none" value={formData.total} onChange={e => setFormData({ ...formData, total: e.target.value })} />
+                  <input type="number" step="0.01" className="bg-transparent border-none font-black text-gray-900 text-xl p-0 w-full outline-none" value={formData.total} onChange={e => setFormData({ ...formData, total: e.target.value })} />
                 </div>
               </div>
-              <div className="bg-success/5 p-5 rounded-2xl border border-success/10">
-                <p className="text-[9px] font-black text-success/70 uppercase mb-1">Mi Ganancia (Comisión + Utilidad)</p>
-                <p className="text-2xl font-black text-success">${(Number(formData.comision || 0) + Number(formData.utilidad || 0)).toLocaleString()}</p>
+              <div className="bg-success/5 p-4 rounded-2xl border border-success/10">
+                <p className="text-[9px] font-black text-success/70 uppercase mb-1">Ganancia (Comisión + Utilidad)</p>
+                <p className="text-xl font-black text-success">${(Number(formData.comision || 0) + Number(formData.utilidad || 0)).toLocaleString()}</p>
+              </div>
+              <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-[9px] font-black text-primary/70 uppercase">Bono Counter</p>
+                  <span className="text-[8px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase">Constante</span>
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-primary font-bold">$</span>
+                  <input type="number" step="0.01" className="bg-transparent border-none font-black text-primary text-xl p-0 w-full outline-none" value={formData.bono_counter} onChange={e => setFormData({ ...formData, bono_counter: e.target.value })} />
+                </div>
               </div>
               <div className="bg-gray-50 p-4 rounded-2xl">
                 <p className="text-[9px] font-black text-gray-400 uppercase mb-1">Comisión $</p>
-                <input type="number" step="0.01" className="bg-transparent border-none font-black text-xl p-0 w-full outline-none text-gray-800" value={formData.comision} onChange={e => setFormData({ ...formData, comision: e.target.value })} />
+                <input type="number" step="0.01" className="bg-transparent border-none font-black text-lg p-0 w-full outline-none text-gray-800" value={formData.comision} onChange={e => setFormData({ ...formData, comision: e.target.value })} />
               </div>
               <div className="bg-gray-50 p-4 rounded-2xl">
                 <p className="text-[9px] font-black text-gray-400 uppercase mb-1">Utilidad $</p>
-                <input type="number" step="0.01" className="bg-transparent border-none font-black text-xl p-0 w-full outline-none text-gray-800" value={formData.utilidad} onChange={e => setFormData({ ...formData, utilidad: e.target.value })} />
+                <input type="number" step="0.01" className="bg-transparent border-none font-black text-lg p-0 w-full outline-none text-gray-800" value={formData.utilidad} onChange={e => setFormData({ ...formData, utilidad: e.target.value })} />
               </div>
             </div>
           </div>
@@ -326,6 +362,10 @@ export default function SalesModal() {
                     <div>
                       <label className="text-[9px] font-black text-gray-400 uppercase">Fin del viaje</label>
                       <input type="date" className="input font-bold mt-1" value={formData.fecha_viaje_hasta} onChange={e => setFormData({ ...formData, fecha_viaje_hasta: e.target.value })} />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-[9px] font-black text-gray-400 uppercase">Nombres de Pasajeros / Grupo (Uno por línea)</label>
+                      <textarea className="input text-xs mt-1 min-h-[70px] font-mono" placeholder="Juan Pérez&#10;María García..." value={formData.pasajeros_voucher} onChange={e => setFormData({ ...formData, pasajeros_voucher: e.target.value })} />
                     </div>
                     <div className="col-span-2">
                       <label className="text-[9px] font-black text-gray-400 uppercase">Notas para el pasajero</label>
