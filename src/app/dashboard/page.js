@@ -132,37 +132,35 @@ export default function DashboardPage() {
       const popular = Object.keys(destMap).sort((a,b) => destMap[b] - destMap[a])[0] || 'N/A'
 
       // 3. Leaderboard y Gráficos Globales
-      if (isAdmin) {
-        const { data: allOps } = await supabase.from('profiles').select('id, nombre, meta_mensual').eq('rol', 'operativo')
-        const board = allOps?.map(op => {
-          const opVentas = (ventasData || []).filter(v => v.operativo_id === op.id)
-          const totalOp = opVentas.reduce((acc, v) => acc + (Number(v.comision) || 0) + (Number(v.utilidad) || 0), 0) || 0
-          const meta = Number(op.meta_mensual) || 5000
-          return {
-            id: op.id,
-            nombre: op.nombre?.split(' ')[0] || 'N/A',
-            total: totalOp,
-            cumplimiento: (totalOp / meta) * 100,
-            avatar: op.nombre?.charAt(0) || '?'
-          }
-        }).sort((a, b) => b.total - a.total)
-        
-        setLeaderboard(board || [])
-        if (selectedOperative === 'global') setChartData(board || [])
+      const { data: allOps } = await supabase.from('profiles').select('id, nombre, meta_mensual').eq('rol', 'operativo')
+      const board = allOps?.map(op => {
+        const opVentas = (ventasData || []).filter(v => v.operativo_id === op.id)
+        const totalOp = opVentas.reduce((acc, v) => acc + (Number(v.comision) || 0) + (Number(v.utilidad) || 0), 0) || 0
+        const meta = Number(op.meta_mensual) || 5000
+        return {
+          id: op.id,
+          nombre: op.nombre?.split(' ')[0] || 'N/A',
+          total: totalOp,
+          cumplimiento: (totalOp / meta) * 100,
+          avatar: op.nombre?.charAt(0) || '?'
+        }
+      }).sort((a, b) => b.total - a.total)
+      
+      setLeaderboard(board || [])
+      if (isAdmin && selectedOperative === 'global') setChartData(board || [])
 
-        const globalM = allOps?.reduce((acc, op) => acc + (Number(op.meta_mensual) || 0), 0) || 50000
-        const currentMeta = selectedOperative === 'global' ? globalM : (Number(allOps.find(o => o.id === selectedOperative)?.meta_mensual) || 5000)
+      const globalM = allOps?.reduce((acc, op) => acc + (Number(op.meta_mensual) || 0), 0) || 50000
+      const currentMeta = isAdmin && selectedOperative === 'global' ? globalM : (Number(allOps.find(o => o.id === (isAdmin ? selectedOperative : user.id))?.meta_mensual) || 5000)
 
-        setMetrics(prev => ({
-          ...prev,
-          totalVendido: totalV,
-          metaComputable: totalMetaComp,
-          pipeline: totalPipeline,
-          topDestino: popular,
-          globalGoal: globalM,
-          porcentajeMeta: currentMeta > 0 ? (totalMetaComp / currentMeta) * 100 : 0
-        }))
-      }
+      setMetrics(prev => ({
+        ...prev,
+        totalVendido: totalV,
+        metaComputable: totalMetaComp,
+        pipeline: totalPipeline,
+        topDestino: popular,
+        globalGoal: globalM,
+        porcentajeMeta: currentMeta > 0 ? (totalMetaComp / currentMeta) * 100 : 0
+      }))
 
       const { data: quotesData } = await quotesQuery.limit(10)
       setQuotes(quotesData || [])
@@ -316,40 +314,46 @@ export default function DashboardPage() {
 
           {/* GRÁFICO DE RENDIMIENTO INDIVIDUAL (OPERATIVO) */}
           {(selectedOperative !== 'global' || !isAdmin) && (
-            <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-gray-50 animate-in zoom-in duration-500">
-              <div className="flex items-center justify-between mb-8">
-                <h3 className="font-black text-xl uppercase tracking-tighter flex items-center gap-3 text-gray-800">
-                  <PieIcon className="text-primary" size={24} />
-                  Status Breakdown & Conversión
-                </h3>
-                <div className="flex items-center gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in zoom-in duration-500">
+              <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-gray-50">
+                <div className="flex items-center justify-between mb-8">
+                  <h3 className="font-black text-xl uppercase tracking-tighter flex items-center gap-3 text-gray-800">
+                    <PieIcon className="text-primary" size={24} />
+                    Embudo de Venta
+                  </h3>
                   <div className="bg-success/10 px-4 py-2 rounded-2xl">
                     <p className="text-[9px] font-black text-success uppercase">Conversión</p>
                     <p className="text-lg font-black text-success">{metrics.conversionRate.toFixed(1)}%</p>
                   </div>
                 </div>
+
+                <div className="h-[250px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={individualStats} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#F1F5F9" />
+                      <XAxis type="number" hide />
+                      <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 900, textTransform: 'uppercase' }} width={80} />
+                      <Tooltip cursor={{ fill: '#F8FAFC' }} />
+                      <Bar dataKey="value" radius={[0, 10, 10, 0]} barSize={35}>
+                        {individualStats.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
 
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={individualStats} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#F1F5F9" />
-                    <XAxis type="number" hide />
-                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 900, textTransform: 'uppercase' }} width={80} />
-                    <Tooltip cursor={{ fill: '#F8FAFC' }} />
-                    <Bar dataKey="value" radius={[0, 10, 10, 0]} barSize={35}>
-                      {individualStats.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="mt-6 grid grid-cols-4 gap-4">
-                {individualStats.map((stat, i) => (
-                  <div key={i} className="text-center p-3 rounded-2xl bg-gray-50 border border-gray-100">
-                    <p className="text-[9px] font-black text-gray-400 uppercase mb-1">{stat.name}</p>
-                    <p className="text-xl font-black text-gray-800 leading-none">{stat.value}</p>
+              <div className="bg-gray-900 p-10 rounded-[3rem] shadow-2xl text-white relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-10 opacity-10"><TrendingUp size={140} /></div>
+                <h3 className="font-black text-xl uppercase tracking-tighter mb-8 relative z-10">Tu Aporte al Equipo</h3>
+                <div className="flex items-center justify-center h-[180px] relative z-10">
+                  <div className="text-center">
+                    <p className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-2">Market Share</p>
+                    <p className="text-6xl font-black text-white italic">
+                      {metrics.globalGoal > 0 ? ((metrics.metaComputable / metrics.globalGoal) * 100).toFixed(1) : 0}%
+                    </p>
+                    <p className="text-[9px] font-bold text-gray-400 uppercase mt-4 tracking-widest">De la meta global de CTB</p>
                   </div>
-                ))}
+                </div>
               </div>
             </div>
           )}
@@ -400,25 +404,34 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* LEADERBOARD (Solo Admin) */}
-          {isAdmin && (
-            <div className="bg-white p-8 rounded-[3.5rem] shadow-xl border border-gray-100">
-              <h3 className="font-black text-xl uppercase tracking-tighter mb-8 flex items-center gap-3"><Users size={22} className="text-primary" />Team Leaderboard</h3>
-              <div className="space-y-6">
-                {leaderboard.map((op, idx) => (
-                  <div key={op.id} className="flex items-center justify-between group cursor-pointer" onClick={() => setSelectedOperative(op.id)}>
-                    <div className="flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg transition-all ${idx === 0 ? 'bg-amber-100 text-amber-600 shadow-lg shadow-amber-200' : 'bg-gray-50 text-gray-400'}`}>{op.avatar}</div>
-                      <div><p className="text-sm font-black text-gray-900 leading-none mb-1 group-hover:text-primary transition-colors">{op.nombre}</p>
-                        <div className="flex items-center gap-2"><div className="w-20 bg-gray-100 h-1.5 rounded-full overflow-hidden"><div className="h-full bg-success rounded-full" style={{ width: `${Math.min(op.cumplimiento, 100)}%` }}></div></div><span className="text-[9px] font-bold text-gray-400 uppercase">{op.cumplimiento.toFixed(0)}%</span></div>
+          {/* LEADERBOARD (Visible para todos) */}
+          <div className="bg-white p-8 rounded-[3.5rem] shadow-xl border border-gray-100">
+            <h3 className="font-black text-xl uppercase tracking-tighter mb-8 flex items-center gap-3"><Trophy size={22} className="text-amber-500" />Team Rankings</h3>
+            <div className="space-y-6">
+              {leaderboard.map((op, idx) => (
+                <div 
+                  key={op.id} 
+                  className={`flex items-center justify-between group ${isAdmin ? 'cursor-pointer' : ''}`} 
+                  onClick={() => isAdmin && setSelectedOperative(op.id)}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg transition-all ${idx === 0 ? 'bg-amber-100 text-amber-600 shadow-lg shadow-amber-200' : 'bg-gray-50 text-gray-400'}`}>{op.avatar}</div>
+                    <div><p className="text-sm font-black text-gray-900 leading-none mb-1 group-hover:text-primary transition-colors">{op.nombre}</p>
+                      <div className="flex items-center gap-2">
+                        <div className="w-20 bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                          <div className={`h-full ${op.cumplimiento >= 100 ? 'bg-success' : 'bg-primary'} rounded-full`} style={{ width: `${Math.min(op.cumplimiento, 100)}%` }}></div>
+                        </div>
+                        <span className="text-[9px] font-bold text-gray-400 uppercase">{op.cumplimiento.toFixed(0)}%</span>
                       </div>
                     </div>
-                    <div className="text-right"><p className="text-sm font-black text-gray-900">${op.total.toLocaleString()}</p></div>
                   </div>
-                ))}
-              </div>
+                  <div className="text-right">
+                    <p className="text-sm font-black text-gray-900">${op.total.toLocaleString()}</p>
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
+          </div>
 
           {/* INSIGHTS DINÁMICOS */}
           <div className="bg-gray-900 p-10 rounded-[4rem] text-white shadow-2xl relative overflow-hidden">

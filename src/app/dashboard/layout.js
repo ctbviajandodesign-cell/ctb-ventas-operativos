@@ -17,53 +17,69 @@ import SalesModal from '@/components/SalesModal'
 export default function DashboardLayout({ children }) {
   const router = useRouter()
 
+  const [profile, setProfile] = useState(null)
+
+  useEffect(() => {
+    fetchProfile()
+  }, [])
+
+  async function fetchProfile() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { data } = await supabase.from('profiles').select('rol').eq('id', user.id).single()
+      setProfile(data)
+    }
+  }
+
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/')
   }
 
   return (
-    <div className="flex h-screen bg-background">
-      {/* SalesModal Global - IMPORTANTE para que funcionen los botones de Aprobar/Venta */}
+    <div className="flex h-screen bg-background selection:bg-primary/20">
+      {/* SalesModal Global */}
       <SalesModal />
 
       {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-gray-100 hidden md:flex flex-col">
-        <div className="p-6">
-          <h1 className="text-2xl font-bold text-primary tracking-tight">CTB VIAJANDO</h1>
-          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Ventas Operativas</p>
+        <div className="p-8">
+          <h1 className="text-2xl font-black text-gray-900 tracking-tighter leading-none italic">CTB <span className="text-primary italic">V</span></h1>
+          <p className="text-[9px] text-gray-400 font-black uppercase tracking-[0.3em] mt-2">Intelligence Systems</p>
         </div>
 
-        <nav className="flex-1 px-4 space-y-1">
-          <Link href="/dashboard" className="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-primary/5 hover:text-primary rounded-xl transition-all font-bold group">
-            <LayoutDashboard size={20} />
+        <nav className="flex-1 px-4 space-y-2">
+          <Link href="/dashboard" className="flex items-center gap-3 px-5 py-4 text-gray-400 hover:bg-gray-50 hover:text-primary rounded-[1.5rem] transition-all font-black text-xs uppercase tracking-widest group">
+            <LayoutDashboard size={18} className="group-hover:scale-110 transition-transform" />
             Dashboard
           </Link>
-          <Link href="/dashboard/cotizaciones" className="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-primary/5 hover:text-primary rounded-xl transition-all font-bold group">
-            <FileText size={20} />
-            Cotizaciones
+          <Link href="/dashboard/cotizaciones" className="flex items-center gap-3 px-5 py-4 text-gray-400 hover:bg-gray-50 hover:text-primary rounded-[1.5rem] transition-all font-black text-xs uppercase tracking-widest group">
+            <FileText size={18} className="group-hover:scale-110 transition-transform" />
+            Proformas
           </Link>
-          <Link href="/dashboard/ventas" className="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-primary/5 hover:text-primary rounded-xl transition-all font-bold group">
-            <DollarSign size={20} />
-            Ventas Cerradas
+          <Link href="/dashboard/ventas" className="flex items-center gap-3 px-5 py-4 text-gray-400 hover:bg-gray-50 hover:text-primary rounded-[1.5rem] transition-all font-black text-xs uppercase tracking-widest group">
+            <DollarSign size={18} className="group-hover:scale-110 transition-transform" />
+            Ventas
           </Link>
-          <Link href="/dashboard/vouchers" className="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-primary/5 hover:text-primary rounded-xl transition-all font-bold group">
-            <QrCode size={20} />
-            Archivo Vouchers
+          <Link href="/dashboard/vouchers" className="flex items-center gap-3 px-5 py-4 text-gray-400 hover:bg-gray-50 hover:text-primary rounded-[1.5rem] transition-all font-black text-xs uppercase tracking-widest group">
+            <QrCode size={18} className="group-hover:scale-110 transition-transform" />
+            Vouchers
           </Link>
-          <Link href="/dashboard/usuarios" className="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-primary/5 hover:text-primary rounded-xl transition-all font-bold group">
-            <Users size={20} />
-            Equipo
-          </Link>
+          {profile?.rol === 'admin' && (
+            <Link href="/dashboard/usuarios" className="flex items-center gap-3 px-5 py-4 text-gray-400 hover:bg-gray-50 hover:text-primary rounded-[1.5rem] transition-all font-black text-xs uppercase tracking-widest group border-t border-gray-50 mt-4 pt-4">
+              <Users size={18} className="group-hover:scale-110 transition-transform" />
+              Equipo
+            </Link>
+          )}
         </nav>
 
-        <div className="p-4 border-t border-gray-50">
+        <div className="p-6 border-t border-gray-50">
           <button 
             onClick={handleLogout}
-            className="flex items-center gap-3 px-4 py-3 w-full text-danger hover:bg-red-50 rounded-xl transition-all"
+            className="flex items-center gap-3 px-5 py-4 w-full text-danger/40 hover:text-danger hover:bg-red-50 rounded-[1.5rem] transition-all font-black text-xs uppercase tracking-widest"
           >
-            <LogOut size={20} />
-            <span className="font-medium">Cerrar Sesión</span>
+            <LogOut size={18} />
+            <span>Cerrar Sesión</span>
           </button>
         </div>
       </aside>

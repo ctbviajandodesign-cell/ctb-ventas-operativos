@@ -76,9 +76,11 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
       <table className="w-full text-left">
         <thead>
           <tr className="border-b border-gray-100 text-gray-400 text-[10px] font-black uppercase tracking-widest">
-            <th className="py-4 px-4">Código</th>
+            <th className="py-4 px-4">Código / Ref</th>
             <th className="py-4 px-4">Agencia / Destino</th>
             <th className="py-4 px-4">Pasajeros</th>
+            <th className="py-4 px-4">Valor Venta</th>
+            <th className="py-4 px-4">Aporte CTB</th>
             <th className="py-4 px-4">Operativo</th>
             <th className="py-4 px-4">Estado</th>
             <th className="py-4 px-4 text-right">Acciones</th>
@@ -87,7 +89,7 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
         <tbody className="divide-y divide-gray-50">
           {quotes.length === 0 ? (
             <tr>
-              <td colSpan="6" className="py-20 text-center">
+              <td colSpan="8" className="py-20 text-center">
                 <div className="flex flex-col items-center gap-2 opacity-30">
                   <FileText size={48} />
                   <p className="text-xs font-black uppercase tracking-widest">No hay expedientes registrados</p>
@@ -98,44 +100,59 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
             const rawStatus = (quote.estado || '').toString().trim().toLowerCase()
             const isGanada = rawStatus === 'ganada'
             const isPerdida = rawStatus === 'perdida' || rawStatus === 'anulada'
+            const aporte = (Number(quote.valor_utilidad || 0) + Number(quote.valor_comision || 0))
             
             return (
               <tr 
                 key={quote.id} 
-                className={`group hover:bg-gray-50 transition-colors cursor-pointer ${isGanada ? 'opacity-80 bg-gray-50/50' : ''}`}
+                className={`group hover:bg-gray-50 transition-colors cursor-pointer ${isGanada ? 'bg-success/5' : ''}`}
                 onClick={() => setViewingQuote(quote)}
               >
-                <td className="py-4 px-4 font-mono text-xs font-black text-primary">{quote.codigo}</td>
+                <td className="py-4 px-4 font-mono text-xs font-black text-primary">#{quote.codigo}</td>
                 <td className="py-4 px-4">
                   <div className="font-black text-gray-800 text-sm">{quote.agencia || 'Directo'}</div>
-                  <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{quote.destino || 'S/D'}</div>
+                  <div className="text-[9px] text-gray-400 font-bold uppercase tracking-[0.1em]">{quote.destino || 'S/D'}</div>
                 </td>
                 <td className="py-4 px-4">
-                  <div className="flex items-center gap-1.5 text-gray-500 text-xs font-bold">
-                    <UsersIcon size={14} className="text-gray-300" /> 
-                    {quote.numero_pasajeros || (Array.isArray(quote.nombres_pasajeros) ? quote.nombres_pasajeros.length : 0)}
+                  <div className="flex items-center gap-1.5 text-gray-500">
+                    <div className="bg-gray-100 w-8 h-8 rounded-full flex items-center justify-center font-black text-xs text-gray-500">
+                      {quote.numero_pasajeros || (Array.isArray(quote.nombres_pasajeros) ? quote.nombres_pasajeros.length : 0)}
+                    </div>
                   </div>
                 </td>
+                <td className="py-4 px-4 font-black text-gray-900 text-sm">
+                  ${Number(quote.valor_total || 0).toLocaleString()}
+                </td>
+                <td className="py-4 px-4">
+                  <span className={`text-sm font-black ${aporte > 0 ? 'text-success' : 'text-gray-300'}`}>
+                    ${aporte.toLocaleString()}
+                  </span>
+                </td>
                 <td className="py-4 px-4 text-[10px] font-black text-primary uppercase tracking-tighter">
-                  {quote.profiles?.nombre?.split(' ')[0] || '---'}
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-[8px]">
+                      {quote.profiles?.nombre?.charAt(0)}
+                    </div>
+                    {quote.profiles?.nombre?.split(' ')[0] || '---'}
+                  </div>
                 </td>
                 <td className="py-4 px-4">{getStatusBadge(quote)}</td>
                 <td className="py-4 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center justify-end gap-1.5">
-                    <button onClick={() => setViewingQuote(quote)} className="p-2 text-gray-400 hover:text-success rounded-lg" title="Ver Detalle"><Eye size={18} /></button>
+                  <div className="flex items-center justify-end gap-1">
+                    <button onClick={() => setViewingQuote(quote)} className="p-2 text-gray-400 hover:text-success hover:bg-white rounded-lg shadow-sm shadow-transparent hover:shadow-gray-200 transition-all" title="Ver Detalle"><Eye size={18} /></button>
                     
                     {!isGanada && !isPerdida && (
                       <>
                         <button 
                           onClick={() => window.dispatchEvent(new CustomEvent('open-sales-modal', { detail: quote }))}
-                          className="p-2 text-success hover:bg-success/10 rounded-lg border border-success/20"
+                          className="p-2 text-success hover:bg-success/10 rounded-lg border border-success/10"
                           title="Aprobar Venta"
                         >
                           <CheckCircle2 size={18} />
                         </button>
                         <button 
                           onClick={() => setClosingQuote(quote)}
-                          className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg border border-amber-200"
+                          className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg border border-amber-100"
                           title="Anular"
                         >
                           <AlertTriangle size={18} />
@@ -144,7 +161,11 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
                     )}
 
                     <Link href={`/dashboard/cotizaciones/editar/${quote.id}`} className="p-2 text-gray-400 hover:text-primary rounded-lg" title="Editar"><Edit size={18} /></Link>
-                    {isAdmin && <button onClick={() => handleDelete(quote.id)} className="p-2 text-gray-300 hover:text-danger rounded-lg"><Trash2 size={18} /></button>}
+                    {isAdmin && (
+                      <button onClick={() => handleDelete(quote.id)} className="p-2 text-gray-300 hover:text-danger rounded-lg transition-colors">
+                        <Trash2 size={18} />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
