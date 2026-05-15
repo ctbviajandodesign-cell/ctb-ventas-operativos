@@ -65,19 +65,21 @@ export default function VouchersPage() {
 
   const handleUpdateVoucher = async (e) => {
     e.preventDefault()
+    const pasajerosArr = typeof editingVoucher.pasajeros === 'string'
+      ? editingVoucher.pasajeros.split('\n').map(s => s.trim()).filter(Boolean)
+      : editingVoucher.pasajeros || []
     const { error } = await supabase
       .from('vouchers')
       .update({
         agencia: editingVoucher.agencia,
-        valor_total: editingVoucher.valor_total,
         destino: editingVoucher.destino,
+        pasajeros: pasajerosArr,
         fecha_viaje_desde: editingVoucher.fecha_viaje_desde,
         fecha_viaje_hasta: editingVoucher.fecha_viaje_hasta,
         fecha_caducidad: editingVoucher.fecha_caducidad,
         notas: editingVoucher.notas
       })
       .eq('id', editingVoucher.id)
-    
     if (!error) {
       setEditingVoucher(null)
       fetchVouchers()
@@ -250,10 +252,10 @@ export default function VouchersPage() {
                 </div>
                 <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
                   <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
-                    <DollarSign size={10} /> Valor
+                    <Users size={10} /> Pasajeros
                   </p>
-                  <p className="text-lg font-black text-primary leading-none">
-                    ${Number(viewingVoucher.valor_total || 0).toLocaleString()}
+                  <p className="text-lg font-black text-gray-800 leading-none">
+                    {Array.isArray(viewingVoucher.pasajeros) ? viewingVoucher.pasajeros.length : (viewingVoucher.pasajeros || 0)}
                   </p>
                 </div>
               </div>
@@ -361,12 +363,12 @@ export default function VouchersPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-gray-400 uppercase">Valor Total ($)</label>
-                <input 
-                  type="number"
-                  className="input text-sm font-bold" 
-                  value={editingVoucher.valor_total || 0}
-                  onChange={e => setEditingVoucher({...editingVoucher, valor_total: e.target.value})}
+                <label className="text-[10px] font-black text-gray-400 uppercase">Nombres de Pasajeros (uno por línea)</label>
+                <textarea 
+                  className="input text-sm min-h-[90px] font-mono" 
+                  placeholder="Juan Pérez&#10;María García&#10;Carlos López..."
+                  value={Array.isArray(editingVoucher.pasajeros) ? editingVoucher.pasajeros.join('\n') : (editingVoucher.pasajeros || '')}
+                  onChange={e => setEditingVoucher({...editingVoucher, pasajeros: e.target.value})}
                 />
               </div>
 

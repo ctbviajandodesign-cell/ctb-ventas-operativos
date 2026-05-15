@@ -12,7 +12,8 @@ import {
   LogOut,
   QrCode,
   DollarSign,
-  ChevronRight
+  ChevronRight,
+  Star
 } from 'lucide-react'
 import SalesModal from '@/components/SalesModal'
 
@@ -41,9 +42,10 @@ export default function DashboardLayout({ children }) {
 
   const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/dashboard/cotizaciones', label: 'Proformas', icon: FileText },
-    { href: '/dashboard/ventas', label: 'Ventas', icon: DollarSign },
+    { href: '/dashboard/cotizaciones', label: 'Cotizaciones', icon: FileText },
+    { href: '/dashboard/ventas', label: 'Proformas', icon: DollarSign },
     { href: '/dashboard/vouchers', label: 'Vouchers', icon: QrCode },
+    { href: '/dashboard/logros', label: 'Mis Logros', icon: Star },
   ]
 
   const isActive = (href) => {

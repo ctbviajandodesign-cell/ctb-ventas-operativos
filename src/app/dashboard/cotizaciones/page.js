@@ -103,11 +103,11 @@ export default function CotizacionesPage() {
       {/* ENCABEZADO */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tighter uppercase italic">Mis Proformas</h1>
-          <p className="text-gray-400 text-xs font-black uppercase tracking-widest mt-1">Registro y seguimiento de todas las cotizaciones</p>
+          <h1 className="text-3xl font-black text-gray-900 tracking-tighter uppercase italic">Mis Cotizaciones</h1>
+          <p className="text-gray-400 text-xs font-black uppercase tracking-widest mt-1">Requerimientos en proceso de cierre</p>
         </div>
         <Link href="/dashboard/cotizaciones/nueva" className="btn-primary flex items-center gap-2 shadow-lg shadow-primary/20">
-          <Plus size={18} /> Nueva Proforma
+          <Plus size={18} /> Nueva Cotización
         </Link>
       </div>
 

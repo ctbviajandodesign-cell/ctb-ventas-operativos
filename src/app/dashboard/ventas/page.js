@@ -126,8 +126,8 @@ export default function VentasPage() {
 
       {/* ENCABEZADO */}
       <div>
-        <h1 className="text-3xl font-black text-gray-900 tracking-tighter uppercase italic">Ventas Cerradas</h1>
-        <p className="text-gray-400 text-xs font-black uppercase tracking-widest mt-1">Registro financiero de todos los cierres exitosos</p>
+        <h1 className="text-3xl font-black text-gray-900 tracking-tighter uppercase italic">Mis Proformas</h1>
+        <p className="text-gray-400 text-xs font-black uppercase tracking-widest mt-1">Cotizaciones aprobadas y convertidas en venta</p>
       </div>
 
       {/* KPI CARDS */}
