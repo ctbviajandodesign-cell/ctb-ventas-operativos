@@ -12,15 +12,6 @@ import {
   FileText, 
   Target,
   Trophy,
-  Users
-} from 'lucide-react'
-
-import { 
-  DollarSign, 
-  TrendingUp, 
-  FileText, 
-  Target,
-  Trophy,
   Users,
   Search,
   Filter,
