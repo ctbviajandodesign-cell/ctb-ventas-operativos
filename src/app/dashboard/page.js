@@ -132,26 +132,42 @@ export default function DashboardPage() {
       pipelineData?.forEach(q => { if(q.destino) destMap[q.destino] = (destMap[q.destino] || 0) + 1 })
       const popular = Object.keys(destMap).sort((a,b) => destMap[b] - destMap[a])[0] || 'N/A'
 
-      // 3. Leaderboard y Gráficos Globales
+      // 3. Leaderboard — query SEPARADA siempre con todos los operativos del mes
       const { data: allOps } = await supabase.from('profiles').select('id, nombre, meta_mensual').eq('rol', 'operativo')
+
+      // Traer ventas de TODOS los operativos este mes para el leaderboard
+      const { data: allVentasMonth } = await supabase
+        .from('ventas')
+        .select('total, comision, utilidad, operativo_id')
+        .eq('estado', 'activa')
+        .gte('created_at', startOfMonth.toISOString())
+
       const board = allOps?.map(op => {
-        const opVentas = (ventasData || []).filter(v => v.operativo_id === op.id)
-        const totalOp = opVentas.reduce((acc, v) => acc + (Number(v.comision) || 0) + (Number(v.utilidad) || 0), 0) || 0
+        const opVentas = (allVentasMonth || []).filter(v => v.operativo_id === op.id)
+        const totalOp = opVentas.reduce((acc, v) => acc + (Number(v.comision) || 0) + (Number(v.utilidad) || 0), 0)
         const meta = Number(op.meta_mensual) || 5000
         return {
           id: op.id,
           nombre: op.nombre?.split(' ')[0] || 'N/A',
+          nombreCompleto: op.nombre || 'N/A',
           total: totalOp,
-          cumplimiento: (totalOp / meta) * 100,
-          avatar: op.nombre?.charAt(0) || '?'
+          meta,
+          cumplimiento: meta > 0 ? (totalOp / meta) * 100 : 0,
+          avatar: op.nombre?.charAt(0)?.toUpperCase() || '?'
         }
-      }).sort((a, b) => b.total - a.total)
-      
+      }).sort((a, b) => b.cumplimiento - a.cumplimiento) // ordenar por % cumplimiento
+
       setLeaderboard(board || [])
       if (isAdmin && selectedOperative === 'global') setChartData(board || [])
 
       const globalM = allOps?.reduce((acc, op) => acc + (Number(op.meta_mensual) || 0), 0) || 50000
-      const currentMeta = isAdmin && selectedOperative === 'global' ? globalM : (Number(allOps.find(o => o.id === (isAdmin ? selectedOperative : user.id))?.meta_mensual) || 5000)
+      const myMeta = !isAdmin
+        ? (Number(profileData?.meta_mensual) || 5000)
+        : selectedOperative === 'global'
+        ? globalM
+        : (Number(allOps?.find(o => o.id === selectedOperative)?.meta_mensual) || 5000)
+
+      const metaBase = isAdmin && selectedOperative === 'global' ? globalM : myMeta
 
       setMetrics(prev => ({
         ...prev,
@@ -159,24 +175,13 @@ export default function DashboardPage() {
         metaComputable: totalMetaComp,
         pipeline: totalPipeline,
         topDestino: popular,
-        globalGoal: globalM,
-        porcentajeMeta: currentMeta > 0 ? (totalMetaComp / currentMeta) * 100 : 0
+        globalGoal: metaBase,
+        porcentajeMeta: metaBase > 0 ? (totalMetaComp / metaBase) * 100 : 0
       }))
 
       const { data: quotesData } = await quotesQuery.limit(10)
       setQuotes(quotesData || [])
 
-      if (!isAdmin) {
-        const meta = Number(profileData?.meta_mensual) || 5000
-        setMetrics(prev => ({
-          ...prev,
-          totalVendido: totalV,
-          metaComputable: totalMetaComp,
-          porcentajeMeta: meta > 0 ? (totalMetaComp / meta) * 100 : 0,
-          pipeline: totalPipeline,
-          topDestino: popular
-        }))
-      }
     } catch (error) {
       console.error('Error fetching data:', error)
     } finally {
@@ -405,32 +410,56 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* LEADERBOARD (Visible para todos) */}
+          {/* RANKING DEL EQUIPO — visible para todos, con contexto motivacional */}
           <div className="bg-white p-8 rounded-[3.5rem] shadow-xl border border-gray-100">
-            <h3 className="font-black text-xl uppercase tracking-tighter mb-8 flex items-center gap-3"><Trophy size={22} className="text-amber-500" />Ranking del Equipo</h3>
-            <div className="space-y-6">
-              {leaderboard.map((op, idx) => (
-                <div 
-                  key={op.id} 
-                  className={`flex items-center justify-between group ${isAdmin ? 'cursor-pointer' : ''}`} 
-                  onClick={() => isAdmin && setSelectedOperative(op.id)}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg transition-all ${idx === 0 ? 'bg-amber-100 text-amber-600 shadow-lg shadow-amber-200' : 'bg-gray-50 text-gray-400'}`}>{op.avatar}</div>
-                    <div><p className="text-sm font-black text-gray-900 leading-none mb-1 group-hover:text-primary transition-colors">{op.nombre}</p>
-                      <div className="flex items-center gap-2">
-                        <div className="w-20 bg-gray-100 h-1.5 rounded-full overflow-hidden">
-                          <div className={`h-full ${op.cumplimiento >= 100 ? 'bg-success' : 'bg-primary'} rounded-full`} style={{ width: `${Math.min(op.cumplimiento, 100)}%` }}></div>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-black text-xl uppercase tracking-tighter flex items-center gap-3">
+                <Trophy size={22} className="text-amber-500" />Ranking del Equipo
+              </h3>
+              <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-3 py-1.5 rounded-full">Mes Actual</span>
+            </div>
+            <div className="space-y-4">
+              {leaderboard.length === 0 && (
+                <p className="text-sm text-gray-400 text-center py-4">Sin datos este mes aún</p>
+              )}
+              {leaderboard.map((op, idx) => {
+                const isMe = profile?.nombre?.split(' ')[0] === op.nombre || profile?.nombre === op.nombreCompleto
+                const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}`
+                const barColor = op.cumplimiento >= 100 ? '#16A34A' : op.cumplimiento >= 60 ? '#0066CC' : '#F5A623'
+                return (
+                  <div
+                    key={op.id}
+                    className={`p-4 rounded-2xl border transition-all group ${
+                      isMe
+                        ? 'bg-primary/5 border-primary/20 ring-2 ring-primary/10'
+                        : 'bg-gray-50/50 border-gray-100 hover:border-gray-200'
+                    } ${isAdmin ? 'cursor-pointer hover:shadow-md' : ''}`}
+                    onClick={() => isAdmin && setSelectedOperative(op.id)}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <span className="text-lg">{medal}</span>
+                        <div>
+                          <p className={`text-sm font-black leading-none ${ isMe ? 'text-primary' : 'text-gray-800'} group-hover:text-primary transition-colors`}>
+                            {op.nombre} {isMe && <span className="text-[9px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-full ml-1 uppercase">Tú</span>}
+                          </p>
+                          <p className="text-[9px] text-gray-400 font-bold uppercase mt-0.5">Meta: ${op.meta.toLocaleString()}</p>
                         </div>
-                        <span className="text-[9px] font-bold text-gray-400 uppercase">{op.cumplimiento.toFixed(0)}%</span>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-black text-gray-900">${op.total.toLocaleString()}</p>
+                        <p className={`text-[9px] font-black uppercase ${ op.cumplimiento >= 100 ? 'text-success' : op.cumplimiento >= 60 ? 'text-primary' : 'text-amber-600'}`}>{op.cumplimiento.toFixed(0)}%</p>
                       </div>
                     </div>
+                    <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{ width: `${Math.min(op.cumplimiento, 100)}%`, background: barColor }}
+                      />
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-black text-gray-900">${op.total.toLocaleString()}</p>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
 
