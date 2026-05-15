@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { AlertTriangle, Clock, DollarSign, ArrowRight } from 'lucide-react'
+import { AlertTriangle, Clock, DollarSign, ArrowRight, CheckCircle2 } from 'lucide-react'
 
 export default function PaymentAlerts({ userId, isAdmin }) {
   const [alerts, setAlerts] = useState([])
@@ -136,5 +136,3 @@ export default function PaymentAlerts({ userId, isAdmin }) {
     </div>
   )
 }
-
-import { CheckCircle2 } from 'lucide-react'

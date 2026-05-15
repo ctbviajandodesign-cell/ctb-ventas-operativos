@@ -239,25 +239,25 @@ export default function DashboardPage() {
       {/* KPI GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatsCard 
-          title="Venta Bruta"
+          title="Total Vendido"
           value={`$${metrics.totalVendido.toLocaleString()}`} 
           icon={DollarSign}
           color="primary"
         />
         <StatsCard 
-          title="Pipeline (Abierto)" 
+          title="Proformas en Negociación" 
           value={`$${metrics.pipeline.toLocaleString()}`} 
           icon={Target}
           color="accent"
         />
         <StatsCard 
-          title="Aporte Real" 
+          title={isAdmin ? 'Ganancia del Equipo' : 'Mi Ganancia Total'} 
           value={`$${metrics.metaComputable.toLocaleString()}`} 
           icon={TrendingUp}
           color="success"
         />
         <StatsCard 
-          title={selectedOperative === 'global' && isAdmin ? "Quotes Activas" : "Vouchers Emitidos"} 
+          title={selectedOperative === 'global' && isAdmin ? "Proformas Activas" : "Vouchers Emitidos"} 
           value={selectedOperative === 'global' && isAdmin ? metrics.cotizacionesAbiertas : metrics.vouchersEmitidos} 
           icon={selectedOperative === 'global' && isAdmin ? FileText : Trophy}
           color="danger"
@@ -274,9 +274,9 @@ export default function DashboardPage() {
             <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-gray-50 animate-in zoom-in duration-500">
               <div className="flex items-center justify-between mb-8">
                 <h3 className="font-black text-xl uppercase tracking-tighter flex items-center gap-3">
-                  <BarChart3 className="text-primary" size={24} />
-                  Performance por Operativo
-                </h3>
+                    <BarChart3 className="text-primary" size={24} />
+                    Rendimiento por Asesor
+                  </h3>
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 bg-primary rounded-full"></div>
@@ -406,7 +406,7 @@ export default function DashboardPage() {
 
           {/* LEADERBOARD (Visible para todos) */}
           <div className="bg-white p-8 rounded-[3.5rem] shadow-xl border border-gray-100">
-            <h3 className="font-black text-xl uppercase tracking-tighter mb-8 flex items-center gap-3"><Trophy size={22} className="text-amber-500" />Team Rankings</h3>
+            <h3 className="font-black text-xl uppercase tracking-tighter mb-8 flex items-center gap-3"><Trophy size={22} className="text-amber-500" />Ranking del Equipo</h3>
             <div className="space-y-6">
               {leaderboard.map((op, idx) => (
                 <div 
@@ -433,19 +433,19 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* INSIGHTS DINÁMICOS */}
+                   {/* INTELIGENCIA COMERCIAL */}
           <div className="bg-gray-900 p-10 rounded-[4rem] text-white shadow-2xl relative overflow-hidden">
             <div className="absolute top-0 right-0 w-40 h-40 bg-primary/20 rounded-full -mr-20 -mt-20 blur-3xl"></div>
-            <h3 className="font-black text-2xl uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-3"><PieIcon size={24} className="text-primary" />BI Insights</h3>
+            <h3 className="font-black text-2xl uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-3"><PieIcon size={24} className="text-primary" />Inteligencia Comercial</h3>
             <div className="space-y-8 relative z-10">
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white/5 p-4 rounded-3xl border border-white/5"><p className="text-[9px] font-black text-primary uppercase tracking-widest mb-1">Top Destino</p><p className="text-lg font-black uppercase italic truncate">{metrics.topDestino}</p></div>
-                <div className="bg-white/5 p-4 rounded-3xl border border-white/5"><p className="text-[9px] font-black text-success uppercase tracking-widest mb-1">Conversión</p><p className="text-2xl font-black">{metrics.conversionRate.toFixed(0)}%</p></div>
+                <div className="bg-white/5 p-4 rounded-3xl border border-white/5"><p className="text-[9px] font-black text-primary uppercase tracking-widest mb-1">Destino más pedido</p><p className="text-lg font-black uppercase italic truncate">{metrics.topDestino}</p></div>
+                <div className="bg-white/5 p-4 rounded-3xl border border-white/5"><p className="text-[9px] font-black text-success uppercase tracking-widest mb-1">Tasa de Cierre</p><p className="text-2xl font-black">{metrics.conversionRate.toFixed(0)}%</p></div>
               </div>
               <div className="bg-primary/10 p-6 rounded-[2rem] border border-primary/20">
                 <div className="flex items-start gap-3">
                   <div className="bg-primary p-2 rounded-xl text-white mt-1"><Target size={16} /></div>
-                  <div><p className="text-[10px] font-black uppercase tracking-widest mb-1">Estrategia sugerida</p><p className="text-xs italic leading-relaxed text-gray-300">"El pipeline actual de **${metrics.pipeline.toLocaleString()}** indica una oportunidad de cierre agresivo. {selectedOperative === 'global' ? 'Asigna seguimientos prioritarios al Top Performers.' : 'Enfócate en las cotizaciones de mayor valor para llegar a tu meta.'}"</p></div>
+                  <div><p className="text-[10px] font-black uppercase tracking-widest mb-1">Consejo del sistema</p><p className="text-xs italic leading-relaxed text-gray-300">{`Hay $${metrics.pipeline.toLocaleString()} en proformas por cerrar. ${selectedOperative === 'global' ? 'Dale seguimiento al equipo y prioriza los casos de mayor valor.' : 'Enfócate en cerrar las proformas de mayor valor para alcanzar tu meta.'}`}</p></div>
                 </div>
               </div>
             </div>

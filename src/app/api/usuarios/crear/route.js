@@ -1,27 +1,30 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
-// Usamos la Service Role Key para tener permisos de administrador (crear usuarios)
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-)
+// Evitar pre-rendering estático de esta ruta en el build
+export const dynamic = 'force-dynamic'
 
 export async function POST(request) {
   try {
+    // Instanciamos el cliente DENTRO del handler para que no se ejecute en build time
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
+
     const { email, password, nombre, meta_mensual, rol } = await request.json()
 
     // 1. Crear el usuario en Supabase Auth
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: true // Confirmamos el email automáticamente
+      email_confirm: true
     })
 
     if (authError) throw authError
@@ -34,7 +37,7 @@ export async function POST(request) {
           id: authData.user.id, 
           email, 
           nombre, 
-          meta_mensual: parseFloat(meta_mensual), 
+          meta_mensual: parseFloat(meta_mensual) || 0, 
           rol: rol || 'operativo' 
         }
       ])
