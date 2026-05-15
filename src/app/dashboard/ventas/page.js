@@ -4,11 +4,12 @@ import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { 
   TrendingUp, Search, XCircle, Trash2, Edit, DollarSign,
-  CheckCircle2, TrendingDown, BarChart3, Calendar, Filter
+  CheckCircle2, BarChart3, QrCode, ExternalLink
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
+import Link from 'next/link'
 
 export default function VentasPage() {
   const [ventas, setVentas] = useState([])
@@ -17,6 +18,8 @@ export default function VentasPage() {
   const [statusFilter, setStatusFilter] = useState('activa')
   const [profile, setProfile] = useState(null)
   const [selectedVenta, setSelectedVenta] = useState(null)
+  const [selectedVoucher, setSelectedVoucher] = useState(null)
+  const [voucherLoading, setVoucherLoading] = useState(false)
 
   useEffect(() => {
     fetchVentas()
@@ -30,7 +33,7 @@ export default function VentasPage() {
 
       let query = supabase
         .from('ventas')
-        .select('*, cotizaciones(agencia, destino, codigo, nombres_pasajeros)')
+        .select('*, cotizaciones(id, agencia, destino, codigo, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono)')
         .order('created_at', { ascending: false })
 
       if (profileData.rol !== 'admin') {
@@ -259,7 +262,18 @@ export default function VentasPage() {
                 <tr
                   key={venta.id}
                   className={`group hover:bg-gray-50 transition-colors cursor-pointer ${venta.estado === 'anulada' ? 'opacity-40 grayscale' : ''}`}
-                  onClick={() => setSelectedVenta(venta)}
+                  onClick={async () => {
+                    setSelectedVenta(venta)
+                    setSelectedVoucher(null)
+                    setVoucherLoading(true)
+                    const { data } = await supabase
+                      .from('vouchers')
+                      .select('id, codigo, estado')
+                      .eq('venta_id', venta.id)
+                      .single()
+                    setSelectedVoucher(data || null)
+                    setVoucherLoading(false)
+                  }}
                 >
                   <td className="py-4 px-6 text-[10px] text-gray-500 font-bold">
                     {format(parseISO(venta.created_at), 'dd MMM yyyy', { locale: es })}
@@ -290,7 +304,17 @@ export default function VentasPage() {
                       {venta.estado === 'activa' && (
                         <>
                           <button
-                            onClick={() => window.dispatchEvent(new CustomEvent('open-sales-modal', { detail: { ...venta.cotizaciones, existingSale: venta } }))}
+                            onClick={() => window.dispatchEvent(new CustomEvent('open-sales-modal', {
+                              detail: {
+                                ...venta.cotizaciones,
+                                id: venta.cotizaciones?.id,
+                                agencia: venta.cotizaciones?.agencia,
+                                destino: venta.cotizaciones?.destino,
+                                codigo: venta.cotizaciones?.codigo,
+                                nombres_pasajeros: venta.cotizaciones?.nombres_pasajeros,
+                                existingSale: venta
+                              }
+                            }))}
                             className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-xl transition-colors"
                             title="Editar Venta"
                           >
@@ -329,17 +353,18 @@ export default function VentasPage() {
           <div className="bg-white rounded-[3rem] max-w-2xl w-full overflow-hidden shadow-2xl animate-in zoom-in duration-300">
             <div className="bg-gray-900 p-8 text-white flex justify-between items-start">
               <div>
-                <p className="text-[10px] font-black text-primary uppercase tracking-widest">Detalle de Venta Cerrada</p>
+                <p className="text-[10px] font-black text-primary uppercase tracking-widest">Detalle de Venta</p>
                 <h2 className="text-2xl font-black">#{selectedVenta.cotizaciones?.codigo}</h2>
                 <p className="text-sm text-gray-400 mt-1">{selectedVenta.cotizaciones?.agencia} · {selectedVenta.cotizaciones?.destino}</p>
               </div>
-              <button onClick={() => setSelectedVenta(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+              <button onClick={() => { setSelectedVenta(null); setSelectedVoucher(null) }} className="p-2 hover:bg-white/10 rounded-full transition-colors">
                 <XCircle size={24} />
               </button>
             </div>
 
-            <div className="p-8 grid grid-cols-2 gap-6">
-              <div className="col-span-2 grid grid-cols-3 gap-4">
+            <div className="p-8 space-y-6 overflow-y-auto max-h-[60vh]">
+              {/* KPIs */}
+              <div className="grid grid-cols-3 gap-3">
                 <div className="bg-gray-50 p-4 rounded-2xl">
                   <p className="text-[9px] font-black text-gray-400 uppercase">Total Venta</p>
                   <p className="text-xl font-black text-gray-900 mt-1">${Number(selectedVenta.total).toLocaleString()}</p>
@@ -349,13 +374,55 @@ export default function VentasPage() {
                   <p className="text-xl font-black text-success mt-1">${(Number(selectedVenta.utilidad) + Number(selectedVenta.comision)).toLocaleString()}</p>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-2xl">
-                  <p className="text-[9px] font-black text-gray-400 uppercase">Bono Counter</p>
+                  <p className="text-[9px] font-black text-gray-400 uppercase">Bono</p>
                   <p className="text-xl font-black text-gray-900 mt-1">${Number(selectedVenta.bono_counter || 0).toLocaleString()}</p>
                 </div>
               </div>
 
+              {/* VOUCHER */}
+              <div>
+                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Voucher Emitido</h4>
+                {voucherLoading ? (
+                  <div className="h-12 bg-gray-100 rounded-2xl animate-pulse"></div>
+                ) : selectedVoucher ? (
+                  <div className="flex items-center justify-between bg-primary/5 border border-primary/20 p-4 rounded-2xl">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-primary/10 p-2.5 rounded-xl"><QrCode size={18} className="text-primary" /></div>
+                      <div>
+                        <p className="font-black text-gray-900 text-sm">{selectedVoucher.codigo}</p>
+                        <p className={`text-[9px] font-black uppercase ${selectedVoucher.estado === 'activo' ? 'text-success' : 'text-danger'}`}>{selectedVoucher.estado}</p>
+                      </div>
+                    </div>
+                    <Link href="/dashboard/vouchers" onClick={() => setSelectedVenta(null)} className="flex items-center gap-1.5 text-[10px] font-black text-primary bg-primary/10 px-3 py-2 rounded-xl hover:bg-primary/20 transition-colors">
+                      Ver Voucher <ExternalLink size={12} />
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3 bg-amber-50 border border-amber-100 p-4 rounded-2xl">
+                    <p className="text-xs font-bold text-amber-700">Esta venta no tiene voucher emitido.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* PLAN DE PAGOS */}
               <div>
                 <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Plan de Pagos</h4>
+                {/* Barra progreso */}
+                {Array.isArray(selectedVenta.plan_pagos) && selectedVenta.plan_pagos.length > 0 && (() => {
+                  const paid = selectedVenta.plan_pagos.filter(m => m.status === 'pagado').reduce((a, m) => a + Number(m.amount), 0)
+                  const pct = selectedVenta.total > 0 ? Math.min((paid / selectedVenta.total) * 100, 100) : 0
+                  return (
+                    <div className="mb-3">
+                      <div className="flex justify-between text-[9px] font-black uppercase mb-1">
+                        <span className="text-success">Cobrado: ${paid.toLocaleString()}</span>
+                        <span className={paid < selectedVenta.total ? 'text-amber-600' : 'text-success'}>{paid < selectedVenta.total ? `Pendiente: $${(selectedVenta.total - paid).toLocaleString()}` : '✓ Completo'}</span>
+                      </div>
+                      <div className="bg-gray-100 h-2 rounded-full overflow-hidden">
+                        <div className="h-full bg-success rounded-full transition-all" style={{ width: `${pct}%` }}></div>
+                      </div>
+                    </div>
+                  )
+                })()}
                 <div className="space-y-2">
                   {Array.isArray(selectedVenta.plan_pagos) && selectedVenta.plan_pagos.length > 0
                     ? selectedVenta.plan_pagos.map((m, i) => (
@@ -366,7 +433,7 @@ export default function VentasPage() {
                         </div>
                         <div className="text-right">
                           <p className="text-xs font-black text-gray-900">${Number(m.amount).toLocaleString()}</p>
-                          <p className={`text-[9px] font-black uppercase ${m.status === 'pagado' ? 'text-success' : 'text-amber-600'}`}>{m.status}</p>
+                          <p className={`text-[9px] font-black uppercase ${m.status === 'pagado' ? 'text-success' : 'text-amber-600'}`}>{m.status === 'pagado' ? '✓ Pagado' : 'Pendiente'}</p>
                         </div>
                       </div>
                     ))
@@ -375,30 +442,47 @@ export default function VentasPage() {
                 </div>
               </div>
 
-              <div>
-                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Pasajeros</h4>
-                <div className="space-y-2">
-                  {(selectedVenta.cotizaciones?.nombres_pasajeros || []).map((n, i) => (
-                    <div key={i} className="flex items-center gap-2 p-2 bg-gray-50 rounded-xl">
-                      <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-[9px] font-black text-primary">{n?.charAt(0)}</div>
-                      <p className="text-xs font-bold text-gray-700 uppercase">{n}</p>
-                    </div>
-                  ))}
+              {/* PASAJEROS */}
+              {(selectedVenta.cotizaciones?.nombres_pasajeros || []).length > 0 && (
+                <div>
+                  <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Pasajeros</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {(selectedVenta.cotizaciones?.nombres_pasajeros || []).map((n, i) => (
+                      <div key={i} className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-xl border border-gray-100">
+                        <div className="w-5 h-5 bg-primary/10 rounded-full flex items-center justify-center text-[8px] font-black text-primary">{n?.charAt(0)}</div>
+                        <p className="text-[10px] font-bold text-gray-700 uppercase">{n}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
-            <div className="p-6 bg-gray-50 flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  const q = { ...selectedVenta.cotizaciones, existingSale: selectedVenta }
-                  setSelectedVenta(null)
-                  window.dispatchEvent(new CustomEvent('open-sales-modal', { detail: q }))
-                }}
-                className="btn-primary py-3 px-6 text-sm flex items-center gap-2"
-              >
-                <Edit size={16} /> Editar Valores
+            <div className="p-5 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+              <button onClick={() => { setSelectedVenta(null); setSelectedVoucher(null) }} className="text-xs font-black text-gray-400 hover:text-gray-600 uppercase tracking-widest transition-colors">
+                Cerrar
               </button>
+              {selectedVenta.estado === 'activa' && (
+                <button
+                  onClick={() => {
+                    const q = {
+                      ...selectedVenta.cotizaciones,
+                      id: selectedVenta.cotizaciones?.id,
+                      agencia: selectedVenta.cotizaciones?.agencia,
+                      destino: selectedVenta.cotizaciones?.destino,
+                      codigo: selectedVenta.cotizaciones?.codigo,
+                      nombres_pasajeros: selectedVenta.cotizaciones?.nombres_pasajeros,
+                      existingSale: selectedVenta
+                    }
+                    setSelectedVenta(null)
+                    setSelectedVoucher(null)
+                    window.dispatchEvent(new CustomEvent('open-sales-modal', { detail: q }))
+                  }}
+                  className="btn-primary py-3 px-6 text-sm flex items-center gap-2"
+                >
+                  <Edit size={16} /> Editar Plan de Pagos
+                </button>
+              )}
             </div>
           </div>
         </div>
