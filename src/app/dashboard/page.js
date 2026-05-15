@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import StatsCard from '@/components/StatsCard'
 import QuotesTable from '@/components/QuotesTable'
+import GlobalSearch from '@/components/GlobalSearch'
 import SalesModal from '@/components/SalesModal'
 import PaymentAlerts from '@/components/PaymentAlerts'
 import { 
@@ -200,18 +201,21 @@ export default function DashboardPage() {
       
       {/* HEADER & FILTROS */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="bg-primary p-2 rounded-xl text-white">
-              <BarChart3 size={20} />
+        <div className="space-y-6 flex-1">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="bg-primary p-2 rounded-xl text-white">
+                <BarChart3 size={20} />
+              </div>
+              <h1 className="text-4xl font-black text-gray-900 tracking-tighter uppercase italic leading-none">
+                Control Center
+              </h1>
             </div>
-            <h1 className="text-4xl font-black text-gray-900 tracking-tighter uppercase italic leading-none">
-              Control Center
-            </h1>
+            <p className="text-gray-400 font-bold text-[10px] uppercase tracking-[0.3em] ml-1">
+              {isAdmin ? 'Panel de Control de Operaciones Globales' : 'Tu Resumen de Inteligencia Comercial'}
+            </p>
           </div>
-          <p className="text-gray-400 font-bold text-[10px] uppercase tracking-[0.3em] ml-1">
-            {isAdmin ? 'Panel de Control de Operaciones Globales' : 'Tu Resumen de Inteligencia Comercial'}
-          </p>
+          <GlobalSearch />
         </div>
         
         {isAdmin && (
