@@ -36,6 +36,7 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState(null)
   const [selectedOperative, setSelectedOperative] = useState('global')
   const [operatives, setOperatives] = useState([])
+  const [operativePanel, setOperativePanel] = useState(null) // para drill-down de admin
   const [metrics, setMetrics] = useState({
     totalVendido: 0,
     metaComputable: 0,
@@ -83,25 +84,32 @@ export default function DashboardPage() {
       startOfMonth.setDate(1)
       startOfMonth.setHours(0, 0, 0, 0)
 
-      // 1. Ventas y Meta
-      let ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id, profiles(nombre)').eq('estado', 'activa')
+      // 1. Ventas del mes (comision+utilidad = ganancia)
+      let ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id').eq('estado', 'activa')
       if (!isAdmin) ventasQuery = ventasQuery.eq('operativo_id', user.id)
       else if (selectedOperative !== 'global') ventasQuery = ventasQuery.eq('operativo_id', selectedOperative)
       ventasQuery = ventasQuery.gte('created_at', startOfMonth.toISOString())
-
       const { data: ventasData } = await ventasQuery
-      const totalV = ventasData?.reduce((acc, v) => acc + (Number(v.total) || 0), 0) || 0
       const totalMetaComp = ventasData?.reduce((acc, v) => acc + (Number(v.comision) || 0) + (Number(v.utilidad) || 0), 0) || 0
 
-      // 2. Pipeline y Análisis de Estados
+      // 2. Total Vendido: desde cotizaciones ganadas (más confiable que ventas.total que puede ser 0)
+      const targetForTotal = !isAdmin ? user.id : selectedOperative !== 'global' ? selectedOperative : null
+      let cotGanadasQuery = supabase.from('cotizaciones').select('valor_total').eq('estado', 'ganada').gte('created_at', startOfMonth.toISOString())
+      if (targetForTotal) cotGanadasQuery = cotGanadasQuery.eq('operativo_id', targetForTotal)
+      const { data: cotGanadas } = await cotGanadasQuery
+      const totalV = cotGanadas?.reduce((acc, q) => acc + (Number(q.valor_total) || 0), 0) || 0
+
+      // 3. Pipeline y cotizaciones abiertas
       let quotesQuery = supabase.from('cotizaciones').select('*, profiles(nombre)').order('created_at', { ascending: false })
       let pipelineQuery = supabase.from('cotizaciones').select('valor_total, destino, estado').eq('estado', 'abierta')
-      
+      let openCountQuery = supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'abierta')
+
       const targetIdForIndividual = (!isAdmin || selectedOperative !== 'global') ? (isAdmin ? selectedOperative : user.id) : null
 
       if (targetIdForIndividual) {
         quotesQuery = quotesQuery.eq('operativo_id', targetIdForIndividual)
         pipelineQuery = pipelineQuery.eq('operativo_id', targetIdForIndividual)
+        openCountQuery = openCountQuery.eq('operativo_id', targetIdForIndividual)
 
         const { data: statusData } = await supabase.from('cotizaciones').select('estado').eq('operativo_id', targetIdForIndividual)
         const stats = [
@@ -113,15 +121,13 @@ export default function DashboardPage() {
         setIndividualStats(stats)
 
         const { count: vCount } = await supabase.from('vouchers').select('*', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual)
-        
         const totalQ = statusData?.length || 0
         const wonQ = statusData?.filter(q => q.estado === 'ganada').length || 0
-
-        setMetrics(prev => ({
-          ...prev,
-          vouchersEmitidos: vCount || 0,
-          conversionRate: totalQ > 0 ? (wonQ / totalQ) * 100 : 0
-        }))
+        setMetrics(prev => ({ ...prev, vouchersEmitidos: vCount || 0, conversionRate: totalQ > 0 ? (wonQ / totalQ) * 100 : 0 }))
+      } else {
+        // Admin global: contar todas las abiertas
+        const { count: openCount } = await openCountQuery
+        setMetrics(prev => ({ ...prev, cotizacionesAbiertas: openCount || 0 }))
       }
 
       const { data: pipelineData } = await pipelineQuery
@@ -200,9 +206,111 @@ export default function DashboardPage() {
 
   const isAdmin = profile?.rol === 'admin'
 
+  // Abrir panel de operativo (admin drill-down)
+  const handleOpenOperativePanel = async (op) => {
+    if (!isAdmin) return
+    // Carga detallada de ese operativo
+    const startOfMonth = new Date(); startOfMonth.setDate(1); startOfMonth.setHours(0,0,0,0)
+    const [{ data: ventas }, { data: cots }, { count: vouchers }] = await Promise.all([
+      supabase.from('ventas').select('total,comision,utilidad,created_at').eq('operativo_id', op.id).eq('estado','activa').gte('created_at', startOfMonth.toISOString()),
+      supabase.from('cotizaciones').select('estado,valor_total').eq('operativo_id', op.id),
+      supabase.from('vouchers').select('id', { count:'exact', head:true }).eq('operativo_id', op.id)
+    ])
+    const ganancia = ventas?.reduce((a,v)=>a+(Number(v.comision)||0)+(Number(v.utilidad)||0),0)||0
+    const totalVendido = cots?.filter(c=>c.estado==='ganada').reduce((a,c)=>a+(Number(c.valor_total)||0),0)||0
+    const ganadas = cots?.filter(c=>c.estado==='ganada').length||0
+    const abiertas = cots?.filter(c=>c.estado==='abierta').length||0
+    const perdidas = cots?.filter(c=>['perdida','anulada'].includes(c.estado)).length||0
+    const totalCots = cots?.length||0
+    setOperativePanel({
+      ...op,
+      ganancia,
+      totalVendido,
+      ganadas,
+      abiertas,
+      perdidas,
+      totalCots,
+      vouchers: vouchers||0,
+      conversion: totalCots>0 ? ((ganadas/totalCots)*100).toFixed(1) : 0
+    })
+  }
+
   return (
     <div className="space-y-10 animate-in fade-in duration-700 pb-20">
-      
+
+      {/* PANEL DRILL-DOWN DE OPERATIVO (ADMIN) */}
+      {operativePanel && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[150] flex items-center justify-center p-4" onClick={() => setOperativePanel(null)}>
+          <div className="bg-white rounded-[3rem] w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in duration-300" onClick={e => e.stopPropagation()}>
+            <div className="bg-gray-900 text-white p-8 flex items-start justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center text-2xl font-black text-white shadow-lg">{operativePanel.avatar}</div>
+                <div>
+                  <p className="text-[9px] font-black text-primary uppercase tracking-widest mb-1">Perfil de Operativo</p>
+                  <h2 className="text-2xl font-black tracking-tight">{operativePanel.nombreCompleto}</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">Meta mensual: ${operativePanel.meta?.toLocaleString()}</p>
+                </div>
+              </div>
+              <button onClick={() => setOperativePanel(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-xl font-black">✕</button>
+            </div>
+            <div className="p-8 space-y-6">
+              <div>
+                <div className="flex justify-between mb-2">
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Cumplimiento de Meta (Mes)</span>
+                  <span className={`text-[10px] font-black uppercase ${operativePanel.cumplimiento >= 100 ? 'text-success' : operativePanel.cumplimiento >= 60 ? 'text-primary' : 'text-amber-600'}`}>{Number(operativePanel.cumplimiento).toFixed(1)}%</span>
+                </div>
+                <div className="w-full bg-gray-100 h-4 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(operativePanel.cumplimiento, 100)}%`, background: operativePanel.cumplimiento >= 100 ? '#16A34A' : operativePanel.cumplimiento >= 60 ? '#0066CC' : '#F5A623' }} />
+                </div>
+                <div className="flex justify-between mt-1">
+                  <span className="text-[9px] text-success font-black">Ganancia: ${operativePanel.ganancia?.toLocaleString()}</span>
+                  <span className="text-[9px] text-gray-400 font-bold">Restan: ${Math.max(0, (operativePanel.meta||0) - (operativePanel.ganancia||0)).toLocaleString()}</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100">
+                  <p className="text-[9px] font-black text-gray-400 uppercase">Total Vendido (Mes)</p>
+                  <p className="text-2xl font-black text-gray-900 mt-1">${operativePanel.totalVendido?.toLocaleString()}</p>
+                </div>
+                <div className="bg-success/5 p-5 rounded-2xl border border-success/10">
+                  <p className="text-[9px] font-black text-success/70 uppercase">Ganancia (Mes)</p>
+                  <p className="text-2xl font-black text-success mt-1">${operativePanel.ganancia?.toLocaleString()}</p>
+                </div>
+                <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100">
+                  <p className="text-[9px] font-black text-gray-400 uppercase">Tasa de Cierre</p>
+                  <p className="text-2xl font-black text-gray-900 mt-1">{operativePanel.conversion}%</p>
+                </div>
+                <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100">
+                  <p className="text-[9px] font-black text-gray-400 uppercase">Vouchers Emitidos</p>
+                  <p className="text-2xl font-black text-gray-900 mt-1">{operativePanel.vouchers}</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">Proformas (histórico total)</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: 'Ganadas', val: operativePanel.ganadas, color: 'text-success bg-success/10 border-success/20' },
+                    { label: 'En Proceso', val: operativePanel.abiertas, color: 'text-primary bg-primary/10 border-primary/20' },
+                    { label: 'Perdidas', val: operativePanel.perdidas, color: 'text-amber-600 bg-amber-50 border-amber-100' },
+                  ].map(item => (
+                    <div key={item.label} className={`p-3 rounded-2xl text-center border ${item.color}`}>
+                      <p className="text-2xl font-black">{item.val}</p>
+                      <p className="text-[9px] font-black uppercase mt-0.5">{item.label}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <button
+                onClick={() => { setSelectedOperative(operativePanel.id); setOperativePanel(null) }}
+                className="w-full bg-primary text-white py-4 rounded-2xl font-black uppercase tracking-tighter text-sm hover:scale-[1.02] transition-all shadow-lg shadow-primary/20"
+              >
+                Ver Dashboard Completo de {operativePanel.nombre} →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* HEADER & FILTROS */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
         <div className="space-y-6 flex-1">
@@ -434,7 +542,7 @@ export default function DashboardPage() {
                         ? 'bg-primary/5 border-primary/20 ring-2 ring-primary/10'
                         : 'bg-gray-50/50 border-gray-100 hover:border-gray-200'
                     } ${isAdmin ? 'cursor-pointer hover:shadow-md' : ''}`}
-                    onClick={() => isAdmin && setSelectedOperative(op.id)}
+                    onClick={() => isAdmin && handleOpenOperativePanel(op)}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-3">
