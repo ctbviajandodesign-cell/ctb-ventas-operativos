@@ -80,16 +80,17 @@ export default function LogrosPage() {
       }
       setMonthlyData(meses)
 
-      // Ranking completo de operativos para comparación
-      const { data: ops } = await supabase.from('profiles').select('id, nombre, meta_mensual').eq('rol', 'operativo')
-      const { data: allVentas } = await supabase.from('ventas').select('comision, utilidad, operativo_id').eq('estado', 'activa').gte('created_at', startOfMonth.toISOString())
-      const board = ops?.map(op => {
-        const opV = (allVentas||[]).filter(v => v.operativo_id === op.id)
-        const g = opV.reduce((a, v) => a + (Number(v.comision)||0) + (Number(v.utilidad)||0), 0)
-        const m = Number(op.meta_mensual) || 5000
-        return { id: op.id, nombre: op.nombre?.split(' ')[0] || '?', nombreCompleto: op.nombre, ganancia: g, meta: m, cumplimiento: m > 0 ? (g / m) * 100 : 0, avatar: op.nombre?.charAt(0)?.toUpperCase() || '?', isMe: op.id === user.id }
-      }).sort((a, b) => b.cumplimiento - a.cumplimiento) || []
+      // Ranking completo de operativos para comparación mediante API (salta RLS)
+      const resBoard = await fetch('/api/leaderboard')
+      const boardData = await resBoard.json()
+      const board = boardData.success ? boardData.leaderboard.map(op => ({
+        ...op,
+        nombreCompleto: op.nombreCompleto,
+        ganancia: op.total,
+        isMe: op.id === user.id
+      })) : []
       setAllOps(board)
+
 
     } catch (err) {
       console.error(err)

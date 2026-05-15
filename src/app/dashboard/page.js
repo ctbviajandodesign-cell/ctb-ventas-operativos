@@ -139,41 +139,22 @@ export default function DashboardPage() {
       pipelineData?.forEach(q => { if(q.destino) destMap[q.destino] = (destMap[q.destino] || 0) + 1 })
       const popular = Object.keys(destMap).sort((a,b) => destMap[b] - destMap[a])[0] || 'N/A'
 
-      // 3. Leaderboard — query SEPARADA siempre con todos los operativos del mes
-      const { data: allOps } = await supabase.from('profiles').select('id, nombre, meta_mensual').eq('rol', 'operativo')
+      // 3. Leaderboard — llamar a la API que usa service_role para saltar RLS
+      const resBoard = await fetch('/api/leaderboard')
+      const boardData = await resBoard.json()
+      const board = boardData.success ? boardData.leaderboard : []
 
-      // Traer ventas de TODOS los operativos este mes para el leaderboard
-      const { data: allVentasMonth } = await supabase
-        .from('ventas')
-        .select('total, comision, utilidad, operativo_id')
-        .eq('estado', 'activa')
-        .gte('created_at', startOfMonth.toISOString())
-
-      const board = allOps?.map(op => {
-        const opVentas = (allVentasMonth || []).filter(v => v.operativo_id === op.id)
-        const totalOp = opVentas.reduce((acc, v) => acc + (Number(v.comision) || 0) + (Number(v.utilidad) || 0), 0)
-        const meta = Number(op.meta_mensual) || 5000
-        return {
-          id: op.id,
-          nombre: op.nombre?.split(' ')[0] || 'N/A',
-          nombreCompleto: op.nombre || 'N/A',
-          total: totalOp,
-          meta,
-          cumplimiento: meta > 0 ? (totalOp / meta) * 100 : 0,
-          avatar: op.nombre?.charAt(0)?.toUpperCase() || '?'
-        }
-      }).sort((a, b) => b.cumplimiento - a.cumplimiento) // ordenar por % cumplimiento
 
       setLeaderboard(board || [])
       // Siempre actualizar chartData para gráfico de barras
       setChartData(board || [])
 
-      const globalM = allOps?.reduce((acc, op) => acc + (Number(op.meta_mensual) || 0), 0) || 50000
+      const globalM = board?.reduce((acc, op) => acc + (Number(op.meta) || 0), 0) || 50000
       const myMeta = !isAdmin
         ? (Number(profileData?.meta_mensual) || 5000)
         : selectedOperative === 'global'
         ? globalM
-        : (Number(allOps?.find(o => o.id === selectedOperative)?.meta_mensual) || 5000)
+        : (Number(board?.find(o => o.id === selectedOperative)?.meta) || 5000)
 
       const metaBase = isAdmin && selectedOperative === 'global' ? globalM : myMeta
 
