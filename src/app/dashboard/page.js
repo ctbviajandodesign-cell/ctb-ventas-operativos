@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import Link from 'next/link'
 import StatsCard from '@/components/StatsCard'
 import QuotesTable from '@/components/QuotesTable'
 import GlobalSearch from '@/components/GlobalSearch'
@@ -366,11 +367,11 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between mb-8">
               <h3 className="font-black text-xl uppercase tracking-tighter flex items-center gap-3 text-gray-800">
                 <FileText size={22} className="text-gray-400" />
-                Flujo de Expedientes {selectedOperative !== 'global' ? 'del Operativo' : ''}
+                Últimas Proformas
               </h3>
-              <button className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-2 hover:translate-x-1 transition-transform">
+              <Link href="/dashboard/cotizaciones" className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-2 hover:translate-x-1 transition-transform">
                 Ver Todo <ChevronRight size={14} />
-              </button>
+              </Link>
             </div>
             <QuotesTable quotes={quotes} isAdmin={isAdmin} onUpdate={fetchDashboardData} />
           </div>

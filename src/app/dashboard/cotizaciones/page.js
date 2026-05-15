@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import QuotesTable from '@/components/QuotesTable'
+import AIInsightCard from '@/components/AIInsightCard'
 import { Search, Plus, Filter, CheckCircle2, Clock, XCircle, AlertCircle, TrendingUp, DollarSign, FileText } from 'lucide-react'
 import Link from 'next/link'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, CartesianGrid } from 'recharts'
@@ -133,6 +134,17 @@ export default function CotizacionesPage() {
           <p className="text-[9px] text-gray-400 mt-2 font-bold">Comisiones + Utilidades</p>
         </div>
       </div>
+
+      {/* IA INSIGHT */}
+      <AIInsightCard metricas={{
+        total: stats.total,
+        abiertas: stats.abiertas,
+        ganadas: stats.ganadas,
+        perdidas: stats.perdidas,
+        conversion: stats.conversion,
+        totalAporte: stats.totalAporte,
+        topDestino: 'N/A'
+      }} />
 
       {/* GRÁFICO DE ESTADO */}
       <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">

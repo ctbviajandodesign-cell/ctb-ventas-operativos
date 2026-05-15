@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { format, isPast, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { 
@@ -18,7 +19,8 @@ import {
   DollarSign,
   AlertTriangle,
   MessageSquare,
-  ChevronDown
+  ChevronDown,
+  FileText
 } from 'lucide-react'
 
 export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
