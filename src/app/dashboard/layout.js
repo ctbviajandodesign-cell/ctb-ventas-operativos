@@ -61,23 +61,16 @@ export default function DashboardLayout({ children }) {
       <aside className="w-64 bg-white border-r border-gray-100 hidden md:flex flex-col shadow-sm">
         {/* Logo */}
         <div className="px-6 py-6 border-b border-gray-50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-primary/5 border border-primary/10 overflow-hidden flex items-center justify-center">
-              <Image
-                src="/logo.png"
-                alt="CTB Viajando"
-                width={36}
-                height={36}
-                className="object-contain"
-              />
-            </div>
-            <div>
-              <p className="text-sm font-black text-gray-900 tracking-tighter leading-none">CTB Viajando</p>
-              <p className="text-xs text-primary font-black uppercase tracking-[0.2em] mt-0.5">
-                {profile?.rol === 'admin' ? 'Control Center' : 'Mi Panel'}
-              </p>
-            </div>
+          <div className="flex items-center justify-center py-2">
+            <Image
+              src="/logo.png"
+              alt="CTB Viajando"
+              width={140}
+              height={50}
+              className="object-contain"
+            />
           </div>
+
           {profile?.nombre && (
             <div className="mt-4 bg-gray-50 rounded-2xl px-3 py-2 flex items-center gap-2">
               <div className="w-8 h-8 bg-primary rounded-xl flex items-center justify-center text-white text-xs font-black">
