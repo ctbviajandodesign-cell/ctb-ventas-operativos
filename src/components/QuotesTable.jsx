@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { format, isPast, parseISO } from 'date-fns'
+import { format, isPast, parseISO, differenceInDays } from 'date-fns'
 import { es } from 'date-fns/locale'
+
 import { 
   CheckCircle2, 
   Clock, 
@@ -33,10 +34,19 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
   const getStatusBadge = (quote) => {
     const status = (quote.estado || '').toString().trim().toLowerCase()
     if (status === 'ganada') return <span className="badge-success text-xs font-black">GANADA</span>
-    if (status === 'perdida') return <span className="badge-danger text-xs font-black">PERDIDA</span>
+    if (status === 'perdida') return <span className="badge-danger text-xs font-black">CANCELADA</span>
     if (status === 'anulada') return <span className="bg-gray-100 text-gray-500 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-widest">ANULADA</span>
+    
+    // Si está abierta y pasó más de 1 día, mostrar CADUCADA
+    if (status === 'abierta' && quote.created_at) {
+      const daysOld = differenceInDays(new Date(), parseISO(quote.created_at))
+      if (daysOld >= 1) {
+        return <span className="bg-amber-100 text-amber-700 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-widest">CADUCADA</span>
+      }
+    }
     return <span className="badge-warning text-xs font-black">ABIERTA</span>
   }
+
 
 
   const handleDelete = async (id) => {
@@ -116,7 +126,18 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
                 <td className="py-4 px-4">
                   <div className="font-black text-gray-800 text-sm">{quote.agencia || 'Directo'}</div>
                   <div className="text-xs text-gray-400 font-bold uppercase tracking-[0.1em]">{quote.destino || 'S/D'}</div>
+                  {isPerdida && quote.motivo_perdida && (
+                    <div className="text-[10px] font-black text-amber-600 bg-amber-50 border border-amber-200/60 rounded-md px-2 py-0.5 mt-1 inline-block uppercase">
+                      Motivo: {quote.motivo_perdida}
+                    </div>
+                  )}
+                  {rawStatus === 'abierta' && quote.created_at && differenceInDays(new Date(), parseISO(quote.created_at)) >= 1 && (
+                    <div className="text-[10px] font-black text-amber-700 bg-amber-100 border border-amber-300 rounded-md px-2 py-0.5 mt-1 inline-block uppercase">
+                      ⚠️ Sin cerrar por más de 24h
+                    </div>
+                  )}
                 </td>
+
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5 text-gray-500">
                     <div className="bg-gray-100 w-8 h-8 rounded-full flex items-center justify-center font-black text-xs text-gray-500">
