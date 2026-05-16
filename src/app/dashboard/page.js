@@ -22,8 +22,11 @@ import {
   BarChart3,
   PieChart as PieIcon,
   ChevronRight,
-  Plus
+  Plus,
+  Download,
+  AlertTriangle
 } from 'lucide-react'
+
 import { 
   BarChart, 
   Bar, 
@@ -55,7 +58,10 @@ export default function DashboardPage() {
   const [chartData, setChartData] = useState([])
   const [individualStats, setIndividualStats] = useState([])
   const [quotes, setQuotes] = useState([])
+  const [lostQuotes, setLostQuotes] = useState([])
+  const [lostFilter, setLostFilter] = useState('ALL') // Filtro inteligente de perdidas
   const [loading, setLoading] = useState(true)
+
 
   useEffect(() => {
     fetchDashboardData()
@@ -202,12 +208,61 @@ export default function DashboardPage() {
       const { data: quotesData } = await quotesQuery.limit(10)
       setQuotes(quotesData || [])
 
+      // 4. Cargar Cotizaciones Perdidas para Análisis y Descarga
+      let lostQuery = supabase
+        .from('cotizaciones')
+        .select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, created_at, profiles(nombre)')
+        .in('estado', ['perdida', 'anulada'])
+        .gte('created_at', startOfMonth.toISOString())
+        .order('created_at', { ascending: false })
+
+      if (targetIdForIndividual) {
+        lostQuery = lostQuery.eq('operativo_id', targetIdForIndividual)
+      }
+      const { data: lostData } = await lostQuery
+      setLostQuotes(lostData || [])
+
     } catch (error) {
+
       console.error('Error fetching data:', error)
     } finally {
       setLoading(false)
     }
   }
+
+  // Función de Exportación a CSV / Excel de Ventas No Concretadas
+  const handleExportLostQuotes = () => {
+    const filtered = lostFilter === 'ALL' 
+      ? lostQuotes 
+      : lostQuotes.filter(q => (q.motivo_perdida || '').toLowerCase().includes(lostFilter.toLowerCase()))
+    
+    if (filtered.length === 0) {
+      alert('No hay datos para exportar con el filtro actual.')
+      return
+    }
+
+    const headers = ['Codigo,Agencia,Destino,Motivo,Notas,Asesor,Fecha']
+    const rows = filtered.map(q => {
+      const fecha = new Date(q.created_at).toLocaleDateString()
+      const asesor = q.profiles?.nombre || 'N/A'
+      const notas = (q.notas_seguimiento || '').replace(/,/g, ';').replace(/\n/g, ' ')
+      const motivo = (q.motivo_perdida || '').replace(/,/g, ';')
+      const agencia = (q.agencia || 'Directo').replace(/,/g, ';')
+      const destino = (q.destino || '').replace(/,/g, ';')
+      return `${q.codigo},${agencia},${destino},${motivo},${notas},${asesor},${fecha}`
+    })
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join("\n")
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement("a")
+    link.setAttribute("href", encodedUri)
+    link.setAttribute("download", `Analisis_Perdidas_CTB_${selectedOperative}_${new Date().toISOString().split('T')[0]}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center p-8 bg-[#F5F7FA]">
@@ -517,7 +572,83 @@ export default function DashboardPage() {
             </div>
             <QuotesTable quotes={quotes} isAdmin={isAdmin} onUpdate={fetchDashboardData} />
           </div>
+
+          {/* MÓDULO INTELIGENTE DE ANÁLISIS DE VENTAS NO CONCRETADAS (PÉRDIDAS) */}
+          <div className="bg-white p-10 rounded-[3rem] shadow-sm border border-gray-50 space-y-6 animate-in fade-in duration-500">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 pb-6">
+              <div>
+                <h3 className="font-black text-xl uppercase tracking-tighter flex items-center gap-3 text-gray-800">
+                  <AlertTriangle size={22} className="text-amber-500" />
+                  Análisis de Ventas No Concretadas
+                </h3>
+                <p className="text-xs text-gray-400 font-bold mt-1 uppercase tracking-widest">
+                  {selectedOperative === 'global' ? 'Monitoreo global de motivos de pérdida' : 'Causas de anulación de tu embudo'}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <select 
+                  className="bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2.5 text-xs font-black text-gray-700 uppercase tracking-widest outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                  value={lostFilter}
+                  onChange={e => setLostFilter(e.target.value)}
+                >
+                  <option value="ALL">Todos los Motivos</option>
+                  <option value="Precio">Precio</option>
+                  <option value="No cerró Agencia">No cerró Agencia</option>
+                  <option value="No contestó Operador">No contestó Operador</option>
+                  <option value="Otro">Otros</option>
+                </select>
+
+                <button 
+                  onClick={handleExportLostQuotes}
+                  className="bg-gray-900 hover:bg-primary text-white px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center gap-2 shadow-lg hover:shadow-xl transition-all"
+                  title="Descargar reporte en Excel / CSV"
+                >
+                  <Download size={16} /> Exportar XLS
+                </button>
+              </div>
+            </div>
+
+            {/* Listado de Pérdidas Filtradas */}
+            <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2">
+              {lostQuotes.filter(q => lostFilter === 'ALL' || (q.motivo_perdida || '').toLowerCase().includes(lostFilter.toLowerCase())).length === 0 ? (
+                <div className="text-center py-10 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+                  <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">No se encontraron proformas perdidas con este filtro</p>
+                </div>
+              ) : (
+                lostQuotes
+                  .filter(q => lostFilter === 'ALL' || (q.motivo_perdida || '').toLowerCase().includes(lostFilter.toLowerCase()))
+                  .map((q, i) => (
+                    <div key={i} className="bg-gray-50 p-5 rounded-2xl border border-gray-100 hover:border-amber-200 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 group">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-black text-amber-600 bg-amber-100 px-2.5 py-1 rounded-lg uppercase tracking-wider">
+                            {q.motivo_perdida || 'Sin Motivo'}
+                          </span>
+                          <span className="text-xs font-black text-gray-900">{q.codigo}</span>
+                          <span className="text-xs text-gray-400 font-bold">· {q.agencia || 'Directo'}</span>
+                        </div>
+                        <p className="text-sm font-bold text-gray-700 italic pt-1">
+                          "{q.notas_seguimiento || 'Sin observaciones registradas'}"
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-4 text-right border-t md:border-t-0 pt-2 md:pt-0 border-gray-200">
+                        <div>
+                          <p className="text-xs font-black text-gray-800 uppercase">{q.destino}</p>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{q.profiles?.nombre || 'Asesor'}</p>
+                        </div>
+                        <div className="text-[10px] font-black text-gray-400 bg-white px-2.5 py-1.5 rounded-xl border border-gray-100 shadow-sm">
+                          {new Date(q.created_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+              )}
+            </div>
+          </div>
         </div>
+
 
         {/* COLUMNA DERECHA: META, LEADERBOARD, INSIGHTS */}
         <div className="space-y-10">
