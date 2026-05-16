@@ -8,7 +8,9 @@ import QuotesTable from '@/components/QuotesTable'
 import GlobalSearch from '@/components/GlobalSearch'
 import SalesModal from '@/components/SalesModal'
 import PaymentAlerts from '@/components/PaymentAlerts'
+import AIInsightCard from '@/components/AIInsightCard'
 import { 
+
   DollarSign, 
   TrendingUp, 
   FileText, 
@@ -113,23 +115,50 @@ export default function DashboardPage() {
         openCountQuery = openCountQuery.eq('operativo_id', targetIdForIndividual)
 
         const { data: statusData } = await supabase.from('cotizaciones').select('estado').eq('operativo_id', targetIdForIndividual)
+        const wonCount = statusData?.filter(q => q.estado === 'ganada').length || 0
+        const openCountInd = statusData?.filter(q => q.estado === 'abierta').length || 0
+        const lostCount = statusData?.filter(q => q.estado === 'perdida').length || 0
+        const totalQ = statusData?.length || 0
+
         const stats = [
-          { name: 'Ganadas', value: statusData?.filter(q => q.estado === 'ganada').length || 0, color: '#16A34A' },
-          { name: 'Abiertas', value: statusData?.filter(q => q.estado === 'abierta').length || 0, color: '#0066CC' },
-          { name: 'Perdidas', value: statusData?.filter(q => q.estado === 'perdida').length || 0, color: '#F5A623' },
+          { name: 'Ganadas', value: wonCount, color: '#16A34A' },
+          { name: 'Abiertas', value: openCountInd, color: '#0066CC' },
+          { name: 'Perdidas', value: lostCount, color: '#F5A623' },
           { name: 'Anuladas', value: statusData?.filter(q => q.estado === 'anulada').length || 0, color: '#DC2626' }
         ]
         setIndividualStats(stats)
 
         const { count: vCount } = await supabase.from('vouchers').select('*', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual)
-        const totalQ = statusData?.length || 0
-        const wonQ = statusData?.filter(q => q.estado === 'ganada').length || 0
-        setMetrics(prev => ({ ...prev, vouchersEmitidos: vCount || 0, conversionRate: totalQ > 0 ? (wonQ / totalQ) * 100 : 0 }))
+        setMetrics(prev => ({ 
+          ...prev, 
+          vouchersEmitidos: vCount || 0, 
+          conversionRate: totalQ > 0 ? (wonCount / totalQ) * 100 : 0,
+          total: totalQ,
+          abiertas: openCountInd,
+          ganadas: wonCount,
+          perdidas: lostCount,
+          conversion: totalQ > 0 ? ((wonCount / totalQ) * 100).toFixed(1) : 0
+        }))
       } else {
-        // Admin global: contar todas las abiertas
+        // Admin global: contar todas las abiertas y estados
         const { count: openCount } = await openCountQuery
-        setMetrics(prev => ({ ...prev, cotizacionesAbiertas: openCount || 0 }))
+        const { data: allStatus } = await supabase.from('cotizaciones').select('estado')
+        const totalAll = allStatus?.length || 0
+        const wonAll = allStatus?.filter(q => q.estado === 'ganada').length || 0
+        const openAll = allStatus?.filter(q => q.estado === 'abierta').length || 0
+        const lostAll = allStatus?.filter(q => q.estado === 'perdida').length || 0
+
+        setMetrics(prev => ({ 
+          ...prev, 
+          cotizacionesAbiertas: openCount || 0,
+          total: totalAll,
+          abiertas: openAll,
+          ganadas: wonAll,
+          perdidas: lostAll,
+          conversion: totalAll > 0 ? ((wonAll / totalAll) * 100).toFixed(1) : 0
+        }))
       }
+
 
       const { data: pipelineData } = await pipelineQuery
       const totalPipeline = pipelineData?.reduce((acc, q) => acc + (Number(q.valor_total) || 0), 0) || 0
@@ -165,8 +194,10 @@ export default function DashboardPage() {
         pipeline: totalPipeline,
         topDestino: popular,
         globalGoal: metaBase,
-        porcentajeMeta: metaBase > 0 ? (totalMetaComp / metaBase) * 100 : 0
+        porcentajeMeta: metaBase > 0 ? (totalMetaComp / metaBase) * 100 : 0,
+        totalAporte: totalMetaComp
       }))
+
 
       const { data: quotesData } = await quotesQuery.limit(10)
       setQuotes(quotesData || [])
@@ -579,14 +610,20 @@ export default function DashboardPage() {
                 <div className="bg-white/5 p-5 rounded-3xl border border-white/5"><p className="text-xs font-black text-primary uppercase tracking-widest mb-1">Destino más pedido</p><p className="text-xl font-black uppercase italic truncate">{metrics.topDestino}</p></div>
                 <div className="bg-white/5 p-5 rounded-3xl border border-white/5"><p className="text-xs font-black text-success uppercase tracking-widest mb-1">Tasa de Cierre</p><p className="text-3xl font-black">{metrics.conversionRate.toFixed(0)}%</p></div>
               </div>
-              <div className="bg-primary/10 p-6 rounded-[2rem] border border-primary/20">
-                <div className="flex items-start gap-3">
-                  <div className="bg-primary p-2.5 rounded-xl text-white mt-0.5"><Target size={18} /></div>
-                  <div><p className="text-xs font-black uppercase tracking-widest mb-1.5">Consejo del sistema</p><p className="text-sm italic leading-relaxed text-gray-200">{`Hay $${metrics.pipeline.toLocaleString()} en proformas por cerrar. ${selectedOperative === 'global' ? 'Dale seguimiento al equipo y prioriza los casos de mayor valor.' : 'Enfócate en cerrar las proformas de mayor valor para alcanzar tu meta.'}`}</p></div>
-                </div>
+              <div className="mt-4">
+                <AIInsightCard metricas={{
+                  total: metrics.total,
+                  abiertas: metrics.abiertas,
+                  ganadas: metrics.ganadas,
+                  perdidas: metrics.perdidas,
+                  conversion: metrics.conversion,
+                  totalAporte: metrics.totalAporte,
+                  topDestino: metrics.topDestino
+                }} />
               </div>
             </div>
           </div>
+
         </div>
       </div>
       <SalesModal />
