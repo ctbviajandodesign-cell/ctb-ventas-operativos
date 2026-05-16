@@ -397,8 +397,9 @@ export default function DashboardPage() {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                    <XAxis dataKey="nombre" axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 900, textTransform: 'uppercase' }} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 900 }} />
+                    <XAxis dataKey="nombre" axisLine={false} tickLine={false} tick={{ fill: '#334155', fontSize: 12, fontWeight: 900, textTransform: 'uppercase' }} dy={10} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#334155', fontSize: 12, fontWeight: 900 }} />
+
                     <Tooltip cursor={{ fill: '#F8FAFC' }} content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         return (
@@ -441,7 +442,8 @@ export default function DashboardPage() {
                     <BarChart data={individualStats} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#F1F5F9" />
                       <XAxis type="number" hide />
-                      <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 900, textTransform: 'uppercase' }} width={80} />
+                      <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#334155', fontSize: 12, fontWeight: 900, textTransform: 'uppercase' }} width={80} />
+
                       <Tooltip cursor={{ fill: '#F8FAFC' }} />
                       <Bar dataKey="value" radius={[0, 10, 10, 0]} barSize={35}>
                         {individualStats.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}

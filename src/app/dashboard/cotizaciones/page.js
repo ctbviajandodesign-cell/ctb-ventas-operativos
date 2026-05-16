@@ -159,8 +159,9 @@ export default function CotizacionesPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} barSize={50}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 900 }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 10 }} allowDecimals={false} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#334155', fontSize: 12, fontWeight: 900 }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#334155', fontSize: 12, fontWeight: 900 }} allowDecimals={false} />
+
                   <Tooltip
                     cursor={{ fill: '#F8FAFC' }}
                     content={({ active, payload }) => {
