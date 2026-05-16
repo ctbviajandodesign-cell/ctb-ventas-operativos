@@ -90,17 +90,17 @@ export default function UsuariosPage() {
               <div className="w-14 h-14 bg-gray-900 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-xl shadow-gray-200">
                 {user.nombre?.charAt(0) || '?'}
               </div>
-              <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${user.rol === 'admin' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
+              <div className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest ${user.rol === 'admin' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
                 {user.rol}
               </div>
             </div>
             
             <h3 className="font-black text-xl text-gray-900 tracking-tight leading-none mb-2">{user.nombre}</h3>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-8">{user.email}</p>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-8">{user.email}</p>
 
             <div className="bg-gray-50 p-6 rounded-[2rem] border border-gray-100 group-hover:bg-white transition-colors">
               <div className="flex justify-between items-center">
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                <span className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
                   <Target size={16} className="text-primary" /> Meta Mensual
                 </span>
                 <span className="font-black text-gray-900 text-lg">${(Number(user.meta_mensual) || 0).toLocaleString()}</span>
@@ -108,7 +108,8 @@ export default function UsuariosPage() {
             </div>
 
             <div className="flex gap-3 mt-8 opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0">
-              <button className="flex-1 py-4 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] transition-transform">Editar</button>
+              <button className="flex-1 py-4 bg-gray-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:scale-[1.02] transition-transform">Editar</button>
+
               <button className="w-12 h-12 bg-red-50 text-danger rounded-2xl flex items-center justify-center hover:bg-danger hover:text-white transition-all">
                 <Trash2 size={20} />
               </button>
@@ -122,19 +123,19 @@ export default function UsuariosPage() {
           <div className="bg-white rounded-[4rem] w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in duration-300">
             <div className="bg-primary p-10 text-white">
               <h2 className="text-3xl font-black uppercase tracking-tighter leading-none">Alta de Operativo</h2>
-              <p className="text-[10px] font-bold opacity-70 uppercase tracking-widest mt-2">Provisionamiento de nuevo perfil BI</p>
+              <p className="text-xs font-bold opacity-80 uppercase tracking-widest mt-2">Provisionamiento de nuevo perfil BI</p>
             </div>
             
             <form onSubmit={handleCreateUser} className="p-10 space-y-5">
               <div className="space-y-1">
-                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Nombre Completo</label>
+                <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Nombre Completo</label>
                 <input 
                   required className="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 font-black text-gray-800 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all" 
                   onChange={e => setFormData({...formData, nombre: e.target.value})}
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Email Profesional</label>
+                <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Email Profesional</label>
                 <input 
                   type="email" required className="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 font-black text-gray-800 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all" 
                   onChange={e => setFormData({...formData, email: e.target.value})}
@@ -142,20 +143,21 @@ export default function UsuariosPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Password</label>
+                  <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Password</label>
                   <input 
                     type="password" required className="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 font-black text-gray-800 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all" 
                     onChange={e => setFormData({...formData, password: e.target.value})}
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Meta ($)</label>
+                  <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Meta ($)</label>
                   <input 
                     type="number" required className="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 font-black text-gray-800 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all" 
                     onChange={e => setFormData({...formData, meta_mensual: e.target.value})}
                   />
                 </div>
               </div>
+
 
               <div className="flex gap-4 pt-8">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-4 font-black text-gray-400 text-xs uppercase tracking-widest hover:text-gray-600 transition-colors">Cancelar</button>

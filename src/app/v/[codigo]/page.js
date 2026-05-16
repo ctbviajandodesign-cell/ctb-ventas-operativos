@@ -62,10 +62,11 @@ export default function VoucherVerificationPage() {
     <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-6 text-center">
       <div className="space-y-6">
         <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto shadow-[0_0_20px_rgba(0,102,204,0.3)]"></div>
-        <p className="text-gray-400 font-black uppercase tracking-[0.4em] text-[9px] animate-pulse">Encriptando Conexión CTB...</p>
+        <p className="text-gray-400 font-black uppercase tracking-[0.3em] text-xs animate-pulse">Encriptando Conexión CTB...</p>
       </div>
     </div>
   )
+
 
   if (!voucher) return (
     <div className="min-h-screen bg-white flex items-center justify-center p-6 text-center">
@@ -98,9 +99,10 @@ export default function VoucherVerificationPage() {
         <div className="flex justify-center mb-[-20px] relative z-20">
           <div className={`px-8 py-3 rounded-full border-2 ${isValid ? 'bg-success border-white/20' : 'bg-danger border-white/20'} text-white shadow-2xl flex items-center gap-3 animate-bounce`}>
             {isValid ? <ShieldCheck size={20} /> : <AlertCircle size={20} />}
-            <span className="text-[11px] font-black uppercase tracking-widest">{isValid ? 'Verificado & Válido' : 'Documento Vencido'}</span>
+            <span className="text-xs font-black uppercase tracking-widest">{isValid ? 'Verificado & Válido' : 'Documento Vencido'}</span>
           </div>
         </div>
+
 
         {/* ESTRUCTURA TICKET */}
         <div className="bg-white rounded-[3rem] shadow-[0_40px_80px_rgba(0,0,0,0.5)] overflow-hidden relative">
@@ -110,7 +112,7 @@ export default function VoucherVerificationPage() {
             <div className="absolute top-0 right-0 p-10 opacity-5 -mr-10 -mt-10"><Plane size={200} /></div>
             <div className="flex justify-between items-start relative z-10">
               <div>
-                <p className="text-[9px] font-black text-primary uppercase tracking-[0.4em] mb-2">Travel Agency</p>
+                <p className="text-xs font-black text-primary uppercase tracking-[0.3em] mb-2">Travel Agency</p>
                 <h2 className="text-2xl font-black uppercase tracking-tighter leading-none italic">{voucher.agencia || 'CTB Directo'}</h2>
               </div>
               <img src="https://ctbviajando.com/wp-content/uploads/2023/06/cropped-ctb-logo-1.png" alt="CTB" className="h-6 brightness-0 invert" />
@@ -118,15 +120,16 @@ export default function VoucherVerificationPage() {
 
             <div className="mt-12 flex justify-between items-end relative z-10">
               <div>
-                <p className="text-[9px] font-black text-gray-500 uppercase tracking-[0.3em] mb-1">Código de Seguridad</p>
+                <p className="text-xs font-black text-gray-500 uppercase tracking-[0.2em] mb-1">Código de Seguridad</p>
                 <p className="text-2xl font-mono font-black tracking-tighter text-white">{voucher.codigo}</p>
               </div>
               <div className="text-right">
-                <p className="text-[9px] font-black text-gray-500 uppercase tracking-[0.3em] mb-1">Inversión Confirmada</p>
+                <p className="text-xs font-black text-gray-500 uppercase tracking-[0.2em] mb-1">Inversión Confirmada</p>
                 <p className="text-3xl font-black text-primary tracking-tighter">${(Number(voucher.valor_total) || 0).toLocaleString()}</p>
               </div>
             </div>
           </div>
+
 
           {/* SEPARADOR TICKET (DASHED LINE WITH NOTCHES) */}
           <div className="relative h-4 bg-white">
@@ -142,7 +145,7 @@ export default function VoucherVerificationPage() {
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <div className="bg-primary/10 p-2 rounded-xl text-primary"><Users size={18} /></div>
-                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Pasajeros del Expediente</h3>
+                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Pasajeros del Expediente</h3>
               </div>
               <div className="flex flex-wrap gap-2 pl-2">
                 {Array.isArray(voucher.pasajeros) ? (
@@ -163,14 +166,14 @@ export default function VoucherVerificationPage() {
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
                   <div className="bg-primary/10 p-2 rounded-xl text-primary"><MapPin size={18} /></div>
-                  <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Destino</h3>
+                  <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Destino</h3>
                 </div>
                 <p className="text-xl font-black text-gray-900 uppercase leading-none pl-2">{voucher.destino || 'EXPLORE'}</p>
               </div>
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="bg-primary/10 p-2 rounded-xl text-primary"><Calendar size={18} /></div>
-                  <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Fecha Viaje</h3>
+                  <div className="bg-primary/10 p-2.5 rounded-xl text-primary"><Calendar size={18} /></div>
+                  <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Fecha Viaje</h3>
                 </div>
                 <p className="text-sm font-black text-gray-900 uppercase leading-none pl-2 italic">
                   {formatSimpleDate(voucher.fecha_viaje_desde)}
@@ -181,8 +184,8 @@ export default function VoucherVerificationPage() {
             {/* INCLUSIONES (JSONB) */}
             {voucher.inclusiones && (
               <div className="space-y-5 bg-gray-50 p-8 rounded-[2.5rem] border border-gray-100">
-                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-center mb-2 flex items-center justify-center gap-2">
-                  <Zap size={14} className="text-primary" /> Servicios Incluidos
+                <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em] text-center mb-2 flex items-center justify-center gap-2">
+                  <Zap size={16} className="text-primary" /> Servicios Incluidos
                 </h3>
                 <div className="flex flex-wrap justify-center gap-4">
                   {Object.entries(voucher.inclusiones).map(([key, val]) => {
@@ -196,7 +199,7 @@ export default function VoucherVerificationPage() {
                           {key === 'tours' && <Map size={24} />}
                           {key === 'seguro' && <ShieldCheck size={24} />}
                         </div>
-                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{key}</span>
+                        <span className="text-xs font-black text-gray-400 uppercase tracking-widest">{key}</span>
                       </div>
                     )
                   })}
@@ -208,7 +211,7 @@ export default function VoucherVerificationPage() {
             {voucher.notas && (
               <div className="bg-blue-50/50 p-6 rounded-3xl border border-blue-100 flex gap-4">
                 <Info size={20} className="text-blue-500 shrink-0" />
-                <p className="text-[11px] font-medium text-blue-800 leading-relaxed italic">"{voucher.notas}"</p>
+                <p className="text-xs font-medium text-blue-800 leading-relaxed italic">"{voucher.notas}"</p>
               </div>
             )}
           </div>
@@ -216,17 +219,18 @@ export default function VoucherVerificationPage() {
           {/* FOOTER: CERTIFICADO */}
           <div className="bg-gray-50 p-10 flex flex-col items-center gap-4 border-t border-dashed border-gray-200">
             <div className="flex items-center gap-3">
-              <div className="bg-success/10 p-2 rounded-full"><ShieldCheck size={16} className="text-success" /></div>
-              <span className="text-[10px] font-black text-gray-900 uppercase tracking-[0.2em]">CTB Blockchain Certified</span>
+              <div className="bg-success/10 p-2.5 rounded-full"><ShieldCheck size={18} className="text-success" /></div>
+              <span className="text-xs font-black text-gray-900 uppercase tracking-[0.2em]">CTB Blockchain Certified</span>
             </div>
-            <p className="text-[8px] text-gray-400 font-bold uppercase tracking-[0.4em] text-center max-w-[200px]">Este documento digital es intransferible y auténtico.</p>
+            <p className="text-xs text-gray-400 font-bold uppercase tracking-[0.2em] text-center max-w-[240px]">Este documento digital es intransferible y auténtico.</p>
           </div>
         </div>
       </div>
       
-      <p className="mt-12 text-[10px] font-black text-gray-500 uppercase tracking-[0.6em] text-center opacity-50">
+      <p className="mt-12 text-xs font-black text-gray-500 uppercase tracking-[0.4em] text-center opacity-50">
         CTB VIAJANDO · REAL-TIME VERIFICATION
       </p>
     </div>
+
   )
 }

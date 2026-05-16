@@ -50,9 +50,10 @@ export default function AIInsightCard({ metricas }) {
             <Sparkles size={16} className="text-primary" />
           </div>
           <div>
-            <p className="text-[9px] font-black text-primary uppercase tracking-[0.3em]">IA Comercial CTB</p>
-            <p className="text-[8px] text-gray-400 uppercase tracking-widest">Consejo Personalizado</p>
+            <p className="text-xs font-black text-primary uppercase tracking-[0.2em]">IA Comercial CTB</p>
+            <p className="text-xs text-gray-400 uppercase tracking-widest mt-0.5">Consejo Personalizado</p>
           </div>
+
         </div>
         <button
           onClick={fetchInsight}

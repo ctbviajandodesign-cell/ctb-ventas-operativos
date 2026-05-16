@@ -81,8 +81,9 @@ export default function PaymentAlerts({ userId, isAdmin }) {
         </div>
         <div>
           <h3 className="font-black text-success uppercase tracking-tighter leading-none">Cartera Limpia</h3>
-          <p className="text-[10px] font-bold text-success/60 uppercase tracking-widest mt-1">No hay cobros pendientes para hoy</p>
+          <p className="text-xs font-bold text-success/60 uppercase tracking-widest mt-1.5">No hay cobros pendientes para hoy</p>
         </div>
+
       </div>
     </div>
   )
@@ -94,10 +95,11 @@ export default function PaymentAlerts({ userId, isAdmin }) {
           <AlertTriangle size={20} className="text-amber-500" />
           Radar de Cobros Pendientes
         </h3>
-        <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2 py-1 rounded-full uppercase">
+        <span className="bg-amber-100 text-amber-700 text-xs font-black px-2.5 py-1 rounded-full uppercase">
           {alerts.length} Alertas
         </span>
       </div>
+
 
       <div className="space-y-3">
         {alerts.slice(0, 4).map((alert, idx) => {
@@ -109,30 +111,32 @@ export default function PaymentAlerts({ userId, isAdmin }) {
                   <Clock size={16} />
                 </div>
                 <div>
-                  <p className="text-[11px] font-black text-gray-900 leading-none mb-1">
+                  <p className="text-xs font-black text-gray-900 leading-none mb-1">
                     {pasajeroName?.split(',')[0] || 'N/A'}
                   </p>
-                  <p className="text-[9px] font-bold text-gray-400 uppercase">
+                  <p className="text-xs font-bold text-gray-400 uppercase">
                     {alert.label} • {alert.proforma}
                   </p>
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-xs font-black text-gray-900">${(Number(alert.monto) || 0).toLocaleString()}</p>
-                <p className={`text-[9px] font-black uppercase ${alert.isOverdue ? 'text-danger' : 'text-amber-600'}`}>
+                <p className="text-sm font-black text-gray-900">${(Number(alert.monto) || 0).toLocaleString()}</p>
+                <p className={`text-xs font-black uppercase ${alert.isOverdue ? 'text-danger' : 'text-amber-600'}`}>
                   {alert.isOverdue ? 'Vencido' : 'Vence Hoy'}
                 </p>
               </div>
+
             </div>
           )
         })}
       </div>
 
       {alerts.length > 4 && (
-        <p className="text-center text-[10px] font-bold text-gray-400 mt-4 uppercase">
+        <p className="text-center text-xs font-bold text-gray-400 mt-4 uppercase">
           + {alerts.length - 4} cobros más pendientes
         </p>
       )}
+
     </div>
   )
 }

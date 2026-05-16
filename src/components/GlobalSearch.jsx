@@ -76,16 +76,17 @@ export default function GlobalSearch() {
         <div className="absolute top-full left-0 right-0 mt-4 bg-white rounded-[2.5rem] shadow-[0_30px_60px_rgba(0,0,0,0.15)] border border-gray-50 overflow-hidden z-[100] animate-in slide-in-from-top-4 duration-300">
           
           <div className="p-4 bg-gray-50/50 border-b border-gray-100 flex justify-between items-center px-8">
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Resultados de Búsqueda</span>
-            <span className="text-[9px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">{results.quotes.length + results.vouchers.length} hallados</span>
+            <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Resultados de Búsqueda</span>
+            <span className="text-xs font-bold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full">{results.quotes.length + results.vouchers.length} hallados</span>
           </div>
+
 
           <div className="max-h-[400px] overflow-y-auto">
             {/* SECCIÓN COTIZACIONES */}
             {results.quotes.length > 0 && (
               <div className="p-4 border-b border-gray-50 last:border-0">
-                <h4 className="px-4 text-[9px] font-black text-gray-300 uppercase tracking-widest mb-3 flex items-center gap-2">
-                  <FileText size={12} /> Cotizaciones / Proformas
+                <h4 className="px-4 text-xs font-black text-gray-300 uppercase tracking-widest mb-3 flex items-center gap-2">
+                  <FileText size={14} /> Cotizaciones / Proformas
                 </h4>
                 <div className="space-y-1">
                   {results.quotes.map(q => (
@@ -95,12 +96,13 @@ export default function GlobalSearch() {
                       className="flex items-center justify-between p-4 rounded-2xl hover:bg-gray-50 transition-all group"
                     >
                       <div className="flex items-center gap-4">
-                        <div className="bg-primary/10 p-2.5 rounded-xl text-primary font-mono text-[10px] font-black">{q.codigo}</div>
+                        <div className="bg-primary/10 p-2.5 rounded-xl text-primary font-mono text-xs font-black">{q.codigo}</div>
                         <div>
                           <p className="text-sm font-black text-gray-800 leading-none mb-1 uppercase italic">{q.agencia || 'Directo'}</p>
-                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{q.destino}</p>
+                          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">{q.destino}</p>
                         </div>
                       </div>
+
                       <ChevronRight size={16} className="text-gray-200 group-hover:text-primary transition-colors" />
                     </a>
                   ))}
@@ -111,8 +113,8 @@ export default function GlobalSearch() {
             {/* SECCIÓN VOUCHERS */}
             {results.vouchers.length > 0 && (
               <div className="p-4">
-                <h4 className="px-4 text-[9px] font-black text-gray-300 uppercase tracking-widest mb-3 flex items-center gap-2">
-                  <Ticket size={12} /> Vouchers Activos
+                <h4 className="px-4 text-xs font-black text-gray-300 uppercase tracking-widest mb-3 flex items-center gap-2">
+                  <Ticket size={14} /> Vouchers Activos
                 </h4>
                 <div className="space-y-1">
                   {results.vouchers.map(v => (
@@ -123,12 +125,13 @@ export default function GlobalSearch() {
                       className="flex items-center justify-between p-4 rounded-2xl hover:bg-blue-50 transition-all group"
                     >
                       <div className="flex items-center gap-4">
-                        <div className="bg-success/10 p-2.5 rounded-xl text-success font-mono text-[10px] font-black">{v.codigo}</div>
+                        <div className="bg-success/10 p-2.5 rounded-xl text-success font-mono text-xs font-black">{v.codigo}</div>
                         <div>
                           <p className="text-sm font-black text-gray-800 leading-none mb-1 uppercase italic">{v.pasajeros?.[0] || 'Pasajero'}</p>
-                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{v.destino}</p>
+                          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">{v.destino}</p>
                         </div>
                       </div>
+
                       <ChevronRight size={16} className="text-gray-200 group-hover:text-success transition-colors" />
                     </a>
                   ))}

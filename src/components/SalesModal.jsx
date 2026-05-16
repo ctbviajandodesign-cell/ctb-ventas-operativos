@@ -194,17 +194,18 @@ export default function SalesModal() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               {isEditing
-                ? <span className="text-[9px] font-black bg-white/10 px-2 py-1 rounded-full uppercase tracking-widest">Editar Venta Existente</span>
-                : <span className="text-[9px] font-black bg-white/20 px-2 py-1 rounded-full uppercase tracking-widest">✦ Nueva Venta</span>
+                ? <span className="text-xs font-black bg-white/10 px-2.5 py-1 rounded-full uppercase tracking-widest">Editar Venta Existente</span>
+                : <span className="text-xs font-black bg-white/20 px-2.5 py-1 rounded-full uppercase tracking-widest">✦ Nueva Venta</span>
               }
             </div>
             <h2 className="text-2xl font-black uppercase tracking-tighter">
               {isEditing ? 'Actualizar Venta' : 'Confirmar Venta'}
             </h2>
-            <p className="text-[10px] opacity-70 uppercase tracking-widest mt-1">
+            <p className="text-xs opacity-90 uppercase tracking-widest mt-1.5">
               Ref: {quote.existingSale?.numero_proforma || quote.codigo}
               {quote.cotizaciones?.agencia || quote.agencia ? ` · ${quote.cotizaciones?.agencia || quote.agencia}` : ''}
             </p>
+
           </div>
           <button onClick={() => setQuote(null)} className="p-2 hover:rotate-90 hover:bg-white/10 rounded-full transition-all">
             <X size={24} />
@@ -221,19 +222,20 @@ export default function SalesModal() {
                   <QrCode size={20} className="text-primary" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Voucher emitido</p>
+                  <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Voucher emitido</p>
                   <p className="font-black text-gray-900">{existingVoucher.codigo}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`text-[9px] font-black px-2 py-1 rounded-full uppercase ${existingVoucher.estado === 'activo' ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'}`}>
+                <span className={`text-xs font-black px-2.5 py-1 rounded-full uppercase ${existingVoucher.estado === 'activo' ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'}`}>
                   {existingVoucher.estado}
                 </span>
-                <Link href="/dashboard/vouchers" className="flex items-center gap-1.5 text-[10px] font-black text-primary bg-primary/10 px-3 py-1.5 rounded-xl hover:bg-primary/20 transition-colors">
+                <Link href="/dashboard/vouchers" className="flex items-center gap-1.5 text-xs font-black text-primary bg-primary/10 px-3 py-1.5 rounded-xl hover:bg-primary/20 transition-colors">
                   Ver Voucher <ExternalLink size={12} />
                 </Link>
               </div>
             </div>
+
           )}
 
           {/* SIN VOUCHER — modo edición sin voucher creado */}
@@ -246,25 +248,25 @@ export default function SalesModal() {
 
           {/* VALORES FINANCIEROS */}
           <div>
-            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-              <DollarSign size={13} /> Valores Financieros
+            <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+              <DollarSign size={16} /> Valores Financieros
             </p>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               <div className="bg-gray-50 p-4 rounded-2xl">
-                <p className="text-[9px] font-black text-gray-400 uppercase mb-1">Total Venta</p>
+                <p className="text-xs font-black text-gray-400 uppercase mb-1">Total Venta</p>
                 <div className="flex items-baseline gap-1">
                   <span className="text-gray-400 font-bold">$</span>
                   <input type="number" step="0.01" className="bg-transparent border-none font-black text-gray-900 text-xl p-0 w-full outline-none" value={formData.total} onChange={e => setFormData({ ...formData, total: e.target.value })} />
                 </div>
               </div>
               <div className="bg-success/5 p-4 rounded-2xl border border-success/10">
-                <p className="text-[9px] font-black text-success/70 uppercase mb-1">Ganancia (Comisión + Utilidad)</p>
+                <p className="text-xs font-black text-success/80 uppercase mb-1">Ganancia (Comisión + Utilidad)</p>
                 <p className="text-xl font-black text-success">${(Number(formData.comision || 0) + Number(formData.utilidad || 0)).toLocaleString()}</p>
               </div>
               <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10">
                 <div className="flex items-center justify-between mb-1">
-                  <p className="text-[9px] font-black text-primary/70 uppercase">Bono Counter</p>
-                  <span className="text-[8px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase">Constante</span>
+                  <p className="text-xs font-black text-primary/80 uppercase">Bono Counter</p>
+                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded font-bold uppercase">Constante</span>
                 </div>
                 <div className="flex items-baseline gap-1">
                   <span className="text-primary font-bold">$</span>
@@ -272,24 +274,25 @@ export default function SalesModal() {
                 </div>
               </div>
               <div className="bg-gray-50 p-4 rounded-2xl">
-                <p className="text-[9px] font-black text-gray-400 uppercase mb-1">Comisión $</p>
+                <p className="text-xs font-black text-gray-400 uppercase mb-1">Comisión $</p>
                 <input type="number" step="0.01" className="bg-transparent border-none font-black text-lg p-0 w-full outline-none text-gray-800" value={formData.comision} onChange={e => setFormData({ ...formData, comision: e.target.value })} />
               </div>
               <div className="bg-gray-50 p-4 rounded-2xl">
-                <p className="text-[9px] font-black text-gray-400 uppercase mb-1">Utilidad $</p>
+                <p className="text-xs font-black text-gray-400 uppercase mb-1">Utilidad $</p>
                 <input type="number" step="0.01" className="bg-transparent border-none font-black text-lg p-0 w-full outline-none text-gray-800" value={formData.utilidad} onChange={e => setFormData({ ...formData, utilidad: e.target.value })} />
               </div>
             </div>
           </div>
 
+
           {/* PLAN DE PAGOS */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                <Calendar size={13} /> Plan de Pagos
+              <p className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                <Calendar size={16} /> Plan de Pagos
               </p>
               <button type="button" onClick={() => setMilestones([...milestones, { id: Date.now(), label: 'Abono', amount: 0, percent: 0, date: '', status: 'pendiente' }])}
-                className="text-[9px] font-black text-primary bg-primary/5 px-3 py-1.5 rounded-full hover:bg-primary/10 transition-colors">
+                className="text-xs font-black text-primary bg-primary/5 px-3 py-1.5 rounded-full hover:bg-primary/10 transition-colors">
                 + Añadir pago
               </button>
             </div>
@@ -298,37 +301,38 @@ export default function SalesModal() {
             <div className="mb-3 bg-gray-100 h-2 rounded-full overflow-hidden">
               <div className="h-full bg-success rounded-full transition-all" style={{ width: `${Math.min((totalPaid / (Number(formData.total) || 1)) * 100, 100)}%` }}></div>
             </div>
-            <div className="flex justify-between text-[9px] font-black uppercase mb-4">
+            <div className="flex justify-between text-xs font-black uppercase mb-4">
               <span className="text-success">Cobrado: ${totalPaid.toLocaleString()}</span>
               <span className={faltante > 0 ? 'text-amber-600' : 'text-success'}>{faltante > 0 ? `Pendiente: $${faltante.toLocaleString()}` : '✓ Pagado completo'}</span>
             </div>
 
             <div className="space-y-2">
               {milestones.map(m => (
-                <div key={m.id} className={`grid grid-cols-12 gap-2 p-3 rounded-2xl border transition-all ${m.status === 'pagado' ? 'bg-success/5 border-success/20' : 'bg-amber-50/50 border-amber-100'}`}>
+                <div key={m.id} className={`grid grid-cols-12 gap-2 p-3.5 rounded-2xl border transition-all ${m.status === 'pagado' ? 'bg-success/5 border-success/20' : 'bg-amber-50/50 border-amber-100'}`}>
                   <div className="col-span-4">
-                    <input className="bg-transparent border-none text-[11px] font-black w-full outline-none" value={m.label} onChange={e => updateMilestone(m.id, 'label', e.target.value)} />
+                    <input className="bg-transparent border-none text-xs font-black w-full outline-none" value={m.label} onChange={e => updateMilestone(m.id, 'label', e.target.value)} />
                   </div>
                   <div className="col-span-2 relative">
-                    <span className="absolute left-1 top-1.5 text-[10px] text-gray-400">$</span>
-                    <input type="number" className="bg-white border-none rounded-lg text-xs font-black w-full pl-4 py-1 outline-none" value={m.amount} onChange={e => updateMilestone(m.id, 'amount', e.target.value)} />
+                    <span className="absolute left-1 top-2 text-xs text-gray-400">$</span>
+                    <input type="number" className="bg-white border-none rounded-lg text-xs font-black w-full pl-4 py-1.5 outline-none" value={m.amount} onChange={e => updateMilestone(m.id, 'amount', e.target.value)} />
                   </div>
                   <div className="col-span-3">
-                    <input type="date" className="bg-white border-none rounded-lg text-[10px] font-bold w-full py-1 px-2 outline-none" value={m.date} onChange={e => updateMilestone(m.id, 'date', e.target.value)} />
+                    <input type="date" className="bg-white border-none rounded-lg text-xs font-bold w-full py-1.5 px-2 outline-none" value={m.date} onChange={e => updateMilestone(m.id, 'date', e.target.value)} />
                   </div>
-                  <div className="col-span-3 flex justify-end gap-1">
+                  <div className="col-span-3 flex justify-end gap-1 items-center">
                     <button type="button" onClick={() => updateMilestone(m.id, 'status', m.status === 'pagado' ? 'pendiente' : 'pagado')}
                       className={`p-1.5 rounded-lg transition-all ${m.status === 'pagado' ? 'text-success bg-white shadow-sm' : 'text-gray-300 hover:text-success'}`}>
                       <CheckCircle2 size={18} />
                     </button>
                     <button type="button" onClick={() => setMilestones(milestones.filter(x => x.id !== m.id))} className="text-gray-300 hover:text-danger p-1.5 transition-colors">
-                      <Trash2 size={14} />
+                      <Trash2 size={16} />
                     </button>
                   </div>
                 </div>
               ))}
             </div>
           </div>
+
 
           {/* OPCIÓN DE VOUCHER — solo si es nueva venta */}
           {!isEditing && (
@@ -350,30 +354,31 @@ export default function SalesModal() {
                       <button key={item} type="button" onClick={() => setInclusions({ ...inclusions, [item]: !inclusions[item] })}
                         className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all text-xs ${inclusions[item] ? 'bg-primary text-white border-primary shadow-md' : 'bg-white text-gray-400 border-gray-100 hover:border-gray-200'}`}>
                         <Icon size={18} />
-                        <span className="text-[9px] font-black uppercase">{item}</span>
+                        <span className="text-xs font-black uppercase">{item}</span>
                       </button>
                     ))}
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-[9px] font-black text-gray-400 uppercase">Inicio del viaje</label>
-                      <input type="date" className="input font-bold mt-1" value={formData.fecha_viaje_desde} onChange={e => setFormData({ ...formData, fecha_viaje_desde: e.target.value })} />
+                      <label className="text-xs font-black text-gray-400 uppercase">Inicio del viaje</label>
+                      <input type="date" className="input font-bold mt-1 text-xs" value={formData.fecha_viaje_desde} onChange={e => setFormData({ ...formData, fecha_viaje_desde: e.target.value })} />
                     </div>
                     <div>
-                      <label className="text-[9px] font-black text-gray-400 uppercase">Fin del viaje</label>
-                      <input type="date" className="input font-bold mt-1" value={formData.fecha_viaje_hasta} onChange={e => setFormData({ ...formData, fecha_viaje_hasta: e.target.value })} />
+                      <label className="text-xs font-black text-gray-400 uppercase">Fin del viaje</label>
+                      <input type="date" className="input font-bold mt-1 text-xs" value={formData.fecha_viaje_hasta} onChange={e => setFormData({ ...formData, fecha_viaje_hasta: e.target.value })} />
                     </div>
                     <div className="col-span-2">
-                      <label className="text-[9px] font-black text-gray-400 uppercase">Nombres de Pasajeros / Grupo (Uno por línea)</label>
+                      <label className="text-xs font-black text-gray-400 uppercase">Nombres de Pasajeros / Grupo (Uno por línea)</label>
                       <textarea className="input text-xs mt-1 min-h-[70px] font-mono" placeholder="Juan Pérez&#10;María García..." value={formData.pasajeros_voucher} onChange={e => setFormData({ ...formData, pasajeros_voucher: e.target.value })} />
                     </div>
                     <div className="col-span-2">
-                      <label className="text-[9px] font-black text-gray-400 uppercase">Notas para el pasajero</label>
+                      <label className="text-xs font-black text-gray-400 uppercase">Notas para el pasajero</label>
                       <textarea className="input text-xs mt-1 min-h-[70px]" placeholder="Indicaciones, observaciones..." value={formData.notas_voucher} onChange={e => setFormData({ ...formData, notas_voucher: e.target.value })} />
                     </div>
                   </div>
                 </div>
               )}
+
             </div>
           )}
 

@@ -114,26 +114,27 @@ export default function CotizacionesPage() {
       {/* MINI DASHBOARD DE STATS */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col justify-between">
-          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Total Proformas</p>
+          <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Total Proformas</p>
           <p className="text-4xl font-black text-gray-900 mt-2">{stats.total}</p>
-          <p className="text-[9px] text-gray-400 mt-2 font-bold">Este historial completo</p>
+          <p className="text-xs text-gray-400 mt-2 font-bold">Este historial completo</p>
         </div>
         <div className="bg-primary/5 border border-primary/10 p-6 rounded-[2rem] flex flex-col justify-between">
-          <p className="text-[9px] font-black text-primary/70 uppercase tracking-widest">En Proceso</p>
+          <p className="text-xs font-black text-primary/80 uppercase tracking-widest">En Proceso</p>
           <p className="text-4xl font-black text-primary mt-2">{stats.abiertas}</p>
-          <p className="text-[9px] text-primary/50 mt-2 font-bold">Esperando cierre</p>
+          <p className="text-xs text-primary/60 mt-2 font-bold">Esperando cierre</p>
         </div>
         <div className="bg-success/5 border border-success/10 p-6 rounded-[2rem] flex flex-col justify-between">
-          <p className="text-[9px] font-black text-success/70 uppercase tracking-widest">Ventas Cerradas</p>
+          <p className="text-xs font-black text-success/80 uppercase tracking-widest">Ventas Cerradas</p>
           <p className="text-4xl font-black text-success mt-2">{stats.ganadas}</p>
-          <p className="text-[9px] text-success/50 mt-2 font-bold">{stats.conversion}% de conversión</p>
+          <p className="text-xs text-success/60 mt-2 font-bold">{stats.conversion}% de conversión</p>
         </div>
         <div className="bg-gray-900 p-6 rounded-[2rem] text-white flex flex-col justify-between">
-          <p className="text-[9px] font-black text-primary uppercase tracking-widest">Mi Ganancia Total</p>
+          <p className="text-xs font-black text-primary uppercase tracking-widest">Mi Ganancia Total</p>
           <p className="text-2xl font-black mt-2">${stats.totalAporte.toLocaleString()}</p>
-          <p className="text-[9px] text-gray-400 mt-2 font-bold">Comisiones + Utilidades</p>
+          <p className="text-xs text-gray-400 mt-2 font-bold">Comisiones + Utilidades</p>
         </div>
       </div>
+
 
       {/* IA INSIGHT */}
       <AIInsightCard metricas={{
@@ -166,7 +167,7 @@ export default function CotizacionesPage() {
                       if (active && payload?.length) {
                         return (
                           <div className="bg-gray-900 text-white px-4 py-3 rounded-2xl shadow-xl text-xs font-black">
-                            <p className="text-primary uppercase tracking-widest text-[9px]">{payload[0].payload.name}</p>
+                            <p className="text-primary uppercase tracking-widest text-xs">{payload[0].payload.name}</p>
                             <p className="text-xl mt-1">{payload[0].value} proformas</p>
                           </div>
                         )
@@ -185,13 +186,14 @@ export default function CotizacionesPage() {
             {chartData.map((item) => (
               <div key={item.name} className="text-center p-4 rounded-2xl bg-gray-50 border border-gray-100">
                 <div className="w-3 h-3 rounded-full mx-auto mb-2" style={{ background: item.color }}></div>
-                <p className="text-[8px] font-black text-gray-400 uppercase leading-tight">{item.name}</p>
+                <p className="text-xs font-black text-gray-400 uppercase leading-tight">{item.name}</p>
                 <p className="text-2xl font-black text-gray-900 mt-1">{item.value}</p>
               </div>
             ))}
           </div>
         </div>
       </div>
+
 
       {/* BARRA DE FILTROS REAL */}
       <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4 items-center justify-between">
@@ -212,13 +214,14 @@ export default function CotizacionesPage() {
               >
                 <Icon size={14} />
                 {tab.label}
-                <span className={`ml-1 px-2 py-0.5 rounded-full text-[9px] font-black ${isActive ? 'bg-white/20' : 'bg-gray-200 text-gray-500'}`}>
+                <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-black ${isActive ? 'bg-white/20' : 'bg-gray-200 text-gray-500'}`}>
                   {tab.key === 'todas' ? quotes.length
                     : tab.key === 'abierta' ? stats.abiertas
                     : tab.key === 'ganada' ? stats.ganadas
                     : stats.perdidas}
                 </span>
               </button>
+
             )
           })}
         </div>

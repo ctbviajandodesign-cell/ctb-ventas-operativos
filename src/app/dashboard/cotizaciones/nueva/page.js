@@ -59,18 +59,20 @@ export default function NuevaCotizacionPage() {
           <h1 className="text-3xl font-black text-gray-900 tracking-tighter uppercase italic">
             Nueva Cotización
           </h1>
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.25em] mt-1">
+          <p className="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mt-1">
             Registro de requerimiento del cliente
           </p>
+
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Card única con campos esenciales */}
         <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-gray-50 space-y-6">
-          <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-            <FileText size={14} className="text-primary" /> Datos del Requerimiento
+          <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+            <FileText size={16} className="text-primary" /> Datos del Requerimiento
           </h3>
+
 
           {/* Agencia */}
           <div>
@@ -126,11 +128,12 @@ export default function NuevaCotizacionPage() {
           </div>
 
           <div className="bg-primary/5 border border-primary/10 p-4 rounded-2xl">
-            <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-1">ℹ Nota</p>
-            <p className="text-xs text-primary/70 leading-relaxed">
+            <p className="text-xs font-black text-primary uppercase tracking-widest mb-1">ℹ Nota</p>
+            <p className="text-xs text-primary/80 leading-relaxed">
               Los valores financieros (total, comisión, utilidad) se registran únicamente al aprobar y convertir esta cotización en Proforma de Venta.
             </p>
           </div>
+
         </div>
 
         <button

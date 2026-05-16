@@ -229,7 +229,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center text-2xl font-black text-white shadow-lg">{operativePanel.avatar}</div>
                 <div>
-                  <p className="text-[9px] font-black text-primary uppercase tracking-widest mb-1">Perfil de Operativo</p>
+                  <p className="text-xs font-black text-primary uppercase tracking-widest mb-1">Perfil de Operativo</p>
                   <h2 className="text-2xl font-black tracking-tight">{operativePanel.nombreCompleto}</h2>
                   <p className="text-xs text-gray-400 mt-0.5">Meta mensual: ${operativePanel.meta?.toLocaleString()}</p>
                 </div>
@@ -239,37 +239,38 @@ export default function DashboardPage() {
             <div className="p-8 space-y-6">
               <div>
                 <div className="flex justify-between mb-2">
-                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Cumplimiento de Meta (Mes)</span>
-                  <span className={`text-[10px] font-black uppercase ${operativePanel.cumplimiento >= 100 ? 'text-success' : operativePanel.cumplimiento >= 60 ? 'text-primary' : 'text-amber-600'}`}>{Number(operativePanel.cumplimiento).toFixed(1)}%</span>
+                  <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Cumplimiento de Meta (Mes)</span>
+                  <span className={`text-xs font-black uppercase ${operativePanel.cumplimiento >= 100 ? 'text-success' : operativePanel.cumplimiento >= 60 ? 'text-primary' : 'text-amber-600'}`}>{Number(operativePanel.cumplimiento).toFixed(1)}%</span>
                 </div>
                 <div className="w-full bg-gray-100 h-4 rounded-full overflow-hidden">
                   <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(operativePanel.cumplimiento, 100)}%`, background: operativePanel.cumplimiento >= 100 ? '#16A34A' : operativePanel.cumplimiento >= 60 ? '#0066CC' : '#F5A623' }} />
                 </div>
                 <div className="flex justify-between mt-1">
-                  <span className="text-[9px] text-success font-black">Ganancia: ${operativePanel.ganancia?.toLocaleString()}</span>
-                  <span className="text-[9px] text-gray-400 font-bold">Restan: ${Math.max(0, (operativePanel.meta||0) - (operativePanel.ganancia||0)).toLocaleString()}</span>
+                  <span className="text-xs text-success font-black">Ganancia: ${operativePanel.ganancia?.toLocaleString()}</span>
+                  <span className="text-xs text-gray-400 font-bold">Restan: ${Math.max(0, (operativePanel.meta||0) - (operativePanel.ganancia||0)).toLocaleString()}</span>
                 </div>
               </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100">
-                  <p className="text-[9px] font-black text-gray-400 uppercase">Total Vendido (Mes)</p>
+                  <p className="text-xs font-black text-gray-400 uppercase">Total Vendido (Mes)</p>
                   <p className="text-2xl font-black text-gray-900 mt-1">${operativePanel.totalVendido?.toLocaleString()}</p>
                 </div>
                 <div className="bg-success/5 p-5 rounded-2xl border border-success/10">
-                  <p className="text-[9px] font-black text-success/70 uppercase">Ganancia (Mes)</p>
+                  <p className="text-xs font-black text-success/80 uppercase">Ganancia (Mes)</p>
                   <p className="text-2xl font-black text-success mt-1">${operativePanel.ganancia?.toLocaleString()}</p>
                 </div>
                 <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100">
-                  <p className="text-[9px] font-black text-gray-400 uppercase">Tasa de Cierre</p>
+                  <p className="text-xs font-black text-gray-400 uppercase">Tasa de Cierre</p>
                   <p className="text-2xl font-black text-gray-900 mt-1">{operativePanel.conversion}%</p>
                 </div>
                 <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100">
-                  <p className="text-[9px] font-black text-gray-400 uppercase">Vouchers Emitidos</p>
+                  <p className="text-xs font-black text-gray-400 uppercase">Vouchers Emitidos</p>
                   <p className="text-2xl font-black text-gray-900 mt-1">{operativePanel.vouchers}</p>
                 </div>
               </div>
               <div>
-                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">Proformas (histórico total)</p>
+                <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Proformas (histórico total)</p>
                 <div className="grid grid-cols-3 gap-2">
                   {[
                     { label: 'Ganadas', val: operativePanel.ganadas, color: 'text-success bg-success/10 border-success/20' },
@@ -278,11 +279,12 @@ export default function DashboardPage() {
                   ].map(item => (
                     <div key={item.label} className={`p-3 rounded-2xl text-center border ${item.color}`}>
                       <p className="text-2xl font-black">{item.val}</p>
-                      <p className="text-[9px] font-black uppercase mt-0.5">{item.label}</p>
+                      <p className="text-xs font-black uppercase mt-0.5">{item.label}</p>
                     </div>
                   ))}
                 </div>
               </div>
+
               <button
                 onClick={() => { setSelectedOperative(operativePanel.id); setOperativePanel(null) }}
                 className="w-full bg-primary text-white py-4 rounded-2xl font-black uppercase tracking-tighter text-sm hover:scale-[1.02] transition-all shadow-lg shadow-primary/20"
@@ -306,7 +308,7 @@ export default function DashboardPage() {
                 Control Center
               </h1>
             </div>
-            <p className="text-gray-400 font-bold text-[10px] uppercase tracking-[0.3em] ml-1">
+            <p className="text-gray-400 font-bold text-xs uppercase tracking-[0.2em] ml-1">
               {isAdmin ? 'Panel de Control de Operaciones Globales' : 'Tu Resumen de Inteligencia Comercial'}
             </p>
           </div>
@@ -317,8 +319,9 @@ export default function DashboardPage() {
           <div className="flex flex-wrap items-center gap-4 bg-white p-2 rounded-[2rem] shadow-xl border border-gray-100">
             <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-2xl border border-gray-100">
               <Filter size={16} className="text-primary" />
-              <span className="text-[10px] font-black uppercase text-gray-400">Filtrar por Operativo:</span>
+              <span className="text-xs font-black uppercase text-gray-400">Filtrar por Operativo:</span>
             </div>
+
             <select 
               value={selectedOperative}
               onChange={(e) => setSelectedOperative(e.target.value)}
@@ -385,7 +388,7 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 bg-primary rounded-full"></div>
-                    <span className="text-[10px] font-black text-gray-400 uppercase">Ventas ($)</span>
+                    <span className="text-xs font-black text-gray-400 uppercase">Ventas ($)</span>
                   </div>
                 </div>
               </div>
@@ -400,14 +403,15 @@ export default function DashboardPage() {
                       if (active && payload && payload.length) {
                         return (
                           <div className="bg-gray-900 text-white p-4 rounded-2xl shadow-2xl border border-white/10">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">{payload[0].payload.nombre}</p>
+                            <p className="text-xs font-black uppercase tracking-widest text-primary mb-1">{payload[0].payload.nombre}</p>
                             <p className="text-xl font-black">${payload[0].value.toLocaleString()}</p>
-                            <p className="text-[9px] font-bold text-gray-400 mt-1 uppercase italic">{payload[0].payload.cumplimiento.toFixed(1)}% de meta cumplida</p>
+                            <p className="text-xs font-bold text-gray-400 mt-1 uppercase italic">{payload[0].payload.cumplimiento.toFixed(1)}% de meta cumplida</p>
                           </div>
                         )
                       }
                       return null
                     }} />
+
                     <Bar dataKey="total" radius={[10, 10, 10, 10]} barSize={40}>
                       {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={index === 0 ? '#0066CC' : '#E2E8F0'} />)}
                     </Bar>
@@ -427,7 +431,7 @@ export default function DashboardPage() {
                     Embudo de Venta
                   </h3>
                   <div className="bg-success/10 px-4 py-2 rounded-2xl">
-                    <p className="text-[9px] font-black text-success uppercase">Conversión</p>
+                    <p className="text-xs font-black text-success uppercase">Conversión</p>
                     <p className="text-lg font-black text-success">{metrics.conversionRate.toFixed(1)}%</p>
                   </div>
                 </div>
@@ -452,14 +456,15 @@ export default function DashboardPage() {
                 <h3 className="font-black text-xl uppercase tracking-tighter mb-8 relative z-10">Tu Aporte al Equipo</h3>
                 <div className="flex items-center justify-center h-[180px] relative z-10">
                   <div className="text-center">
-                    <p className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-2">Market Share</p>
+                    <p className="text-xs font-black text-primary uppercase tracking-[0.3em] mb-2">Market Share</p>
                     <p className="text-6xl font-black text-white italic">
                       {metrics.globalGoal > 0 ? ((metrics.metaComputable / metrics.globalGoal) * 100).toFixed(1) : 0}%
                     </p>
-                    <p className="text-[9px] font-bold text-gray-400 uppercase mt-4 tracking-widest">De la meta global de CTB</p>
+                    <p className="text-xs font-bold text-gray-400 uppercase mt-4 tracking-widest">De la meta global de CTB</p>
                   </div>
                 </div>
               </div>
+
             </div>
           )}
 
@@ -473,7 +478,7 @@ export default function DashboardPage() {
                 <FileText size={22} className="text-gray-400" />
                 Últimas Proformas
               </h3>
-              <Link href="/dashboard/cotizaciones" className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-2 hover:translate-x-1 transition-transform">
+              <Link href="/dashboard/cotizaciones" className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2 hover:translate-x-1 transition-transform">
                 Ver Todo <ChevronRight size={14} />
               </Link>
             </div>
@@ -492,8 +497,9 @@ export default function DashboardPage() {
                 <Trophy className="text-amber-500" size={24} />
                 Meta {selectedOperative === 'global' ? 'Global' : 'Individual'}
               </h3>
-              <div className="bg-primary/10 px-3 py-1 rounded-full"><span className="text-[10px] font-black text-primary uppercase">Mes Actual</span></div>
+              <div className="bg-primary/10 px-3 py-1 rounded-full"><span className="text-xs font-black text-primary uppercase">Mes Actual</span></div>
             </div>
+
             <div className="flex items-end justify-between mb-4">
               <div><p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2 leading-none">Completado</p><p className="text-4xl font-black text-gray-900 tracking-tighter">${metrics.metaComputable.toLocaleString()}</p></div>
               <div className="text-right"><p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2 leading-none">Objetivo</p><p className="text-2xl font-black text-gray-400">${metrics.globalGoal.toLocaleString()}</p></div>

@@ -133,25 +133,26 @@ export default function VentasPage() {
       {/* KPI CARDS */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100">
-          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Ventas Activas</p>
+          <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Ventas Activas</p>
           <p className="text-4xl font-black text-gray-900 mt-2">{stats.activas}</p>
-          <p className="text-[9px] text-success font-bold mt-2 uppercase">Confirmadas</p>
+          <p className="text-xs text-success font-bold mt-2 uppercase">Confirmadas</p>
         </div>
         <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100">
-          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Anuladas</p>
+          <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Anuladas</p>
           <p className="text-4xl font-black text-gray-900 mt-2">{stats.anuladas}</p>
-          <p className="text-[9px] text-danger font-bold mt-2 uppercase">Revertidas</p>
+          <p className="text-xs text-danger font-bold mt-2 uppercase">Revertidas</p>
         </div>
         <div className="bg-primary/5 border border-primary/10 p-6 rounded-[2rem]">
-          <p className="text-[9px] font-black text-primary/70 uppercase tracking-widest">Total Vendido</p>
+          <p className="text-xs font-black text-primary/80 uppercase tracking-widest">Total Vendido</p>
           <p className="text-2xl font-black text-primary mt-2">${stats.totalVenta.toLocaleString()}</p>
-          <p className="text-[9px] text-primary/50 font-bold mt-2 uppercase">Solo ventas activas</p>
+          <p className="text-xs text-primary/60 font-bold mt-2 uppercase">Solo ventas activas</p>
         </div>
         <div className="bg-gray-900 text-white p-6 rounded-[2rem]">
-          <p className="text-[9px] font-black text-primary uppercase tracking-widest">Mi Ganancia</p>
+          <p className="text-xs font-black text-primary uppercase tracking-widest">Mi Ganancia</p>
           <p className="text-2xl font-black mt-2">${stats.totalAporte.toLocaleString()}</p>
-          <p className="text-[9px] text-gray-400 font-bold mt-2 uppercase">Comisión + Utilidad</p>
+          <p className="text-xs text-gray-400 font-bold mt-2 uppercase">Comisión + Utilidad</p>
         </div>
+
       </div>
 
       {/* GRÁFICO DE TENDENCIA */}
@@ -182,10 +183,11 @@ export default function VentasPage() {
                     if (active && payload?.length) {
                       return (
                         <div className="bg-gray-900 text-white p-4 rounded-2xl shadow-xl text-xs">
-                          <p className="font-black text-primary uppercase text-[9px] mb-2">{label}</p>
+                          <p className="font-black text-primary uppercase text-xs mb-2">{label}</p>
                           <p className="font-black">Venta: ${(payload[0]?.value || 0).toLocaleString()}</p>
                           <p className="font-black text-success">Ganancia: ${(payload[1]?.value || 0).toLocaleString()}</p>
                         </div>
+
                       )
                     }
                     return null
@@ -197,9 +199,10 @@ export default function VentasPage() {
             </ResponsiveContainer>
           </div>
           <div className="flex items-center gap-6 mt-4">
-            <div className="flex items-center gap-2"><div className="w-3 h-3 bg-primary rounded-full"></div><span className="text-[9px] font-black text-gray-400 uppercase">Venta Total</span></div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 bg-success rounded-full"></div><span className="text-[9px] font-black text-gray-400 uppercase">Mi Ganancia</span></div>
+            <div className="flex items-center gap-2"><div className="w-3 h-3 bg-primary rounded-full"></div><span className="text-xs font-black text-gray-400 uppercase">Venta Total</span></div>
+            <div className="flex items-center gap-2"><div className="w-3 h-3 bg-success rounded-full"></div><span className="text-xs font-black text-gray-400 uppercase">Mi Ganancia</span></div>
           </div>
+
         </div>
       )}
 
@@ -238,7 +241,7 @@ export default function VentasPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="border-b border-gray-100 text-gray-400 text-[9px] font-black uppercase tracking-widest">
+              <tr className="border-b border-gray-100 text-gray-400 text-xs font-black uppercase tracking-widest">
                 <th className="py-4 px-6">Fecha</th>
                 <th className="py-4 px-6">Referencia</th>
                 <th className="py-4 px-6">Agencia / Destino</th>
@@ -248,6 +251,7 @@ export default function VentasPage() {
                 <th className="py-4 px-6 text-right">Acciones</th>
               </tr>
             </thead>
+
             <tbody className="divide-y divide-gray-50">
               {filtered.length === 0 ? (
                 <tr>
@@ -275,7 +279,7 @@ export default function VentasPage() {
                     setVoucherLoading(false)
                   }}
                 >
-                  <td className="py-4 px-6 text-[10px] text-gray-500 font-bold">
+                  <td className="py-4 px-6 text-xs text-gray-500 font-bold">
                     {format(parseISO(venta.created_at), 'dd MMM yyyy', { locale: es })}
                   </td>
                   <td className="py-4 px-6 font-mono text-xs font-black text-primary">
@@ -283,8 +287,9 @@ export default function VentasPage() {
                   </td>
                   <td className="py-4 px-6">
                     <div className="font-black text-gray-800 text-sm">{venta.cotizaciones?.agencia}</div>
-                    <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">{venta.cotizaciones?.destino}</div>
+                    <div className="text-xs text-gray-400 font-bold uppercase tracking-wider">{venta.cotizaciones?.destino}</div>
                   </td>
+
                   <td className="py-4 px-6 text-right font-black text-gray-900">
                     ${Number(venta.total).toLocaleString()}
                   </td>
@@ -353,7 +358,7 @@ export default function VentasPage() {
           <div className="bg-white rounded-[3rem] max-w-2xl w-full overflow-hidden shadow-2xl animate-in zoom-in duration-300">
             <div className="bg-gray-900 p-8 text-white flex justify-between items-start">
               <div>
-                <p className="text-[10px] font-black text-primary uppercase tracking-widest">Detalle de Venta</p>
+                <p className="text-xs font-black text-primary uppercase tracking-widest">Detalle de Venta</p>
                 <h2 className="text-2xl font-black">#{selectedVenta.cotizaciones?.codigo}</h2>
                 <p className="text-sm text-gray-400 mt-1">{selectedVenta.cotizaciones?.agencia} · {selectedVenta.cotizaciones?.destino}</p>
               </div>
@@ -366,22 +371,22 @@ export default function VentasPage() {
               {/* KPIs */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-gray-50 p-4 rounded-2xl">
-                  <p className="text-[9px] font-black text-gray-400 uppercase">Total Venta</p>
+                  <p className="text-xs font-black text-gray-400 uppercase">Total Venta</p>
                   <p className="text-xl font-black text-gray-900 mt-1">${Number(selectedVenta.total).toLocaleString()}</p>
                 </div>
                 <div className="bg-success/5 p-4 rounded-2xl">
-                  <p className="text-[9px] font-black text-success/70 uppercase">Mi Ganancia</p>
+                  <p className="text-xs font-black text-success/80 uppercase">Mi Ganancia</p>
                   <p className="text-xl font-black text-success mt-1">${(Number(selectedVenta.utilidad) + Number(selectedVenta.comision)).toLocaleString()}</p>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-2xl">
-                  <p className="text-[9px] font-black text-gray-400 uppercase">Bono</p>
+                  <p className="text-xs font-black text-gray-400 uppercase">Bono</p>
                   <p className="text-xl font-black text-gray-900 mt-1">${Number(selectedVenta.bono_counter || 0).toLocaleString()}</p>
                 </div>
               </div>
 
               {/* VOUCHER */}
               <div>
-                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Voucher Emitido</h4>
+                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Voucher Emitido</h4>
                 {voucherLoading ? (
                   <div className="h-12 bg-gray-100 rounded-2xl animate-pulse"></div>
                 ) : selectedVoucher ? (
@@ -390,10 +395,10 @@ export default function VentasPage() {
                       <div className="bg-primary/10 p-2.5 rounded-xl"><QrCode size={18} className="text-primary" /></div>
                       <div>
                         <p className="font-black text-gray-900 text-sm">{selectedVoucher.codigo}</p>
-                        <p className={`text-[9px] font-black uppercase ${selectedVoucher.estado === 'activo' ? 'text-success' : 'text-danger'}`}>{selectedVoucher.estado}</p>
+                        <p className={`text-xs font-black uppercase ${selectedVoucher.estado === 'activo' ? 'text-success' : 'text-danger'}`}>{selectedVoucher.estado}</p>
                       </div>
                     </div>
-                    <Link href="/dashboard/vouchers" onClick={() => setSelectedVenta(null)} className="flex items-center gap-1.5 text-[10px] font-black text-primary bg-primary/10 px-3 py-2 rounded-xl hover:bg-primary/20 transition-colors">
+                    <Link href="/dashboard/vouchers" onClick={() => setSelectedVenta(null)} className="flex items-center gap-1.5 text-xs font-black text-primary bg-primary/10 px-3 py-2 rounded-xl hover:bg-primary/20 transition-colors">
                       Ver Voucher <ExternalLink size={12} />
                     </Link>
                   </div>
@@ -406,14 +411,14 @@ export default function VentasPage() {
 
               {/* PLAN DE PAGOS */}
               <div>
-                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Plan de Pagos</h4>
+                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Plan de Pagos</h4>
                 {/* Barra progreso */}
                 {Array.isArray(selectedVenta.plan_pagos) && selectedVenta.plan_pagos.length > 0 && (() => {
                   const paid = selectedVenta.plan_pagos.filter(m => m.status === 'pagado').reduce((a, m) => a + Number(m.amount), 0)
                   const pct = selectedVenta.total > 0 ? Math.min((paid / selectedVenta.total) * 100, 100) : 0
                   return (
                     <div className="mb-3">
-                      <div className="flex justify-between text-[9px] font-black uppercase mb-1">
+                      <div className="flex justify-between text-xs font-black uppercase mb-1">
                         <span className="text-success">Cobrado: ${paid.toLocaleString()}</span>
                         <span className={paid < selectedVenta.total ? 'text-amber-600' : 'text-success'}>{paid < selectedVenta.total ? `Pendiente: $${(selectedVenta.total - paid).toLocaleString()}` : '✓ Completo'}</span>
                       </div>
@@ -426,14 +431,14 @@ export default function VentasPage() {
                 <div className="space-y-2">
                   {Array.isArray(selectedVenta.plan_pagos) && selectedVenta.plan_pagos.length > 0
                     ? selectedVenta.plan_pagos.map((m, i) => (
-                      <div key={i} className={`flex justify-between items-center p-3 rounded-xl ${m.status === 'pagado' ? 'bg-success/5 border border-success/10' : 'bg-amber-50 border border-amber-100'}`}>
+                      <div key={i} className={`flex justify-between items-center p-3.5 rounded-xl ${m.status === 'pagado' ? 'bg-success/5 border border-success/10' : 'bg-amber-50 border border-amber-100'}`}>
                         <div>
-                          <p className="text-[10px] font-black text-gray-800">{m.label}</p>
-                          <p className="text-[9px] text-gray-400">{m.date}</p>
+                          <p className="text-xs font-black text-gray-800">{m.label}</p>
+                          <p className="text-xs text-gray-400">{m.date}</p>
                         </div>
                         <div className="text-right">
                           <p className="text-xs font-black text-gray-900">${Number(m.amount).toLocaleString()}</p>
-                          <p className={`text-[9px] font-black uppercase ${m.status === 'pagado' ? 'text-success' : 'text-amber-600'}`}>{m.status === 'pagado' ? '✓ Pagado' : 'Pendiente'}</p>
+                          <p className={`text-xs font-black uppercase ${m.status === 'pagado' ? 'text-success' : 'text-amber-600'}`}>{m.status === 'pagado' ? '✓ Pagado' : 'Pendiente'}</p>
                         </div>
                       </div>
                     ))
@@ -445,12 +450,12 @@ export default function VentasPage() {
               {/* PASAJEROS */}
               {(selectedVenta.cotizaciones?.nombres_pasajeros || []).length > 0 && (
                 <div>
-                  <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Pasajeros</h4>
+                  <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Pasajeros</h4>
                   <div className="flex flex-wrap gap-2">
                     {(selectedVenta.cotizaciones?.nombres_pasajeros || []).map((n, i) => (
                       <div key={i} className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-xl border border-gray-100">
-                        <div className="w-5 h-5 bg-primary/10 rounded-full flex items-center justify-center text-[8px] font-black text-primary">{n?.charAt(0)}</div>
-                        <p className="text-[10px] font-bold text-gray-700 uppercase">{n}</p>
+                        <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-xs font-black text-primary">{n?.charAt(0)}</div>
+                        <p className="text-xs font-bold text-gray-700 uppercase">{n}</p>
                       </div>
                     ))}
                   </div>

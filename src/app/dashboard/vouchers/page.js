@@ -136,7 +136,7 @@ export default function VouchersPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="border-b border-gray-100 text-gray-400 text-[10px] font-black uppercase tracking-widest">
+              <tr className="border-b border-gray-100 text-gray-400 text-xs font-black uppercase tracking-widest">
                 <th className="py-4 px-6">Código</th>
                 <th className="py-4 px-6">Agencia / Destino</th>
                 <th className="py-4 px-6 text-right">Valor</th>
@@ -154,16 +154,17 @@ export default function VouchersPage() {
                   <td className="py-4 px-6 font-mono text-xs font-bold text-success">{voucher.codigo}</td>
                   <td className="py-4 px-6">
                     <div className="font-bold text-gray-800 text-sm">{voucher.agencia || 'CTB Directo'}</div>
-                    <div className="text-[10px] text-gray-400 uppercase tracking-wider">{voucher.destino}</div>
+                    <div className="text-xs text-gray-400 uppercase tracking-wider">{voucher.destino}</div>
                   </td>
                   <td className="py-4 px-6 text-right font-black text-gray-900">
                     ${Number(voucher.valor_total || 0).toLocaleString()}
                   </td>
                   <td className="py-4 px-6">
-                    <div className="text-[10px] font-medium text-gray-500">
+                    <div className="text-xs font-medium text-gray-500">
                       {voucher.fecha_viaje_desde} al {voucher.fecha_viaje_hasta}
                     </div>
                   </td>
+
                   <td className="py-4 px-6 text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-2">
                       <button 
@@ -243,16 +244,16 @@ export default function VouchersPage() {
             <div className="p-8 space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
-                    <Building2 size={10} /> Agencia
+                  <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                    <Building2 size={12} /> Agencia
                   </p>
                   <p className="text-sm font-black text-gray-800 leading-tight">
                     {viewingVoucher.agencia || 'CTB Directo'}
                   </p>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
-                    <Users size={10} /> Pasajeros
+                  <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                    <Users size={12} /> Pasajeros
                   </p>
                   <p className="text-lg font-black text-gray-800 leading-none">
                     {Array.isArray(viewingVoucher.pasajeros) ? viewingVoucher.pasajeros.length : (viewingVoucher.pasajeros || 0)}
@@ -264,7 +265,7 @@ export default function VouchersPage() {
                 <div className="flex gap-4">
                   <div className="bg-primary/10 p-2 rounded-xl text-primary h-fit"><MapPin size={16} /></div>
                   <div>
-                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Destino</p>
+                    <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Destino</p>
                     <p className="text-sm font-bold text-gray-800">{viewingVoucher.destino || 'Sin destino'}</p>
                   </div>
                 </div>
@@ -272,7 +273,7 @@ export default function VouchersPage() {
                 <div className="flex gap-4">
                   <div className="bg-primary/10 p-2 rounded-xl text-primary h-fit"><Users size={16} /></div>
                   <div>
-                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Pasajeros</p>
+                    <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Pasajeros</p>
                     <div className="mt-1">
                       {Array.isArray(viewingVoucher.pasajeros) ? viewingVoucher.pasajeros.map((n, i) => (
                         <p key={i} className="text-xs font-bold text-gray-800">{n}</p>
@@ -287,11 +288,11 @@ export default function VouchersPage() {
                   <div className="bg-primary/10 p-2 rounded-xl text-primary h-fit"><Clock size={16} /></div>
                   <div className="grid grid-cols-2 gap-4 flex-1">
                     <div>
-                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Inicio Viaje</p>
+                      <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Inicio Viaje</p>
                       <p className="text-xs font-bold text-gray-800">{viewingVoucher.fecha_viaje_desde}</p>
                     </div>
                     <div>
-                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Caducidad QR</p>
+                      <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Caducidad QR</p>
                       <p className="text-xs font-bold text-danger">{viewingVoucher.fecha_caducidad}</p>
                     </div>
                   </div>
@@ -300,11 +301,12 @@ export default function VouchersPage() {
 
               {viewingVoucher.notas && (
                 <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 italic text-xs text-amber-800">
-                  <p className="font-black text-[9px] uppercase tracking-widest mb-1 opacity-60">Notas del Operativo</p>
+                  <p className="font-black text-xs uppercase tracking-widest mb-1 opacity-80">Notas del Operativo</p>
                   "{viewingVoucher.notas}"
                 </div>
               )}
             </div>
+
 
             <div className="p-8 bg-gray-50 flex flex-col gap-2">
               <button 
@@ -345,7 +347,7 @@ export default function VouchersPage() {
             <div className="p-8 space-y-6 max-h-[60vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-gray-400 uppercase">Agencia</label>
+                  <label className="text-xs font-black text-gray-400 uppercase">Agencia</label>
                   <input 
                     className="input text-sm" 
                     value={editingVoucher.agencia || ''}
@@ -353,7 +355,7 @@ export default function VouchersPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-gray-400 uppercase">Destino</label>
+                  <label className="text-xs font-black text-gray-400 uppercase">Destino</label>
                   <input 
                     className="input text-sm" 
                     value={editingVoucher.destino || ''}
@@ -363,7 +365,7 @@ export default function VouchersPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-gray-400 uppercase">Nombres de Pasajeros (uno por línea)</label>
+                <label className="text-xs font-black text-gray-400 uppercase">Nombres de Pasajeros (uno por línea)</label>
                 <textarea 
                   className="input text-sm min-h-[90px] font-mono" 
                   placeholder="Juan Pérez&#10;María García&#10;Carlos López..."
@@ -374,7 +376,7 @@ export default function VouchersPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-gray-400 uppercase">Válido Desde</label>
+                  <label className="text-xs font-black text-gray-400 uppercase">Válido Desde</label>
                   <input 
                     type="date"
                     className="input text-sm" 
@@ -383,7 +385,7 @@ export default function VouchersPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-gray-400 uppercase">Válido Hasta</label>
+                  <label className="text-xs font-black text-gray-400 uppercase">Válido Hasta</label>
                   <input 
                     type="date"
                     className="input text-sm" 
@@ -394,7 +396,7 @@ export default function VouchersPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-gray-400 uppercase">Fecha Caducidad QR</label>
+                <label className="text-xs font-black text-gray-400 uppercase">Fecha Caducidad QR</label>
                 <input 
                   type="date"
                   className="input text-sm" 
@@ -404,7 +406,7 @@ export default function VouchersPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-gray-400 uppercase">Notas Adicionales</label>
+                <label className="text-xs font-black text-gray-400 uppercase">Notas Adicionales</label>
                 <textarea 
                   className="input text-sm min-h-[80px]" 
                   value={editingVoucher.notas || ''}
@@ -412,6 +414,7 @@ export default function VouchersPage() {
                 />
               </div>
             </div>
+
 
             <div className="p-8 bg-gray-50 flex gap-3">
               <button 

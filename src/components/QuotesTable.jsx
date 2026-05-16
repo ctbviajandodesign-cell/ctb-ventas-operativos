@@ -32,11 +32,12 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
   
   const getStatusBadge = (quote) => {
     const status = (quote.estado || '').toString().trim().toLowerCase()
-    if (status === 'ganada') return <span className="badge-success">GANADA</span>
-    if (status === 'perdida') return <span className="badge-danger">PERDIDA</span>
-    if (status === 'anulada') return <span className="bg-gray-100 text-gray-500 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest">ANULADA</span>
-    return <span className="badge-warning">ABIERTA</span>
+    if (status === 'ganada') return <span className="badge-success text-xs font-black">GANADA</span>
+    if (status === 'perdida') return <span className="badge-danger text-xs font-black">PERDIDA</span>
+    if (status === 'anulada') return <span className="bg-gray-100 text-gray-500 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-widest">ANULADA</span>
+    return <span className="badge-warning text-xs font-black">ABIERTA</span>
   }
+
 
   const handleDelete = async (id) => {
     if (!confirm('¿Seguro que quieres eliminar esta proforma?')) return
@@ -77,7 +78,7 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
     <div className="overflow-x-auto">
       <table className="w-full text-left">
         <thead>
-          <tr className="border-b border-gray-100 text-gray-400 text-[10px] font-black uppercase tracking-widest">
+          <tr className="border-b border-gray-100 text-gray-400 text-xs font-black uppercase tracking-widest">
             <th className="py-4 px-4">Código / Ref</th>
             <th className="py-4 px-4">Agencia / Destino</th>
             <th className="py-4 px-4">Pasajeros</th>
@@ -87,6 +88,7 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
             <th className="py-4 px-4">Estado</th>
             <th className="py-4 px-4 text-right">Acciones</th>
           </tr>
+
         </thead>
         <tbody className="divide-y divide-gray-50">
           {quotes.length === 0 ? (
@@ -113,7 +115,7 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
                 <td className="py-4 px-4 font-mono text-xs font-black text-primary">#{quote.codigo}</td>
                 <td className="py-4 px-4">
                   <div className="font-black text-gray-800 text-sm">{quote.agencia || 'Directo'}</div>
-                  <div className="text-[9px] text-gray-400 font-bold uppercase tracking-[0.1em]">{quote.destino || 'S/D'}</div>
+                  <div className="text-xs text-gray-400 font-bold uppercase tracking-[0.1em]">{quote.destino || 'S/D'}</div>
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5 text-gray-500">
@@ -130,14 +132,15 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
                     ${aporte.toLocaleString()}
                   </span>
                 </td>
-                <td className="py-4 px-4 text-[10px] font-black text-primary uppercase tracking-tighter">
+                <td className="py-4 px-4 text-xs font-black text-primary uppercase tracking-tighter">
                   <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-[8px]">
+                    <div className="w-7 h-7 bg-primary/10 rounded-full flex items-center justify-center text-xs">
                       {quote.profiles?.nombre?.charAt(0)}
                     </div>
                     {quote.profiles?.nombre?.split(' ')[0] || '---'}
                   </div>
                 </td>
+
                 <td className="py-4 px-4">{getStatusBadge(quote)}</td>
                 <td className="py-4 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-end gap-1">
@@ -190,11 +193,11 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
               <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-[9px] text-gray-400 font-bold uppercase">Venta Total</p>
+                    <p className="text-xs text-gray-400 font-bold uppercase">Venta Total</p>
                     <p className="text-xl font-black text-gray-900">${Number(viewingQuote.valor_total || 0).toLocaleString()}</p>
                   </div>
                   <div>
-                    <p className="text-[9px] text-gray-400 font-bold uppercase">Utilidad + Comisión</p>
+                    <p className="text-xs text-gray-400 font-bold uppercase">Utilidad + Comisión</p>
                     <p className="text-xl font-black text-success">${(Number(viewingQuote.valor_utilidad || 0) + Number(viewingQuote.valor_comision || 0)).toLocaleString()}</p>
                   </div>
                 </div>
@@ -202,11 +205,11 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Agencia</p>
+                  <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Agencia</p>
                   <p className="text-sm font-black text-gray-800 leading-tight">{viewingQuote.agencia || 'Directo'}</p>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Destino</p>
+                  <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Destino</p>
                   <p className="text-sm font-black text-gray-800 leading-tight uppercase">{viewingQuote.destino}</p>
                 </div>
               </div>
@@ -214,10 +217,10 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
               <div className="space-y-4">
                 <div className="flex gap-4">
                   <div className="flex-1">
-                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Pasajeros ({viewingQuote.numero_pasajeros})</p>
+                    <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Pasajeros ({viewingQuote.numero_pasajeros})</p>
                     <div className="flex flex-wrap gap-2">
                       {viewingQuote.nombres_pasajeros?.map((n, i) => (
-                        <span key={i} className="text-[10px] font-bold bg-white border border-gray-100 px-2 py-1 rounded-lg text-gray-600 uppercase">{n}</span>
+                        <span key={i} className="text-xs font-bold bg-white border border-gray-100 px-2.5 py-1 rounded-lg text-gray-600 uppercase">{n}</span>
                       ))}
                     </div>
                   </div>
@@ -225,12 +228,13 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
 
                 {((viewingQuote.estado || '').trim().toLowerCase() === 'perdida' || (viewingQuote.estado || '').trim().toLowerCase() === 'anulada') && (
                   <div className="bg-red-50 p-5 rounded-3xl border border-red-100 text-red-600">
-                    <p className="text-[9px] font-black uppercase mb-1">Razón del Cierre Negativo</p>
+                    <p className="text-xs font-black uppercase mb-1">Razón del Cierre Negativo</p>
                     <p className="text-sm font-black italic">"{viewingQuote.motivo_perdida}"</p>
                     {viewingQuote.notas_seguimiento && <p className="text-xs mt-2 opacity-80">{viewingQuote.notas_seguimiento}</p>}
                   </div>
                 )}
               </div>
+
             </div>
 
             <div className="p-8 bg-gray-50 flex gap-3">
@@ -261,7 +265,7 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
             <div className="bg-[#f5a623] p-10 text-white flex justify-between items-start">
               <div>
                 <h2 className="text-4xl font-black uppercase tracking-tighter leading-none">Cierre Negativo</h2>
-                <p className="text-[11px] font-bold opacity-90 uppercase tracking-[0.2em] mt-2">Análisis de pérdida de venta</p>
+                <p className="text-xs font-bold opacity-90 uppercase tracking-[0.2em] mt-2">Análisis de pérdida de venta</p>
               </div>
               <button 
                 type="button" 
@@ -274,7 +278,7 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
 
             <div className="p-10 space-y-8">
               <div className="space-y-3">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block ml-1">
+                <label className="text-xs font-black text-gray-400 uppercase tracking-widest block ml-1">
                   Motivo Principal
                 </label>
                 <div className="relative">
@@ -298,7 +302,7 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
 
               {motivoPerdida === 'Otro' && (
                 <div className="space-y-3 animate-in slide-in-from-top-2 duration-300">
-                  <label className="text-[10px] font-black text-[#f5a623] uppercase tracking-widest block ml-1">
+                  <label className="text-xs font-black text-[#f5a623] uppercase tracking-widest block ml-1">
                     Especificar Motivo
                   </label>
                   <input 
@@ -312,7 +316,7 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
               )}
 
               <div className="space-y-3">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2 ml-1">
+                <label className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2 ml-1">
                   <MessageSquare size={14} className="opacity-50" /> Comentarios Adicionales
                 </label>
                 <textarea 
@@ -323,6 +327,7 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
                 />
               </div>
             </div>
+
 
             <div className="p-10 bg-gray-50/50">
               <button 
