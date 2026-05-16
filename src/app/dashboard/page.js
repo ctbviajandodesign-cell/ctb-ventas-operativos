@@ -495,8 +495,8 @@ export default function DashboardPage() {
               <div className="bg-primary/10 px-3 py-1 rounded-full"><span className="text-[10px] font-black text-primary uppercase">Mes Actual</span></div>
             </div>
             <div className="flex items-end justify-between mb-4">
-              <div><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 leading-none">Completado</p><p className="text-4xl font-black text-gray-900 tracking-tighter">${metrics.metaComputable.toLocaleString()}</p></div>
-              <div className="text-right"><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 leading-none">Objetivo</p><p className="text-xl font-black text-gray-400">${metrics.globalGoal.toLocaleString()}</p></div>
+              <div><p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2 leading-none">Completado</p><p className="text-4xl font-black text-gray-900 tracking-tighter">${metrics.metaComputable.toLocaleString()}</p></div>
+              <div className="text-right"><p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2 leading-none">Objetivo</p><p className="text-2xl font-black text-gray-400">${metrics.globalGoal.toLocaleString()}</p></div>
             </div>
             <div className="w-full bg-gray-100 h-8 rounded-full overflow-hidden mb-6 p-1.5 border border-gray-50">
               <div className="h-full bg-gradient-to-r from-primary to-blue-400 rounded-full transition-all duration-1000 ease-out shadow-[0_0_20px_rgba(0,102,204,0.3)] relative overflow-hidden" style={{ width: `${Math.min(metrics.porcentajeMeta, 100)}%` }}>
@@ -504,8 +504,8 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="flex items-center justify-between bg-gray-50 p-4 rounded-2xl">
-              <div className="flex items-center gap-2 text-xs font-black text-gray-800"><TrendingUp size={16} className="text-success" />{metrics.porcentajeMeta.toFixed(1)}% Cumplido</div>
-              <div className="text-[9px] font-bold text-gray-400 uppercase">Restan ${(metrics.globalGoal - metrics.metaComputable).toLocaleString()}</div>
+              <div className="flex items-center gap-2 text-sm font-black text-gray-800"><TrendingUp size={18} className="text-success" />{metrics.porcentajeMeta.toFixed(1)}% Cumplido</div>
+              <div className="text-xs font-bold text-gray-400 uppercase">Restan ${(metrics.globalGoal - metrics.metaComputable).toLocaleString()}</div>
             </div>
           </div>
 
@@ -515,7 +515,7 @@ export default function DashboardPage() {
               <h3 className="font-black text-xl uppercase tracking-tighter flex items-center gap-3">
                 <Trophy size={22} className="text-amber-500" />Ranking del Equipo
               </h3>
-              <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-3 py-1.5 rounded-full">Mes Actual</span>
+              <span className="text-xs font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-3 py-1.5 rounded-full">Mes Actual</span>
             </div>
             <div className="space-y-4">
               {leaderboard.length === 0 && (
@@ -528,26 +528,26 @@ export default function DashboardPage() {
                 return (
                   <div
                     key={op.id}
-                    className={`p-4 rounded-2xl border transition-all group ${
+                    className={`p-5 rounded-2xl border transition-all group ${
                       isMe
                         ? 'bg-primary/5 border-primary/20 ring-2 ring-primary/10'
                         : 'bg-gray-50/50 border-gray-100 hover:border-gray-200'
                     } ${isAdmin ? 'cursor-pointer hover:shadow-md' : ''}`}
                     onClick={() => isAdmin && handleOpenOperativePanel(op)}
                   >
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
-                        <span className="text-lg">{medal}</span>
+                        <span className="text-xl">{medal}</span>
                         <div>
-                          <p className={`text-sm font-black leading-none ${ isMe ? 'text-primary' : 'text-gray-800'} group-hover:text-primary transition-colors`}>
-                            {op.nombre} {isMe && <span className="text-[9px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-full ml-1 uppercase">Tú</span>}
+                          <p className={`text-base font-black leading-none ${ isMe ? 'text-primary' : 'text-gray-800'} group-hover:text-primary transition-colors`}>
+                            {op.nombre} {isMe && <span className="text-xs font-black text-primary bg-primary/10 px-2 py-0.5 rounded-full ml-1 uppercase">Tú</span>}
                           </p>
-                          <p className="text-[9px] text-gray-400 font-bold uppercase mt-0.5">Meta: ${op.meta.toLocaleString()}</p>
+                          <p className="text-xs text-gray-400 font-bold uppercase mt-1">Meta: ${op.meta.toLocaleString()}</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-black text-gray-900">${op.total.toLocaleString()}</p>
-                        <p className={`text-[9px] font-black uppercase ${ op.cumplimiento >= 100 ? 'text-success' : op.cumplimiento >= 60 ? 'text-primary' : 'text-amber-600'}`}>{op.cumplimiento.toFixed(0)}%</p>
+                        <p className="text-lg font-black text-gray-900">${op.total.toLocaleString()}</p>
+                        <p className={`text-xs font-black uppercase ${ op.cumplimiento >= 100 ? 'text-success' : op.cumplimiento >= 60 ? 'text-primary' : 'text-amber-600'}`}>{op.cumplimiento.toFixed(0)}%</p>
                       </div>
                     </div>
                     <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
@@ -568,13 +568,13 @@ export default function DashboardPage() {
             <h3 className="font-black text-2xl uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-3"><PieIcon size={24} className="text-primary" />Inteligencia Comercial</h3>
             <div className="space-y-8 relative z-10">
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white/5 p-4 rounded-3xl border border-white/5"><p className="text-[9px] font-black text-primary uppercase tracking-widest mb-1">Destino más pedido</p><p className="text-lg font-black uppercase italic truncate">{metrics.topDestino}</p></div>
-                <div className="bg-white/5 p-4 rounded-3xl border border-white/5"><p className="text-[9px] font-black text-success uppercase tracking-widest mb-1">Tasa de Cierre</p><p className="text-2xl font-black">{metrics.conversionRate.toFixed(0)}%</p></div>
+                <div className="bg-white/5 p-5 rounded-3xl border border-white/5"><p className="text-xs font-black text-primary uppercase tracking-widest mb-1">Destino más pedido</p><p className="text-xl font-black uppercase italic truncate">{metrics.topDestino}</p></div>
+                <div className="bg-white/5 p-5 rounded-3xl border border-white/5"><p className="text-xs font-black text-success uppercase tracking-widest mb-1">Tasa de Cierre</p><p className="text-3xl font-black">{metrics.conversionRate.toFixed(0)}%</p></div>
               </div>
               <div className="bg-primary/10 p-6 rounded-[2rem] border border-primary/20">
                 <div className="flex items-start gap-3">
-                  <div className="bg-primary p-2 rounded-xl text-white mt-1"><Target size={16} /></div>
-                  <div><p className="text-[10px] font-black uppercase tracking-widest mb-1">Consejo del sistema</p><p className="text-xs italic leading-relaxed text-gray-300">{`Hay $${metrics.pipeline.toLocaleString()} en proformas por cerrar. ${selectedOperative === 'global' ? 'Dale seguimiento al equipo y prioriza los casos de mayor valor.' : 'Enfócate en cerrar las proformas de mayor valor para alcanzar tu meta.'}`}</p></div>
+                  <div className="bg-primary p-2.5 rounded-xl text-white mt-0.5"><Target size={18} /></div>
+                  <div><p className="text-xs font-black uppercase tracking-widest mb-1.5">Consejo del sistema</p><p className="text-sm italic leading-relaxed text-gray-200">{`Hay $${metrics.pipeline.toLocaleString()} en proformas por cerrar. ${selectedOperative === 'global' ? 'Dale seguimiento al equipo y prioriza los casos de mayor valor.' : 'Enfócate en cerrar las proformas de mayor valor para alcanzar tu meta.'}`}</p></div>
                 </div>
               </div>
             </div>
