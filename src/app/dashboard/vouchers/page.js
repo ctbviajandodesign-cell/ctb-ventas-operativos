@@ -225,58 +225,58 @@ export default function VouchersPage() {
 
       {/* Modal Visualizador de Voucher COMPLETO */}
       {viewingVoucher && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[3rem] max-w-lg w-full overflow-hidden shadow-2xl animate-in zoom-in duration-300">
-            <div className="bg-gray-900 p-8 text-center text-white space-y-4">
-              <div className="inline-block bg-white p-4 rounded-2xl shadow-xl">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-[2rem] sm:rounded-[3rem] max-w-lg w-full overflow-hidden shadow-2xl animate-in zoom-in duration-300 max-h-[95vh] flex flex-col">
+            <div className="bg-gray-900 p-6 sm:p-8 text-center text-white space-y-3 sm:space-y-4 shrink-0">
+              <div className="inline-block bg-white p-3 sm:p-4 rounded-2xl shadow-xl">
                 <QRCodeSVG 
                   value={`${baseUrl}/v/${viewingVoucher.codigo}`}
-                  size={150}
+                  size={120}
                   level="H"
                 />
               </div>
               <div>
-                <h2 className="text-2xl font-black">{viewingVoucher.codigo}</h2>
-                <span className="badge-success inline-block mt-2">VOUCHER ACTIVO</span>
+                <h2 className="text-xl sm:text-2xl font-black tracking-tight">{viewingVoucher.codigo}</h2>
+                <span className="badge-success inline-block mt-1 sm:mt-2 text-[10px] sm:text-xs">VOUCHER ACTIVO</span>
               </div>
             </div>
 
-            <div className="p-8 space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                  <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
-                    <Building2 size={12} /> Agencia
+            <div className="p-6 sm:p-8 space-y-5 overflow-y-auto flex-1 max-h-[45vh] sm:max-h-[55vh]">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                <div className="bg-gray-50 p-3 sm:p-4 rounded-2xl border border-gray-100 min-w-0">
+                  <p className="text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                    <Building2 size={12} className="shrink-0" /> Agencia
                   </p>
-                  <p className="text-sm font-black text-gray-800 leading-tight">
+                  <p className="text-xs sm:text-sm font-black text-gray-800 leading-tight truncate">
                     {viewingVoucher.agencia || 'CTB Directo'}
                   </p>
                 </div>
-                <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                  <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
-                    <Users size={12} /> Pasajeros
+                <div className="bg-gray-50 p-3 sm:p-4 rounded-2xl border border-gray-100 min-w-0">
+                  <p className="text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                    <Users size={12} className="shrink-0" /> Pasajeros
                   </p>
-                  <p className="text-lg font-black text-gray-800 leading-none">
+                  <p className="text-base sm:text-lg font-black text-gray-800 leading-none">
                     {Array.isArray(viewingVoucher.pasajeros) ? viewingVoucher.pasajeros.length : (viewingVoucher.pasajeros || 0)}
                   </p>
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="flex gap-4">
-                  <div className="bg-primary/10 p-2 rounded-xl text-primary h-fit"><MapPin size={16} /></div>
-                  <div>
-                    <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Destino</p>
-                    <p className="text-sm font-bold text-gray-800">{viewingVoucher.destino || 'Sin destino'}</p>
+              <div className="space-y-3 sm:space-y-4">
+                <div className="flex gap-3 sm:gap-4 items-start">
+                  <div className="bg-primary/10 p-2 rounded-xl text-primary shrink-0 mt-0.5"><MapPin size={16} /></div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-widest">Destino</p>
+                    <p className="text-xs sm:text-sm font-bold text-gray-800 break-words">{viewingVoucher.destino || 'Sin destino'}</p>
                   </div>
                 </div>
 
-                <div className="flex gap-4">
-                  <div className="bg-primary/10 p-2 rounded-xl text-primary h-fit"><Users size={16} /></div>
-                  <div>
-                    <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Pasajeros</p>
-                    <div className="mt-1">
+                <div className="flex gap-3 sm:gap-4 items-start">
+                  <div className="bg-primary/10 p-2 rounded-xl text-primary shrink-0 mt-0.5"><Users size={16} /></div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-widest">Pasajeros</p>
+                    <div className="mt-1 space-y-0.5 max-h-24 overflow-y-auto pr-2">
                       {Array.isArray(viewingVoucher.pasajeros) ? viewingVoucher.pasajeros.map((n, i) => (
-                        <p key={i} className="text-xs font-bold text-gray-800">{n}</p>
+                        <p key={i} className="text-xs font-bold text-gray-800 break-words">{n}</p>
                       )) : (
                         <p className="text-xs font-bold text-gray-400 italic">No especificados</p>
                       )}
@@ -284,15 +284,15 @@ export default function VouchersPage() {
                   </div>
                 </div>
 
-                <div className="flex gap-4">
-                  <div className="bg-primary/10 p-2 rounded-xl text-primary h-fit"><Clock size={16} /></div>
-                  <div className="grid grid-cols-2 gap-4 flex-1">
+                <div className="flex gap-3 sm:gap-4 items-start">
+                  <div className="bg-primary/10 p-2 rounded-xl text-primary shrink-0 mt-0.5"><Clock size={16} /></div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 flex-1 min-w-0">
                     <div>
-                      <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Inicio Viaje</p>
+                      <p className="text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-widest">Inicio Viaje</p>
                       <p className="text-xs font-bold text-gray-800">{viewingVoucher.fecha_viaje_desde}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Caducidad QR</p>
+                      <p className="text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-widest">Caducidad QR</p>
                       <p className="text-xs font-bold text-danger">{viewingVoucher.fecha_caducidad}</p>
                     </div>
                   </div>
@@ -300,30 +300,30 @@ export default function VouchersPage() {
               </div>
 
               {viewingVoucher.notas && (
-                <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 italic text-xs text-amber-800">
-                  <p className="font-black text-xs uppercase tracking-widest mb-1 opacity-80">Notas del Operativo</p>
+                <div className="bg-amber-50 p-3 sm:p-4 rounded-2xl border border-amber-100 italic text-xs text-amber-800 break-words">
+                  <p className="font-black text-[10px] sm:text-xs uppercase tracking-widest mb-1 opacity-80">Notas del Operativo</p>
                   "{viewingVoucher.notas}"
                 </div>
               )}
             </div>
 
 
-            <div className="p-8 bg-gray-50 flex flex-col gap-2">
+            <div className="p-4 sm:p-8 bg-gray-50 flex flex-col gap-2 shrink-0 border-t border-gray-100">
               <button 
                 onClick={() => generateVoucherPDF(viewingVoucher)}
-                className="btn-primary py-4 flex items-center justify-center gap-2"
+                className="btn-primary py-3 sm:py-4 flex items-center justify-center gap-2 text-xs sm:text-sm"
               >
-                <FileDown size={20} /> Descargar PDF Oficial
+                <FileDown size={18} /> Descargar PDF Oficial
               </button>
               <button 
                 onClick={() => downloadQR(viewingVoucher.codigo)}
-                className="py-3 text-xs font-black text-primary uppercase tracking-widest hover:bg-primary/5 rounded-2xl transition-all"
+                className="py-2.5 sm:py-3 text-[10px] sm:text-xs font-black text-primary uppercase tracking-widest hover:bg-primary/5 rounded-2xl transition-all text-center"
               >
                 Descargar Solo Código QR (PNG)
               </button>
               <button 
                 onClick={() => setViewingVoucher(null)}
-                className="py-3 text-sm font-bold text-gray-400 hover:text-gray-600 transition-colors"
+                className="py-2 sm:py-3 text-xs sm:text-sm font-bold text-gray-400 hover:text-gray-600 transition-colors text-center"
               >
                 Cerrar Detalle
               </button>
@@ -331,6 +331,7 @@ export default function VouchersPage() {
           </div>
         </div>
       )}
+
 
       {/* Modal Editar Voucher */}
       {editingVoucher && (
