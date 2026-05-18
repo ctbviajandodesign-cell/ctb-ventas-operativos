@@ -2,8 +2,7 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { format, parseISO } from 'date-fns'
-import { es } from 'date-fns/locale'
+
 
 import { 
   CheckCircle2, 

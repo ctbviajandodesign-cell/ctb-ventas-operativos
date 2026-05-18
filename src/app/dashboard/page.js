@@ -62,6 +62,7 @@ export default function DashboardPage() {
   const [lostQuotes, setLostQuotes] = useState([])
   const [lostFilter, setLostFilter] = useState('ALL') // Filtro inteligente de perdidas
   const [loading, setLoading] = useState(true)
+  const [loadingPanelAi, setLoadingPanelAi] = useState(false)
 
 
   useEffect(() => {
@@ -271,9 +272,6 @@ export default function DashboardPage() {
   )
 
   const isAdmin = profile?.rol === 'admin'
-
-  // Abrir panel de operativo (admin drill-down)
-  const [loadingPanelAi, setLoadingPanelAi] = useState(false)
   const handleOpenOperativePanel = async (op) => {
     if (!isAdmin) return
     // Carga detallada de ese operativo
