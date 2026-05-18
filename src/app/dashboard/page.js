@@ -756,7 +756,7 @@ export default function DashboardPage() {
                           <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{q.profiles?.nombre || 'Asesor'}</p>
                         </div>
                         <div className="text-[10px] font-black text-gray-400 bg-white px-2.5 py-1.5 rounded-xl border border-gray-100 shadow-sm">
-                          {new Date(q.created_at).toLocaleDateString()}
+                          {q.created_at ? q.created_at.split('T')[0] : '---'}
                         </div>
                       </div>
                     </div>
