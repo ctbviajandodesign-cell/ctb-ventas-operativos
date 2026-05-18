@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { format, isPast, parseISO, differenceInDays } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 import { 
@@ -36,14 +36,6 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
     if (status === 'ganada') return <span className="badge-success text-xs font-black">GANADA</span>
     if (status === 'perdida') return <span className="badge-danger text-xs font-black">CANCELADA</span>
     if (status === 'anulada') return <span className="bg-gray-100 text-gray-500 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-widest">ANULADA</span>
-    
-    // Si está abierta y pasó más de 1 día, mostrar CADUCADA
-    if (status === 'abierta' && quote.created_at) {
-      const daysOld = differenceInDays(new Date(), parseISO(quote.created_at))
-      if (daysOld >= 1) {
-        return <span className="bg-amber-100 text-amber-700 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-widest">CADUCADA</span>
-      }
-    }
     return <span className="badge-warning text-xs font-black">ABIERTA</span>
   }
 
@@ -129,11 +121,6 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
                   {isPerdida && quote.motivo_perdida && (
                     <div className="text-[10px] font-black text-amber-600 bg-amber-50 border border-amber-200/60 rounded-md px-2 py-0.5 mt-1 inline-block uppercase">
                       Motivo: {quote.motivo_perdida}
-                    </div>
-                  )}
-                  {rawStatus === 'abierta' && quote.created_at && differenceInDays(new Date(), parseISO(quote.created_at)) >= 1 && (
-                    <div className="text-[10px] font-black text-amber-700 bg-amber-100 border border-amber-300 rounded-md px-2 py-0.5 mt-1 inline-block uppercase">
-                      ⚠️ Sin cerrar por más de 24h
                     </div>
                   )}
                 </td>
