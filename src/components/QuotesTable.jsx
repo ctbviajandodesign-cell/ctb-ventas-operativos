@@ -202,63 +202,63 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
 
       {/* Modal Visualizador de Cotización COMPLETO */}
       {viewingQuote && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[3rem] max-w-lg w-full overflow-hidden shadow-2xl animate-in zoom-in duration-300">
-            <div className="bg-primary p-8 text-white relative">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-[2rem] sm:rounded-[3rem] max-w-lg w-full overflow-hidden shadow-2xl animate-in zoom-in duration-300 max-h-[95vh] flex flex-col">
+            <div className="bg-primary p-6 sm:p-8 text-white relative shrink-0">
               <button onClick={() => setViewingQuote(null)} className="absolute top-6 right-6 hover:rotate-90 transition-transform"><XCircle size={24} /></button>
-              <h2 className="text-2xl font-black uppercase tracking-tighter">Expediente CTB</h2>
-              <p className="text-xs opacity-80 mt-1 font-mono">{viewingQuote.codigo}</p>
+              <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tighter pr-8">Expediente CTB</h2>
+              <p className="text-xs opacity-80 mt-1 font-mono truncate">{viewingQuote.codigo}</p>
             </div>
 
-            <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
-              <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs text-gray-400 font-bold uppercase">Venta Total</p>
-                    <p className="text-xl font-black text-gray-900">${Number(viewingQuote.valor_total || 0).toLocaleString()}</p>
+            <div className="p-6 sm:p-8 space-y-5 overflow-y-auto flex-1 max-h-[50vh] sm:max-h-[60vh]">
+              <div className="bg-gray-50 p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-gray-100 min-w-0">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                  <div className="min-w-0">
+                    <p className="text-[10px] sm:text-xs text-gray-400 font-bold uppercase truncate">Venta Total</p>
+                    <p className="text-lg sm:text-xl font-black text-gray-900 truncate">${Number(viewingQuote.valor_total || 0).toLocaleString()}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-400 font-bold uppercase">Utilidad + Comisión</p>
-                    <p className="text-xl font-black text-success">${(Number(viewingQuote.valor_utilidad || 0) + Number(viewingQuote.valor_comision || 0)).toLocaleString()}</p>
+                  <div className="min-w-0">
+                    <p className="text-[10px] sm:text-xs text-gray-400 font-bold uppercase truncate">Utilidad + Comisión</p>
+                    <p className="text-lg sm:text-xl font-black text-success truncate">${(Number(viewingQuote.valor_utilidad || 0) + Number(viewingQuote.valor_comision || 0)).toLocaleString()}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                  <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Agencia</p>
-                  <p className="text-sm font-black text-gray-800 leading-tight">{viewingQuote.agencia || 'Directo'}</p>
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                <div className="bg-gray-50 p-3 sm:p-4 rounded-2xl border border-gray-100 min-w-0">
+                  <p className="text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-widest mb-1 truncate">Agencia</p>
+                  <p className="text-xs sm:text-sm font-black text-gray-800 leading-tight truncate">{viewingQuote.agencia || 'Directo'}</p>
                 </div>
-                <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                  <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Destino</p>
-                  <p className="text-sm font-black text-gray-800 leading-tight uppercase">{viewingQuote.destino}</p>
+                <div className="bg-gray-50 p-3 sm:p-4 rounded-2xl border border-gray-100 min-w-0">
+                  <p className="text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-widest mb-1 truncate">Destino</p>
+                  <p className="text-xs sm:text-sm font-black text-gray-800 leading-tight uppercase truncate">{viewingQuote.destino}</p>
                 </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-4 min-w-0">
                 <div className="flex gap-4">
-                  <div className="flex-1">
-                    <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Pasajeros ({viewingQuote.numero_pasajeros})</p>
-                    <div className="flex flex-wrap gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Pasajeros ({viewingQuote.numero_pasajeros})</p>
+                    <div className="flex flex-wrap gap-1.5 sm:gap-2 max-h-32 overflow-y-auto pr-1">
                       {viewingQuote.nombres_pasajeros?.map((n, i) => (
-                        <span key={i} className="text-xs font-bold bg-white border border-gray-100 px-2.5 py-1 rounded-lg text-gray-600 uppercase">{n}</span>
+                        <span key={i} className="text-[11px] sm:text-xs font-bold bg-white border border-gray-100 px-2 sm:px-2.5 py-1 rounded-lg text-gray-600 uppercase break-words max-w-full">{n}</span>
                       ))}
                     </div>
                   </div>
                 </div>
 
                 {((viewingQuote.estado || '').trim().toLowerCase() === 'perdida' || (viewingQuote.estado || '').trim().toLowerCase() === 'anulada') && (
-                  <div className="bg-red-50 p-5 rounded-3xl border border-red-100 text-red-600">
-                    <p className="text-xs font-black uppercase mb-1">Razón del Cierre Negativo</p>
-                    <p className="text-sm font-black italic">"{viewingQuote.motivo_perdida}"</p>
-                    {viewingQuote.notas_seguimiento && <p className="text-xs mt-2 opacity-80">{viewingQuote.notas_seguimiento}</p>}
+                  <div className="bg-red-50 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-red-100 text-red-600 min-w-0 break-words">
+                    <p className="text-[10px] sm:text-xs font-black uppercase mb-1">Razón del Cierre Negativo</p>
+                    <p className="text-xs sm:text-sm font-black italic">"{viewingQuote.motivo_perdida}"</p>
+                    {viewingQuote.notas_seguimiento && <p className="text-[11px] sm:text-xs mt-2 opacity-80 leading-relaxed">{viewingQuote.notas_seguimiento}</p>}
                   </div>
                 )}
               </div>
 
             </div>
 
-            <div className="p-8 bg-gray-50 flex gap-3">
+            <div className="p-4 sm:p-8 bg-gray-50 flex gap-2 sm:gap-3 shrink-0 border-t border-gray-100">
               {(viewingQuote.estado || '').trim().toLowerCase() !== 'ganada' && (
                 <button 
                   onClick={() => {
@@ -268,12 +268,12 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
                       window.dispatchEvent(new CustomEvent('open-sales-modal', { detail: q }))
                     }, 100)
                   }}
-                  className="flex-1 bg-success text-white py-4 rounded-2xl font-black text-sm shadow-lg shadow-success/20 flex items-center justify-center gap-2"
+                  className="flex-1 bg-success text-white py-3 sm:py-4 rounded-2xl font-black text-xs sm:text-sm shadow-lg shadow-success/20 flex items-center justify-center gap-1.5 sm:gap-2"
                 >
-                  <CheckCircle2 size={20} /> Aprobar Venta
+                  <CheckCircle2 size={18} className="shrink-0" /> <span className="truncate">Aprobar Venta</span>
                 </button>
               )}
-              <button onClick={() => setViewingQuote(null)} className="flex-1 py-4 text-sm font-bold text-gray-400">Cerrar Expediente</button>
+              <button onClick={() => setViewingQuote(null)} className="flex-1 py-3 sm:py-4 text-xs sm:text-sm font-bold text-gray-400 hover:text-gray-600 transition-colors text-center truncate">Cerrar Expediente</button>
             </div>
           </div>
         </div>

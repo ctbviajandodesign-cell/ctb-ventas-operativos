@@ -3,16 +3,14 @@
 import { useState, useEffect } from 'react'
 import { Sparkles, RefreshCw } from 'lucide-react'
 
-export default function AIInsightCard({ metricas }) {
+export default function AIInsightCard({ metricas, modo = 'OPERATIVE' }) {
   const [insight, setInsight] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [hasLoaded, setHasLoaded] = useState(false)
 
+  // Cuando cambian las métricas (ej. cambio de operador), limpiamos el insight previo para no mostrar datos viejos
   useEffect(() => {
-    if (metricas && !hasLoaded && metricas.total > 0) {
-      fetchInsight()
-    }
-  }, [metricas?.total])
+    setInsight(null)
+  }, [metricas?.total, metricas?.ganadas, metricas?.abiertas, metricas?.perdidas])
 
   async function fetchInsight() {
     if (loading) return
@@ -21,12 +19,12 @@ export default function AIInsightCard({ metricas }) {
       const res = await fetch('/api/insight', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ metricas })
+        body: JSON.stringify({ metricas, modo })
       })
+
       const data = await res.json()
       if (data.insight) {
         setInsight(data.insight)
-        setHasLoaded(true)
       }
     } catch (err) {
       console.error('AI insight error:', err)
@@ -34,10 +32,6 @@ export default function AIInsightCard({ metricas }) {
       setLoading(false)
     }
   }
-
-  // Si no hay insight ni API key, no mostrar nada
-  if (!loading && !insight && hasLoaded) return null
-  if (!loading && !insight && metricas?.total === 0) return null
 
   return (
     <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-6 rounded-[2.5rem] text-white relative overflow-hidden border border-white/5 shadow-2xl">
@@ -51,33 +45,52 @@ export default function AIInsightCard({ metricas }) {
           </div>
           <div>
             <p className="text-xs font-black text-primary uppercase tracking-[0.2em]">IA Comercial CTB</p>
-            <p className="text-xs text-gray-400 uppercase tracking-widest mt-0.5">Consejo Personalizado</p>
+            <p className="text-xs text-gray-400 uppercase tracking-widest mt-0.5">
+              {modo === 'GLOBAL_ADMIN' ? 'Análisis Ejecutivo Global' : modo === 'INDIVIDUAL_ADMIN' ? 'Auditoría de Asesor' : 'Coach de Ventas'}
+            </p>
           </div>
-
         </div>
-        <button
-          onClick={fetchInsight}
-          disabled={loading}
-          className="p-2 hover:bg-white/10 rounded-xl transition-colors"
-          title="Actualizar consejo"
-        >
-          <RefreshCw size={14} className={`text-gray-400 ${loading ? 'animate-spin' : ''}`} />
-        </button>
+        {insight && (
+          <button
+            onClick={fetchInsight}
+            disabled={loading}
+            className="p-2 hover:bg-white/10 rounded-xl transition-colors"
+            title="Actualizar consejo"
+          >
+            <RefreshCw size={14} className={`text-gray-400 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        )}
       </div>
 
       <div className="relative z-10">
         {loading ? (
-          <div className="space-y-2">
+          <div className="space-y-2 py-2">
             <div className="h-3 bg-white/10 rounded-full animate-pulse w-full"></div>
             <div className="h-3 bg-white/10 rounded-full animate-pulse w-4/5"></div>
             <div className="h-3 bg-white/10 rounded-full animate-pulse w-3/5"></div>
           </div>
-        ) : (
-          <p className="text-sm leading-relaxed text-gray-200 italic">
+        ) : insight ? (
+          <p className="text-sm leading-relaxed text-gray-200 italic font-medium">
             "{insight}"
           </p>
+        ) : (
+          <div className="text-center py-4 space-y-3">
+            <p className="text-xs text-gray-400 max-w-sm mx-auto">
+              {modo === 'GLOBAL_ADMIN' 
+                ? 'Genera un diagnóstico estratégico sobre el cumplimiento de la meta global de todo el equipo.'
+                : 'Genera un análisis inteligente sobre cotizaciones abiertas, ventas cerradas y proformas perdidas de este asesor.'}
+            </p>
+            <button
+              onClick={fetchInsight}
+              className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-black text-xs uppercase tracking-widest px-6 py-3 rounded-2xl shadow-lg shadow-primary/20 hover:scale-105 transition-all"
+            >
+              <Sparkles size={14} />
+              Generar Análisis con IA
+            </button>
+          </div>
         )}
       </div>
     </div>
   )
 }
+

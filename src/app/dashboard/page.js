@@ -69,6 +69,7 @@ export default function DashboardPage() {
 
   async function fetchDashboardData() {
     try {
+      setLoading(true)
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
@@ -92,35 +93,63 @@ export default function DashboardPage() {
       const startOfMonth = new Date()
       startOfMonth.setDate(1)
       startOfMonth.setHours(0, 0, 0, 0)
-
-      // 1. Ventas del mes (comision+utilidad = ganancia)
-      let ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id').eq('estado', 'activa')
-      if (!isAdmin) ventasQuery = ventasQuery.eq('operativo_id', user.id)
-      else if (selectedOperative !== 'global') ventasQuery = ventasQuery.eq('operativo_id', selectedOperative)
-      ventasQuery = ventasQuery.gte('created_at', startOfMonth.toISOString())
-      const { data: ventasData } = await ventasQuery
-      const totalMetaComp = ventasData?.reduce((acc, v) => acc + (Number(v.comision) || 0) + (Number(v.utilidad) || 0), 0) || 0
-
-      // 2. Total Vendido: desde cotizaciones ganadas (más confiable que ventas.total que puede ser 0)
-      const targetForTotal = !isAdmin ? user.id : selectedOperative !== 'global' ? selectedOperative : null
-      let cotGanadasQuery = supabase.from('cotizaciones').select('valor_total').eq('estado', 'ganada').gte('created_at', startOfMonth.toISOString())
-      if (targetForTotal) cotGanadasQuery = cotGanadasQuery.eq('operativo_id', targetForTotal)
-      const { data: cotGanadas } = await cotGanadasQuery
-      const totalV = cotGanadas?.reduce((acc, q) => acc + (Number(q.valor_total) || 0), 0) || 0
-
-      // 3. Pipeline y cotizaciones abiertas
-      let quotesQuery = supabase.from('cotizaciones').select('*, profiles(nombre)').order('created_at', { ascending: false })
-      let pipelineQuery = supabase.from('cotizaciones').select('valor_total, destino, estado').eq('estado', 'abierta')
-      let openCountQuery = supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'abierta')
+      const startIso = startOfMonth.toISOString()
 
       const targetIdForIndividual = (!isAdmin || selectedOperative !== 'global') ? (isAdmin ? selectedOperative : user.id) : null
 
+      // CONSTRUIR QUERIES EN PARALELO
+      let ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id').eq('estado', 'activa').gte('created_at', startIso)
+      let cotGanadasQuery = supabase.from('cotizaciones').select('valor_total').eq('estado', 'ganada').gte('created_at', startIso)
+      let quotesQuery = supabase.from('cotizaciones').select('*, profiles(nombre)').order('created_at', { ascending: false }).limit(10)
+      let pipelineQuery = supabase.from('cotizaciones').select('valor_total, destino, estado').eq('estado', 'abierta')
+      let openCountQuery = supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'abierta')
+      let lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, created_at, profiles(nombre)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).order('created_at', { ascending: false })
+
       if (targetIdForIndividual) {
+        ventasQuery = ventasQuery.eq('operativo_id', targetIdForIndividual)
+        cotGanadasQuery = cotGanadasQuery.eq('operativo_id', targetIdForIndividual)
         quotesQuery = quotesQuery.eq('operativo_id', targetIdForIndividual)
         pipelineQuery = pipelineQuery.eq('operativo_id', targetIdForIndividual)
         openCountQuery = openCountQuery.eq('operativo_id', targetIdForIndividual)
+        lostQuery = lostQuery.eq('operativo_id', targetIdForIndividual)
+      }
 
-        const { data: statusData } = await supabase.from('cotizaciones').select('estado').eq('operativo_id', targetIdForIndividual)
+      // EJECUTAR PROMISE.ALL PARA MAXIMA VELOCIDAD
+      const [
+        { data: ventasData },
+        { data: cotGanadas },
+        { data: quotesData },
+        { data: pipelineData },
+        { count: openCount },
+        { data: lostData },
+        resBoard
+      ] = await Promise.all([
+        ventasQuery,
+        cotGanadasQuery,
+        quotesQuery,
+        pipelineQuery,
+        openCountQuery,
+        lostQuery,
+        fetch('/api/leaderboard').then(r => r.json())
+      ])
+
+      const totalMetaComp = ventasData?.reduce((acc, v) => acc + (Number(v.comision) || 0) + (Number(v.utilidad) || 0), 0) || 0
+      const totalV = cotGanadas?.reduce((acc, q) => acc + (Number(q.valor_total) || 0), 0) || 0
+      const totalPipeline = pipelineData?.reduce((acc, q) => acc + (Number(q.valor_total) || 0), 0) || 0
+
+      setQuotes(quotesData || [])
+      setLostQuotes(lostData || [])
+
+      const board = resBoard?.success ? resBoard.leaderboard : []
+      setLeaderboard(board || [])
+      setChartData(board || [])
+
+      if (targetIdForIndividual) {
+        const [{ data: statusData }, { count: vCount }] = await Promise.all([
+          supabase.from('cotizaciones').select('estado').eq('operativo_id', targetIdForIndividual),
+          supabase.from('vouchers').select('*', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual)
+        ])
+
         const wonCount = statusData?.filter(q => q.estado === 'ganada').length || 0
         const openCountInd = statusData?.filter(q => q.estado === 'abierta').length || 0
         const lostCount = statusData?.filter(q => q.estado === 'perdida').length || 0
@@ -134,10 +163,10 @@ export default function DashboardPage() {
         ]
         setIndividualStats(stats)
 
-        const { count: vCount } = await supabase.from('vouchers').select('*', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual)
         setMetrics(prev => ({ 
           ...prev, 
           vouchersEmitidos: vCount || 0, 
+          cotizacionesAbiertas: openCountInd,
           conversionRate: totalQ > 0 ? (wonCount / totalQ) * 100 : 0,
           total: totalQ,
           abiertas: openCountInd,
@@ -146,8 +175,6 @@ export default function DashboardPage() {
           conversion: totalQ > 0 ? ((wonCount / totalQ) * 100).toFixed(1) : 0
         }))
       } else {
-        // Admin global: contar todas las abiertas y estados
-        const { count: openCount } = await openCountQuery
         const { data: allStatus } = await supabase.from('cotizaciones').select('estado')
         const totalAll = allStatus?.length || 0
         const wonAll = allStatus?.filter(q => q.estado === 'ganada').length || 0
@@ -157,6 +184,7 @@ export default function DashboardPage() {
         setMetrics(prev => ({ 
           ...prev, 
           cotizacionesAbiertas: openCount || 0,
+          conversionRate: totalAll > 0 ? (wonAll / totalAll) * 100 : 0,
           total: totalAll,
           abiertas: openAll,
           ganadas: wonAll,
@@ -165,24 +193,10 @@ export default function DashboardPage() {
         }))
       }
 
-
-      const { data: pipelineData } = await pipelineQuery
-      const totalPipeline = pipelineData?.reduce((acc, q) => acc + (Number(q.valor_total) || 0), 0) || 0
-      
       // Optimización del destino más popular
       const destMap = {}
       pipelineData?.forEach(q => { if(q.destino) destMap[q.destino] = (destMap[q.destino] || 0) + 1 })
       const popular = Object.keys(destMap).sort((a,b) => destMap[b] - destMap[a])[0] || 'N/A'
-
-      // 3. Leaderboard — llamar a la API que usa service_role para saltar RLS
-      const resBoard = await fetch('/api/leaderboard')
-      const boardData = await resBoard.json()
-      const board = boardData.success ? boardData.leaderboard : []
-
-
-      setLeaderboard(board || [])
-      // Siempre actualizar chartData para gráfico de barras
-      setChartData(board || [])
 
       const globalM = board?.reduce((acc, op) => acc + (Number(op.meta) || 0), 0) || 50000
       const myMeta = !isAdmin
@@ -203,24 +217,6 @@ export default function DashboardPage() {
         porcentajeMeta: metaBase > 0 ? (totalMetaComp / metaBase) * 100 : 0,
         totalAporte: totalMetaComp
       }))
-
-
-      const { data: quotesData } = await quotesQuery.limit(10)
-      setQuotes(quotesData || [])
-
-      // 4. Cargar Cotizaciones Perdidas para Análisis y Descarga
-      let lostQuery = supabase
-        .from('cotizaciones')
-        .select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, created_at, profiles(nombre)')
-        .in('estado', ['perdida', 'anulada'])
-        .gte('created_at', startOfMonth.toISOString())
-        .order('created_at', { ascending: false })
-
-      if (targetIdForIndividual) {
-        lostQuery = lostQuery.eq('operativo_id', targetIdForIndividual)
-      }
-      const { data: lostData } = await lostQuery
-      setLostQuotes(lostData || [])
 
     } catch (error) {
 
@@ -276,13 +272,14 @@ export default function DashboardPage() {
   const isAdmin = profile?.rol === 'admin'
 
   // Abrir panel de operativo (admin drill-down)
+  const [loadingPanelAi, setLoadingPanelAi] = useState(false)
   const handleOpenOperativePanel = async (op) => {
     if (!isAdmin) return
     // Carga detallada de ese operativo
     const startOfMonth = new Date(); startOfMonth.setDate(1); startOfMonth.setHours(0,0,0,0)
     const [{ data: ventas }, { data: cots }, { count: vouchers }] = await Promise.all([
       supabase.from('ventas').select('total,comision,utilidad,created_at').eq('operativo_id', op.id).eq('estado','activa').gte('created_at', startOfMonth.toISOString()),
-      supabase.from('cotizaciones').select('estado,valor_total').eq('operativo_id', op.id),
+      supabase.from('cotizaciones').select('estado,valor_total,destino').eq('operativo_id', op.id),
       supabase.from('vouchers').select('id', { count:'exact', head:true }).eq('operativo_id', op.id)
     ])
     const ganancia = ventas?.reduce((a,v)=>a+(Number(v.comision)||0)+(Number(v.utilidad)||0),0)||0
@@ -291,7 +288,13 @@ export default function DashboardPage() {
     const abiertas = cots?.filter(c=>c.estado==='abierta').length||0
     const perdidas = cots?.filter(c=>['perdida','anulada'].includes(c.estado)).length||0
     const totalCots = cots?.length||0
-    setOperativePanel({
+
+    // Calcular destino favorito del operativo
+    const destMap = {}
+    cots?.forEach(q => { if(q.destino) destMap[q.destino] = (destMap[q.destino] || 0) + 1 })
+    const topDestino = Object.keys(destMap).sort((a,b) => destMap[b] - destMap[a])[0] || 'N/A'
+
+    const panelData = {
       ...op,
       ganancia,
       totalVendido,
@@ -300,8 +303,12 @@ export default function DashboardPage() {
       perdidas,
       totalCots,
       vouchers: vouchers||0,
-      conversion: totalCots>0 ? ((ganadas/totalCots)*100).toFixed(1) : 0
-    })
+      conversion: totalCots>0 ? ((ganadas/totalCots)*100).toFixed(1) : 0,
+      topDestino,
+      aiInsight: null
+    }
+
+    setOperativePanel(panelData)
   }
 
   return (
@@ -309,10 +316,11 @@ export default function DashboardPage() {
 
       {/* PANEL DRILL-DOWN DE OPERATIVO (ADMIN) */}
       {operativePanel && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[150] flex items-center justify-center p-4" onClick={() => setOperativePanel(null)}>
-          <div className="bg-white rounded-[3rem] w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in duration-300" onClick={e => e.stopPropagation()}>
-            <div className="bg-gray-900 text-white p-8 flex items-start justify-between">
-              <div className="flex items-center gap-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[150] flex items-center justify-center p-4 overflow-y-auto" onClick={() => setOperativePanel(null)}>
+          <div className="bg-white rounded-[3rem] w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in duration-300 my-8 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+            <div className="bg-gray-900 text-white p-8 flex items-start justify-between shrink-0 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full -mr-10 -mt-10 blur-2xl pointer-events-none"></div>
+              <div className="flex items-center gap-4 relative z-10">
                 <div className="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center text-2xl font-black text-white shadow-lg">{operativePanel.avatar}</div>
                 <div>
                   <p className="text-xs font-black text-primary uppercase tracking-widest mb-1">Perfil de Operativo</p>
@@ -320,9 +328,9 @@ export default function DashboardPage() {
                   <p className="text-xs text-gray-400 mt-0.5">Meta mensual: ${operativePanel.meta?.toLocaleString()}</p>
                 </div>
               </div>
-              <button onClick={() => setOperativePanel(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-xl font-black">✕</button>
+              <button onClick={() => setOperativePanel(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-xl font-black relative z-10">✕</button>
             </div>
-            <div className="p-8 space-y-6">
+            <div className="p-8 space-y-6 overflow-y-auto flex-1">
               <div>
                 <div className="flex justify-between mb-2">
                   <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Cumplimiento de Meta (Mes)</span>
@@ -355,6 +363,110 @@ export default function DashboardPage() {
                   <p className="text-2xl font-black text-gray-900 mt-1">{operativePanel.vouchers}</p>
                 </div>
               </div>
+
+              {/* FEEDBACK DE OPENAI BAJO DEMANDA */}
+              <div className="bg-gradient-to-br from-indigo-950 to-slate-900 p-6 rounded-3xl text-white relative overflow-hidden border border-indigo-500/20 shadow-xl">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-primary/20 rounded-full blur-xl pointer-events-none"></div>
+                <div className="flex items-center justify-between gap-4 mb-3 relative z-10">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-primary/20 p-2 rounded-xl border border-primary/30 text-primary">
+                      <Sparkles size={18} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black text-primary uppercase tracking-[0.2em]">OpenAI Analytics</p>
+                      <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-0.5">Auditoría Inteligente de Asesor</p>
+                    </div>
+                  </div>
+                  {operativePanel.aiInsight && (
+                    <button
+                      onClick={() => {
+                        // Re-fetch insight
+                        setLoadingPanelAi(true)
+                        fetch('/api/insight', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            modo: 'INDIVIDUAL_ADMIN',
+                            metricas: {
+                              nombreAsesor: operativePanel.nombreCompleto || operativePanel.nombre,
+                              meta: operativePanel.meta,
+                              cumplimiento: operativePanel.cumplimiento,
+                              vouchers: operativePanel.vouchers || 0,
+                              total: operativePanel.totalCots,
+                              abiertas: operativePanel.abiertas,
+                              ganadas: operativePanel.ganadas,
+                              perdidas: operativePanel.perdidas,
+                              conversion: operativePanel.conversion,
+                              totalAporte: operativePanel.ganancia,
+                              topDestino: operativePanel.topDestino
+                            }
+                          })
+                        })
+                        .then(r => r.json())
+                        .then(aiData => { if (aiData.insight) setOperativePanel(prev => prev ? {...prev, aiInsight: aiData.insight} : null) })
+                        .finally(() => setLoadingPanelAi(false))
+                      }}
+                      disabled={loadingPanelAi}
+                      className="p-2 hover:bg-white/10 rounded-xl transition-colors"
+                      title="Actualizar auditoría"
+                    >
+                      <RefreshCw size={14} className={`text-gray-400 ${loadingPanelAi ? 'animate-spin' : ''}`} />
+                    </button>
+                  )}
+                </div>
+                <div className="relative z-10 min-h-[60px] flex items-center justify-center">
+                  {loadingPanelAi ? (
+                    <div className="space-y-2 w-full py-2">
+                      <div className="h-2.5 bg-white/10 rounded-full animate-pulse w-full"></div>
+                      <div className="h-2.5 bg-white/10 rounded-full animate-pulse w-5/6"></div>
+                      <div className="h-2.5 bg-white/10 rounded-full animate-pulse w-2/3"></div>
+                    </div>
+                  ) : operativePanel.aiInsight ? (
+                    <p className="text-xs sm:text-sm leading-relaxed text-gray-200 italic font-medium w-full">
+                      "{operativePanel.aiInsight}"
+                    </p>
+                  ) : (
+                    <div className="text-center py-2 space-y-3 w-full">
+                      <p className="text-xs text-gray-400 max-w-sm mx-auto">
+                        Genera un diagnóstico experto sobre cotizaciones abiertas, ventas cerradas y cumplimiento de meta de este asesor.
+                      </p>
+                      <button
+                        onClick={() => {
+                          setLoadingPanelAi(true)
+                          fetch('/api/insight', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              modo: 'INDIVIDUAL_ADMIN',
+                              metricas: {
+                                nombreAsesor: operativePanel.nombreCompleto || operativePanel.nombre,
+                                meta: operativePanel.meta,
+                                cumplimiento: operativePanel.cumplimiento,
+                                vouchers: operativePanel.vouchers || 0,
+                                total: operativePanel.totalCots,
+                                abiertas: operativePanel.abiertas,
+                                ganadas: operativePanel.ganadas,
+                                perdidas: operativePanel.perdidas,
+                                conversion: operativePanel.conversion,
+                                totalAporte: operativePanel.ganancia,
+                                topDestino: operativePanel.topDestino
+                              }
+                            })
+                          })
+                          .then(r => r.json())
+                          .then(aiData => { if (aiData.insight) setOperativePanel(prev => prev ? {...prev, aiInsight: aiData.insight} : null) })
+                          .finally(() => setLoadingPanelAi(false))
+                        }}
+                        className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-black text-xs uppercase tracking-widest px-5 py-2.5 rounded-2xl shadow-lg shadow-primary/20 hover:scale-105 transition-all"
+                      >
+                        <Sparkles size={14} />
+                        Generar Auditoría con IA
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div>
                 <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Proformas (histórico total)</p>
                 <div className="grid grid-cols-3 gap-2">
@@ -371,6 +483,8 @@ export default function DashboardPage() {
                 </div>
               </div>
 
+            </div>
+            <div className="p-6 bg-gray-50 border-t border-gray-100 shrink-0">
               <button
                 onClick={() => { setSelectedOperative(operativePanel.id); setOperativePanel(null) }}
                 className="w-full bg-primary text-white py-4 rounded-2xl font-black uppercase tracking-tighter text-sm hover:scale-[1.02] transition-all shadow-lg shadow-primary/20"
@@ -445,7 +559,7 @@ export default function DashboardPage() {
           color="accent"
         />
         <StatsCard 
-          title={isAdmin ? 'Ganancia del Equipo' : 'Mi Ganancia Total'} 
+          title={isAdmin && selectedOperative === 'global' ? 'Ganancia del Equipo' : 'Ganancia Total'} 
           value={`$${metrics.metaComputable.toLocaleString()}`} 
           icon={TrendingUp}
           color="success"
@@ -457,6 +571,7 @@ export default function DashboardPage() {
           color="danger"
         />
       </div>
+
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
         
@@ -557,7 +672,8 @@ export default function DashboardPage() {
           )}
 
           {/* RADAR DE COBROS */}
-          {profile && <PaymentAlerts userId={profile.id} isAdmin={isAdmin} />}
+          {profile && <PaymentAlerts userId={isAdmin && selectedOperative !== 'global' ? selectedOperative : profile.id} isAdmin={isAdmin && selectedOperative === 'global'} />}
+
 
           {/* TABLA DE EXPEDIENTES */}
           <div className="bg-white p-10 rounded-[3rem] shadow-sm border border-gray-50">
@@ -742,15 +858,20 @@ export default function DashboardPage() {
                 <div className="bg-white/5 p-5 rounded-3xl border border-white/5"><p className="text-xs font-black text-success uppercase tracking-widest mb-1">Tasa de Cierre</p><p className="text-3xl font-black">{metrics.conversionRate.toFixed(0)}%</p></div>
               </div>
               <div className="mt-4">
-                <AIInsightCard metricas={{
-                  total: metrics.total,
-                  abiertas: metrics.abiertas,
-                  ganadas: metrics.ganadas,
-                  perdidas: metrics.perdidas,
-                  conversion: metrics.conversion,
-                  totalAporte: metrics.totalAporte,
-                  topDestino: metrics.topDestino
-                }} />
+                <AIInsightCard 
+                  modo={isAdmin && selectedOperative === 'global' ? 'GLOBAL_ADMIN' : 'OPERATIVE'}
+                  metricas={{
+                    total: metrics.total,
+                    abiertas: metrics.abiertas,
+                    ganadas: metrics.ganadas,
+                    perdidas: metrics.perdidas,
+                    conversion: metrics.conversion,
+                    totalAporte: metrics.totalAporte,
+                    topDestino: metrics.topDestino,
+                    globalGoal: metrics.globalGoal,
+                    porcentajeMeta: metrics.porcentajeMeta
+                  }} 
+                />
               </div>
             </div>
           </div>

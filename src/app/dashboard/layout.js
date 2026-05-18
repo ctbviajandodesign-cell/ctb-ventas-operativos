@@ -13,7 +13,8 @@ import {
   QrCode,
   DollarSign,
   ChevronRight,
-  Star
+  Star,
+  Sparkles
 } from 'lucide-react'
 import SalesModal from '@/components/SalesModal'
 
@@ -46,6 +47,7 @@ export default function DashboardLayout({ children }) {
     { href: '/dashboard/ventas', label: 'Proformas', icon: DollarSign },
     { href: '/dashboard/vouchers', label: 'Vouchers', icon: QrCode },
     { href: '/dashboard/logros', label: 'Mis Logros', icon: Star },
+    { href: '/dashboard/analisis', label: 'IA Comercial', icon: Sparkles },
   ]
 
   const isActive = (href) => {
