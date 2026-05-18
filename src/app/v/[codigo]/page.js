@@ -124,11 +124,12 @@ export default function VoucherVerificationPage() {
                 <p className="text-2xl font-mono font-black tracking-tighter text-white">{voucher.codigo}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-black text-gray-500 uppercase tracking-[0.2em] mb-1">Inversión Confirmada</p>
-                <p className="text-3xl font-black text-primary tracking-tighter">${(Number(voucher.valor_total) || 0).toLocaleString()}</p>
+                <p className="text-xs font-black text-success uppercase tracking-[0.2em] mb-1">Estado del Voucher</p>
+                <p className="text-xl font-black text-success tracking-tighter uppercase">Confirmado</p>
               </div>
             </div>
           </div>
+
 
 
           {/* SEPARADOR TICKET (DASHED LINE WITH NOTCHES) */}

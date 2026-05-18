@@ -7,10 +7,12 @@ import { AlertTriangle, Clock, DollarSign, ArrowRight, CheckCircle2 } from 'luci
 export default function PaymentAlerts({ userId, isAdmin }) {
   const [alerts, setAlerts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [updatingId, setUpdatingId] = useState(null)
 
   useEffect(() => {
     fetchAlerts()
   }, [userId])
+
 
   async function fetchAlerts() {
     try {
@@ -71,7 +73,44 @@ export default function PaymentAlerts({ userId, isAdmin }) {
     }
   }
 
+  const handleMarkAsPaid = async (ventaId, milestoneLabel) => {
+    setUpdatingId(`${ventaId}-${milestoneLabel}`)
+    try {
+      // Obtener el plan de pagos actual
+      const { data: venta, error: fetchErr } = await supabase
+        .from('ventas')
+        .select('plan_pagos')
+        .eq('id', ventaId)
+        .single()
+
+      if (fetchErr) throw fetchErr
+
+      const updatedPlan = (venta.plan_pagos || []).map(m => {
+        if (m.label === milestoneLabel) {
+          return { ...m, status: 'pagado' }
+        }
+        return m
+      })
+
+      const { error: updateErr } = await supabase
+        .from('ventas')
+        .update({ plan_pagos: updatedPlan })
+        .eq('id', ventaId)
+
+      if (updateErr) throw updateErr
+
+      // Refrescar alertas
+      fetchAlerts()
+    } catch (err) {
+      console.error('Error actualizando hito de pago:', err)
+      alert('Error al marcar como pagado: ' + err.message)
+    } finally {
+      setUpdatingId(null)
+    }
+  }
+
   if (loading) return null
+
 
   if (alerts.length === 0) return (
     <div className="card border-success/20 bg-success/5 animate-in fade-in duration-700">
@@ -119,14 +158,29 @@ export default function PaymentAlerts({ userId, isAdmin }) {
                   </p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-sm font-black text-gray-900">${(Number(alert.monto) || 0).toLocaleString()}</p>
-                <p className={`text-xs font-black uppercase ${alert.isOverdue ? 'text-danger' : 'text-amber-600'}`}>
-                  {alert.isOverdue ? 'Vencido' : 'Vence Hoy'}
-                </p>
+              <div className="flex items-center gap-4 text-right">
+                <div>
+                  <p className="text-sm font-black text-gray-900">${(Number(alert.monto) || 0).toLocaleString()}</p>
+                  <p className={`text-xs font-black uppercase ${alert.isOverdue ? 'text-danger' : 'text-amber-600'}`}>
+                    {alert.isOverdue ? 'Vencido' : 'Vence Hoy'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleMarkAsPaid(alert.ventaId, alert.label)}
+                  disabled={updatingId === `${alert.ventaId}-${alert.label}`}
+                  className="p-2 bg-success/10 hover:bg-success text-success hover:text-white rounded-xl transition-all shadow-sm flex items-center justify-center disabled:opacity-50"
+                  title="Marcar como Cobrado / Pagado"
+                >
+                  {updatingId === `${alert.ventaId}-${alert.label}` ? (
+                    <div className="w-4 h-4 border-2 border-success border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <CheckCircle2 size={18} />
+                  )}
+                </button>
               </div>
 
             </div>
+
           )
         })}
       </div>
