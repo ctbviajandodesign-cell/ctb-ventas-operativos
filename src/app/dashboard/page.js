@@ -6,7 +6,6 @@ import Link from 'next/link'
 import StatsCard from '@/components/StatsCard'
 import QuotesTable from '@/components/QuotesTable'
 import GlobalSearch from '@/components/GlobalSearch'
-import SalesModal from '@/components/SalesModal'
 import PaymentAlerts from '@/components/PaymentAlerts'
 import AIInsightCard from '@/components/AIInsightCard'
 import { 
@@ -880,7 +879,6 @@ export default function DashboardPage() {
 
         </div>
       </div>
-      <SalesModal />
     </div>
   )
 }
