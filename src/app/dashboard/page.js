@@ -24,7 +24,9 @@ import {
   ChevronRight,
   Plus,
   Download,
-  AlertTriangle
+  AlertTriangle,
+  RefreshCw,
+  Sparkles
 } from 'lucide-react'
 
 import { 
