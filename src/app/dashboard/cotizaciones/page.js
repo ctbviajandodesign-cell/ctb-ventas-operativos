@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useUserSession } from '@/hooks/useUserSession'
 import QuotesTable from '@/components/QuotesTable'
 import AIInsightCard from '@/components/AIInsightCard'
 import { Search, Plus, Filter, CheckCircle2, Clock, XCircle, AlertCircle, TrendingUp, DollarSign, FileText } from 'lucide-react'
@@ -13,29 +14,38 @@ export default function CotizacionesPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('todas')
-  const [profile, setProfile] = useState(null)
+  const { user, profile, isAdmin, loading: sessionLoading } = useUserSession()
+  const [errorState, setErrorState] = useState(null)
 
   useEffect(() => {
-    fetchQuotes()
-  }, [])
+    if (!sessionLoading && user) {
+      fetchQuotes()
+    }
+  }, [sessionLoading, user])
 
   async function fetchQuotes() {
-    const { data: { user } } = await supabase.auth.getUser()
-    const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-    setProfile(profileData)
+    setLoading(true)
+    setErrorState(null)
+    try {
+      let query = supabase
+        .from('cotizaciones')
+        .select('*, profiles(nombre)')
+        .order('created_at', { ascending: false })
 
-    let query = supabase
-      .from('cotizaciones')
-      .select('*, profiles(nombre)')
-      .order('created_at', { ascending: false })
+      if (!isAdmin) {
+        query = query.eq('operativo_id', user.id)
+      }
 
-    if (profileData?.rol !== 'admin') {
-      query = query.eq('operativo_id', user.id)
+      const { data, error } = await query
+      if (error) throw error
+
+      setQuotes(data || [])
+    } catch (err) {
+      console.error('Error fetching quotes:', err)
+      setErrorState('No pudimos cargar la lista de cotizaciones. Verifica tu conexión.')
+    } finally {
+      setLoading(false)
     }
-
-    const { data } = await query
-    setQuotes(data || [])
-    setLoading(false)
   }
 
   // Métricas para el mini-dashboard
@@ -94,6 +104,17 @@ export default function CotizacionesPage() {
         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
         <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">Cargando proformas...</p>
       </div>
+    </div>
+  )
+
+  if (errorState) return (
+    <div className="flex flex-col items-center justify-center py-32 text-center">
+      <AlertCircle size={48} className="text-red-500 mb-4" />
+      <h3 className="text-xl font-bold text-gray-800 mb-2">Error de conexión</h3>
+      <p className="text-gray-500 mb-6">{errorState}</p>
+      <button onClick={fetchQuotes} className="bg-primary text-white px-6 py-2 rounded-xl font-bold hover:bg-primary/90 transition">
+        Reintentar
+      </button>
     </div>
   )
 

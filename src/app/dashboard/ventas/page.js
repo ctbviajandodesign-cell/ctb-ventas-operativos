@@ -2,9 +2,10 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useUserSession } from '@/hooks/useUserSession'
 import { 
   TrendingUp, Search, XCircle, Trash2, Edit, DollarSign,
-  CheckCircle2, BarChart3, QrCode, ExternalLink
+  CheckCircle2, BarChart3, QrCode, ExternalLink, AlertCircle
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -16,34 +17,38 @@ export default function VentasPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('activa')
-  const [profile, setProfile] = useState(null)
+  const { user, profile, isAdmin, loading: sessionLoading } = useUserSession()
+  const [errorState, setErrorState] = useState(null)
   const [selectedVenta, setSelectedVenta] = useState(null)
   const [selectedVoucher, setSelectedVoucher] = useState(null)
   const [voucherLoading, setVoucherLoading] = useState(false)
 
   useEffect(() => {
-    fetchVentas()
-  }, [])
+    if (!sessionLoading && user) {
+      fetchVentas()
+    }
+  }, [sessionLoading, user])
 
   async function fetchVentas() {
+    setLoading(true)
+    setErrorState(null)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-      setProfile(profileData)
-
       let query = supabase
         .from('ventas')
         .select('*, cotizaciones(id, agencia, destino, codigo, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono)')
         .order('created_at', { ascending: false })
 
-      if (profileData.rol !== 'admin') {
+      if (!isAdmin) {
         query = query.eq('operativo_id', user.id)
       }
 
-      const { data } = await query
+      const { data, error } = await query
+      if (error) throw error
+
       setVentas(data || [])
     } catch (error) {
       console.error(error)
+      setErrorState('No pudimos cargar la lista de ventas. Verifica tu conexión.')
     } finally {
       setLoading(false)
     }
@@ -118,6 +123,17 @@ export default function VentasPage() {
         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
         <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">Cargando ventas...</p>
       </div>
+    </div>
+  )
+
+  if (errorState) return (
+    <div className="flex flex-col items-center justify-center py-32 text-center">
+      <AlertCircle size={48} className="text-red-500 mb-4" />
+      <h3 className="text-xl font-bold text-gray-800 mb-2">Error de conexión</h3>
+      <p className="text-gray-500 mb-6">{errorState}</p>
+      <button onClick={fetchVentas} className="bg-primary text-white px-6 py-2 rounded-xl font-bold hover:bg-primary/90 transition">
+        Reintentar
+      </button>
     </div>
   )
 
