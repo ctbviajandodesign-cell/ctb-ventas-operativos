@@ -9,7 +9,6 @@ import GlobalSearch from '@/components/GlobalSearch'
 import PaymentAlerts from '@/components/PaymentAlerts'
 import AIInsightCard from '@/components/AIInsightCard'
 import { 
-
   DollarSign, 
   TrendingUp, 
   FileText, 

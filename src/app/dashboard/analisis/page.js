@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useUserSession } from '@/hooks/useUserSession'
 import { Sparkles, Trophy, ArrowRight, RefreshCw, AlertCircle, CheckCircle, TrendingUp } from 'lucide-react'
 import AIInsightCard from '@/components/AIInsightCard'
 
 export default function AnalisisPage() {
-  const [profile, setProfile] = useState(null)
+  const { user, profile, isAdmin, loading: sessionLoading } = useUserSession()
   const [board, setBoard] = useState([])
   const [selectedOp, setSelectedOp] = useState('global')
   const [loading, setLoading] = useState(true)
@@ -23,31 +24,22 @@ export default function AnalisisPage() {
   })
 
   useEffect(() => {
-    fetchData()
-  }, [])
+    if (!sessionLoading) {
+      fetchData()
+    }
+  }, [selectedOp, sessionLoading])
 
   async function fetchData() {
     setLoading(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      let isAdmin = false
-      let currentUser = null
-
-      if (user) {
-        const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-        setProfile(p)
-        isAdmin = p?.rol === 'admin'
-        currentUser = p
-      }
-
       // Traer usuarios para el selector si es admin
-      if (isAdmin) {
+      if (isAdmin && board.length === 0) {
         const { data: users } = await supabase.from('profiles').select('id, nombre, meta_mensual').eq('rol', 'operativo')
         setBoard(users || [])
       }
 
       // Determinar qué datos consultar
-      const targetOp = isAdmin ? selectedOp : (currentUser?.id || 'global')
+      const targetOp = isAdmin ? selectedOp : (user?.id || 'global')
 
       let cotsQuery = supabase.from('cotizaciones').select('estado, ganancia, destino, operativo_id')
       if (targetOp !== 'global') {
