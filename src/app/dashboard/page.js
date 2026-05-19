@@ -147,51 +147,63 @@ export default function DashboardPage() {
       setChartData(board || [])
 
       if (targetIdForIndividual) {
-        const [{ data: statusData }, { count: vCount }] = await Promise.all([
-          supabase.from('cotizaciones').select('estado').eq('operativo_id', targetIdForIndividual),
-          supabase.from('vouchers').select('*', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual)
+        const [
+          { count: vCount },
+          { count: wonCount },
+          { count: openCountInd },
+          { count: lostCount },
+          { count: anuladaCount },
+          { count: totalQ }
+        ] = await Promise.all([
+          supabase.from('vouchers').select('id', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual),
+          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual).eq('estado', 'ganada'),
+          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual).eq('estado', 'abierta'),
+          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual).eq('estado', 'perdida'),
+          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual).eq('estado', 'anulada'),
+          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual)
         ])
 
-        const wonCount = statusData?.filter(q => q.estado === 'ganada').length || 0
-        const openCountInd = statusData?.filter(q => q.estado === 'abierta').length || 0
-        const lostCount = statusData?.filter(q => q.estado === 'perdida').length || 0
-        const totalQ = statusData?.length || 0
-
         const stats = [
-          { name: 'Ganadas', value: wonCount, color: '#16A34A' },
-          { name: 'Abiertas', value: openCountInd, color: '#0066CC' },
-          { name: 'Perdidas', value: lostCount, color: '#F5A623' },
-          { name: 'Anuladas', value: statusData?.filter(q => q.estado === 'anulada').length || 0, color: '#DC2626' }
+          { name: 'Ganadas', value: wonCount || 0, color: '#16A34A' },
+          { name: 'Abiertas', value: openCountInd || 0, color: '#0066CC' },
+          { name: 'Perdidas', value: lostCount || 0, color: '#F5A623' },
+          { name: 'Anuladas', value: anuladaCount || 0, color: '#DC2626' }
         ]
         setIndividualStats(stats)
 
         setMetrics(prev => ({ 
           ...prev, 
           vouchersEmitidos: vCount || 0, 
-          cotizacionesAbiertas: openCountInd,
-          conversionRate: totalQ > 0 ? (wonCount / totalQ) * 100 : 0,
-          total: totalQ,
-          abiertas: openCountInd,
-          ganadas: wonCount,
-          perdidas: lostCount,
-          conversion: totalQ > 0 ? ((wonCount / totalQ) * 100).toFixed(1) : 0
+          cotizacionesAbiertas: openCountInd || 0,
+          conversionRate: totalQ > 0 ? ((wonCount || 0) / totalQ) * 100 : 0,
+          total: totalQ || 0,
+          abiertas: openCountInd || 0,
+          ganadas: wonCount || 0,
+          perdidas: lostCount || 0,
+          conversion: totalQ > 0 ? (((wonCount || 0) / totalQ) * 100).toFixed(1) : 0
         }))
       } else {
-        const { data: allStatus } = await supabase.from('cotizaciones').select('estado')
-        const totalAll = allStatus?.length || 0
-        const wonAll = allStatus?.filter(q => q.estado === 'ganada').length || 0
-        const openAll = allStatus?.filter(q => q.estado === 'abierta').length || 0
-        const lostAll = allStatus?.filter(q => q.estado === 'perdida').length || 0
+        const [
+          { count: wonAll },
+          { count: openAll },
+          { count: lostAll },
+          { count: totalAll }
+        ] = await Promise.all([
+          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'ganada'),
+          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'abierta'),
+          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'perdida'),
+          supabase.from('cotizaciones').select('id', { count: 'exact', head: true })
+        ])
 
         setMetrics(prev => ({ 
           ...prev, 
-          cotizacionesAbiertas: openCount || 0,
-          conversionRate: totalAll > 0 ? (wonAll / totalAll) * 100 : 0,
-          total: totalAll,
-          abiertas: openAll,
-          ganadas: wonAll,
-          perdidas: lostAll,
-          conversion: totalAll > 0 ? ((wonAll / totalAll) * 100).toFixed(1) : 0
+          cotizacionesAbiertas: openAll || 0,
+          conversionRate: totalAll > 0 ? ((wonAll || 0) / totalAll) * 100 : 0,
+          total: totalAll || 0,
+          abiertas: openAll || 0,
+          ganadas: wonAll || 0,
+          perdidas: lostAll || 0,
+          conversion: totalAll > 0 ? (((wonAll || 0) / totalAll) * 100).toFixed(1) : 0
         }))
       }
 
