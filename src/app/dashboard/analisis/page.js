@@ -41,18 +41,31 @@ export default function AnalisisPage() {
       // Determinar qué datos consultar
       const targetOp = isAdmin ? selectedOp : (user?.id || 'global')
 
-      let cotsQuery = supabase.from('cotizaciones').select('estado, ganancia, destino, operativo_id')
+      // Filtro para mes actual
+      const startOfMonth = new Date()
+      startOfMonth.setDate(1)
+      startOfMonth.setHours(0, 0, 0, 0)
+
+      let cotsQuery = supabase
+        .from('cotizaciones')
+        .select('estado, valor_comision, valor_utilidad, destino, operativo_id')
+        .gte('created_at', startOfMonth.toISOString())
+
       if (targetOp !== 'global') {
         cotsQuery = cotsQuery.eq('operativo_id', targetOp)
       }
 
-      const { data: cots } = await cotsQuery
+      const { data: cots, error } = await cotsQuery
+      if (error) throw error
 
       const total = cots?.length || 0
       const ganadas = cots?.filter(c => c.estado === 'ganada')?.length || 0
       const abiertas = cots?.filter(c => c.estado === 'abierta')?.length || 0
       const perdidas = cots?.filter(c => c.estado === 'perdida' || c.estado === 'cancelada')?.length || 0
-      const ganancia = cots?.filter(c => c.estado === 'ganada').reduce((acc, curr) => acc + (Number(curr.ganancia) || 0), 0) || 0
+      
+      const ganancia = cots?.filter(c => c.estado === 'ganada').reduce((acc, curr) => {
+        return acc + (Number(curr.valor_comision) || 0) + (Number(curr.valor_utilidad) || 0)
+      }, 0) || 0
       const conversion = total > 0 ? ((ganadas / total) * 100).toFixed(1) : 0
 
       // Destino top

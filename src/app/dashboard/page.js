@@ -104,8 +104,8 @@ export default function DashboardPage() {
       let ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id').eq('estado', 'activa').gte('created_at', startIso)
       let cotGanadasQuery = supabase.from('cotizaciones').select('valor_total').eq('estado', 'ganada').gte('created_at', startIso)
       let quotesQuery = supabase.from('cotizaciones').select('*, profiles(nombre)').order('created_at', { ascending: false }).limit(10)
-      let pipelineQuery = supabase.from('cotizaciones').select('valor_total, destino, estado').eq('estado', 'abierta')
-      let openCountQuery = supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'abierta')
+      let pipelineQuery = supabase.from('cotizaciones').select('valor_total, destino, estado').eq('estado', 'abierta').gte('created_at', startIso)
+      let openCountQuery = supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'abierta').gte('created_at', startIso)
       let lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, created_at, profiles(nombre)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).order('created_at', { ascending: false })
 
       if (targetIdForIndividual) {
@@ -156,12 +156,12 @@ export default function DashboardPage() {
           { count: anuladaCount },
           { count: totalQ }
         ] = await Promise.all([
-          supabase.from('vouchers').select('id', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual),
-          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual).eq('estado', 'ganada'),
-          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual).eq('estado', 'abierta'),
-          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual).eq('estado', 'perdida'),
-          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual).eq('estado', 'anulada'),
-          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual)
+          supabase.from('vouchers').select('id', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual).gte('created_at', startIso),
+          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual).eq('estado', 'ganada').gte('created_at', startIso),
+          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual).eq('estado', 'abierta').gte('created_at', startIso),
+          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual).eq('estado', 'perdida').gte('created_at', startIso),
+          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual).eq('estado', 'anulada').gte('created_at', startIso),
+          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual).gte('created_at', startIso)
         ])
 
         const stats = [
@@ -190,10 +190,10 @@ export default function DashboardPage() {
           { count: lostAll },
           { count: totalAll }
         ] = await Promise.all([
-          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'ganada'),
-          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'abierta'),
-          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'perdida'),
-          supabase.from('cotizaciones').select('id', { count: 'exact', head: true })
+          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'ganada').gte('created_at', startIso),
+          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'abierta').gte('created_at', startIso),
+          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'perdida').gte('created_at', startIso),
+          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).gte('created_at', startIso)
         ])
 
         setMetrics(prev => ({ 
