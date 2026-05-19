@@ -8,6 +8,7 @@ import QuotesTable from '@/components/QuotesTable'
 import GlobalSearch from '@/components/GlobalSearch'
 import PaymentAlerts from '@/components/PaymentAlerts'
 import AIInsightCard from '@/components/AIInsightCard'
+import DashboardCharts from '@/components/DashboardCharts'
 import { 
   DollarSign, 
   TrendingUp, 
@@ -62,6 +63,7 @@ export default function DashboardPage() {
   const [lostFilter, setLostFilter] = useState('ALL') // Filtro inteligente de perdidas
   const [loading, setLoading] = useState(true)
   const [loadingPanelAi, setLoadingPanelAi] = useState(false)
+  const [errorState, setErrorState] = useState(null)
 
 
   useEffect(() => {
@@ -232,8 +234,8 @@ export default function DashboardPage() {
       }))
 
     } catch (error) {
-
       console.error('Error fetching data:', error)
+      setErrorState('No pudimos cargar los datos del dashboard. Por favor, verifica tu conexión o intenta nuevamente.')
     } finally {
       setLoading(false)
     }
@@ -273,14 +275,30 @@ export default function DashboardPage() {
 
 
 
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center p-8 bg-[#F5F7FA]">
-      <div className="space-y-4 text-center">
-        <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-        <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">Sincronizando Business Intelligence...</p>
+  if (loading) {
+    return (
+      <div className="flex flex-col justify-center items-center h-screen bg-gray-50/50">
+        <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+        <p className="mt-6 text-gray-500 font-bold uppercase tracking-widest animate-pulse">Cargando métricas de éxito...</p>
       </div>
-    </div>
-  )
+    )
+  }
+
+  if (errorState) {
+    return (
+      <div className="flex flex-col justify-center items-center h-screen bg-gray-50 p-6 text-center">
+        <AlertTriangle size={64} className="text-red-500 mb-6" />
+        <h2 className="text-2xl font-black text-gray-800 mb-2 uppercase">Error de Conexión</h2>
+        <p className="text-gray-500 max-w-md mb-8">{errorState}</p>
+        <button 
+          onClick={() => { setErrorState(null); fetchDashboardData(); }}
+          className="bg-primary text-white px-8 py-3 rounded-full font-bold shadow-lg hover:shadow-xl transition-all uppercase tracking-widest text-sm flex items-center gap-2"
+        >
+          <RefreshCw size={16} /> Reintentar
+        </button>
+      </div>
+    )
+  }
 
   const isAdmin = profile?.rol === 'admin'
   const handleOpenOperativePanel = async (op) => {
@@ -587,99 +605,14 @@ export default function DashboardPage() {
         
         {/* COLUMNA IZQUIERDA: GRÁFICOS Y TABLA */}
         <div className="lg:col-span-2 space-y-10">
-          
-          {/* GRÁFICO DE RENDIMIENTO GLOBAL */}
-          {isAdmin && selectedOperative === 'global' && (
-            <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-gray-50 animate-in zoom-in duration-500">
-              <div className="flex items-center justify-between mb-8">
-                <h3 className="font-black text-xl uppercase tracking-tighter flex items-center gap-3">
-                    <BarChart3 className="text-primary" size={24} />
-                    Rendimiento por Asesor
-                  </h3>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-primary rounded-full"></div>
-                    <span className="text-xs font-black text-gray-400 uppercase">Ventas ($)</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                    <XAxis dataKey="nombre" axisLine={false} tickLine={false} tick={{ fill: '#334155', fontSize: 12, fontWeight: 900, textTransform: 'uppercase' }} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#334155', fontSize: 12, fontWeight: 900 }} />
+          <DashboardCharts 
+            isAdmin={isAdmin}
+            selectedOperative={selectedOperative}
+            chartData={chartData}
+            individualStats={individualStats}
+            metrics={metrics}
+          />
 
-                    <Tooltip cursor={{ fill: '#F8FAFC' }} content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        return (
-                          <div className="bg-gray-900 text-white p-4 rounded-2xl shadow-2xl border border-white/10">
-                            <p className="text-xs font-black uppercase tracking-widest text-primary mb-1">{payload[0].payload.nombre}</p>
-                            <p className="text-xl font-black">${payload[0].value.toLocaleString()}</p>
-                            <p className="text-xs font-bold text-gray-400 mt-1 uppercase italic">{payload[0].payload.cumplimiento.toFixed(1)}% de meta cumplida</p>
-                          </div>
-                        )
-                      }
-                      return null
-                    }} />
-
-                    <Bar dataKey="total" radius={[10, 10, 10, 10]} barSize={40}>
-                      {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={index === 0 ? '#0066CC' : '#E2E8F0'} />)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          )}
-
-          {/* GRÁFICO DE RENDIMIENTO INDIVIDUAL (OPERATIVO) */}
-          {(selectedOperative !== 'global' || !isAdmin) && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in zoom-in duration-500">
-              <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-gray-50">
-                <div className="flex items-center justify-between mb-8">
-                  <h3 className="font-black text-xl uppercase tracking-tighter flex items-center gap-3 text-gray-800">
-                    <PieIcon className="text-primary" size={24} />
-                    Embudo de Venta
-                  </h3>
-                  <div className="bg-success/10 px-4 py-2 rounded-2xl">
-                    <p className="text-xs font-black text-success uppercase">Conversión</p>
-                    <p className="text-lg font-black text-success">{metrics.conversionRate.toFixed(1)}%</p>
-                  </div>
-                </div>
-
-                <div className="h-[250px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={individualStats} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#F1F5F9" />
-                      <XAxis type="number" hide />
-                      <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#334155', fontSize: 12, fontWeight: 900, textTransform: 'uppercase' }} width={80} />
-
-                      <Tooltip cursor={{ fill: '#F8FAFC' }} />
-                      <Bar dataKey="value" radius={[0, 10, 10, 0]} barSize={35}>
-                        {individualStats.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              <div className="bg-gray-900 p-10 rounded-[3rem] shadow-2xl text-white relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-10 opacity-10"><TrendingUp size={140} /></div>
-                <h3 className="font-black text-xl uppercase tracking-tighter mb-8 relative z-10">Tu Aporte al Equipo</h3>
-                <div className="flex items-center justify-center h-[180px] relative z-10">
-                  <div className="text-center">
-                    <p className="text-xs font-black text-primary uppercase tracking-[0.3em] mb-2">Market Share</p>
-                    <p className="text-6xl font-black text-white italic">
-                      {metrics.globalGoal > 0 ? ((metrics.metaComputable / metrics.globalGoal) * 100).toFixed(1) : 0}%
-                    </p>
-                    <p className="text-xs font-bold text-gray-400 uppercase mt-4 tracking-widest">De la meta global de CTB</p>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          )}
 
           {/* RADAR DE COBROS */}
           {profile && <PaymentAlerts userId={isAdmin && selectedOperative !== 'global' ? selectedOperative : profile.id} isAdmin={isAdmin && selectedOperative === 'global'} />}
