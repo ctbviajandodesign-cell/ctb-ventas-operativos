@@ -157,9 +157,12 @@ export default function DashboardPage() {
       setLostQuotes(lostData || [])
 
       const rawBoard = resBoard?.success ? resBoard.leaderboard : []
-      const board = (activeCityFilter && activeCityFilter !== 'global')
-        ? rawBoard.filter(op => op.ciudad === activeCityFilter)
-        : rawBoard
+      const userCity = profileData?.ciudad
+      const board = !isAdmin
+        ? rawBoard.filter(op => op.ciudad && userCity && op.ciudad.trim().toLowerCase() === userCity.trim().toLowerCase())
+        : (selectedCity !== 'global'
+            ? rawBoard.filter(op => op.ciudad?.trim().toLowerCase() === selectedCity.trim().toLowerCase())
+            : rawBoard)
       setLeaderboard(board || [])
       setChartData(board || [])
 

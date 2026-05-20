@@ -83,12 +83,20 @@ export default function LogrosPage() {
       // Ranking completo de operativos para comparación mediante API (salta RLS)
       const resBoard = await fetch('/api/leaderboard')
       const boardData = await resBoard.json()
-      const board = boardData.success ? boardData.leaderboard.map(op => ({
+      const rawBoard = boardData.success ? boardData.leaderboard : []
+      const userCity = p?.ciudad
+      const isUserAdmin = p?.rol === 'admin'
+
+      const filteredBoard = !isUserAdmin
+        ? rawBoard.filter(op => op.ciudad && userCity && op.ciudad.trim().toLowerCase() === userCity.trim().toLowerCase())
+        : rawBoard
+
+      const board = filteredBoard.map(op => ({
         ...op,
         nombreCompleto: op.nombreCompleto,
         ganancia: op.total,
         isMe: op.id === user.id
-      })) : []
+      }))
       setAllOps(board)
 
 
