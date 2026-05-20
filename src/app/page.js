@@ -88,7 +88,7 @@ export default function LoginPage() {
         </form>
         
         <p className="mt-8 text-center text-xs text-gray-400">
-          Desarrollado por Antigravity · 2025 · Confidencial
+          Desarrollado por Marcka.art · © 2026 Todos los derechos reservados · Confidencial
         </p>
       </div>
     </div>
