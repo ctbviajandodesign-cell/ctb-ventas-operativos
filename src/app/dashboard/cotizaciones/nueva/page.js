@@ -12,7 +12,8 @@ export default function NuevaCotizacionPage() {
     agencia: '',
     destino: '',
     numero_pasajeros: 1,
-    notas_iniciales: ''
+    notas_iniciales: '',
+    comercial: ''
   })
 
   const handleSubmit = async (e) => {
@@ -27,6 +28,7 @@ export default function NuevaCotizacionPage() {
           destino: formData.destino,
           numero_pasajeros: formData.numero_pasajeros,
           notas_iniciales: formData.notas_iniciales,
+          comercial: formData.comercial,
           operativo_id: user.id,
           estado: 'abierta',
           // Valores financieros en 0 por defecto — se llenan al aprobar
@@ -83,6 +85,18 @@ export default function NuevaCotizacionPage() {
               placeholder="Ej: Viajes Mundo, Juan García..."
               value={formData.agencia}
               onChange={e => setFormData({ ...formData, agencia: e.target.value })}
+            />
+          </div>
+
+          {/* Comercial */}
+          <div>
+            <label className="label">Comercial</label>
+            <input
+              required
+              className="input mt-1"
+              placeholder="Ej: Nombre del Comercial..."
+              value={formData.comercial}
+              onChange={e => setFormData({ ...formData, comercial: e.target.value })}
             />
           </div>
 

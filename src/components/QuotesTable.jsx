@@ -86,6 +86,7 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
             <th className="py-4 px-4">Valor Venta</th>
             <th className="py-4 px-4">Aporte CTB</th>
             <th className="py-4 px-4">Operativo</th>
+            <th className="py-4 px-4">Comercial</th>
             <th className="py-4 px-4">Estado</th>
             <th className="py-4 px-4 text-right">Acciones</th>
           </tr>
@@ -94,7 +95,7 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
         <tbody className="divide-y divide-gray-50">
           {quotes.length === 0 ? (
             <tr>
-              <td colSpan="8" className="py-20 text-center">
+              <td colSpan="9" className="py-20 text-center">
                 <div className="flex flex-col items-center gap-2 opacity-30">
                   <FileText size={48} />
                   <p className="text-xs font-black uppercase tracking-widest">No hay expedientes registrados</p>
@@ -145,6 +146,14 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
                       {quote.profiles?.nombre?.charAt(0)}
                     </div>
                     {quote.profiles?.nombre?.split(' ')[0] || '---'}
+                  </div>
+                </td>
+                <td className="py-4 px-4 text-xs font-black text-amber-600 uppercase tracking-tighter">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 bg-amber-500/10 rounded-full flex items-center justify-center text-xs text-amber-600">
+                      {quote.comercial?.charAt(0) || 'C'}
+                    </div>
+                    {quote.comercial || '---'}
                   </div>
                 </td>
 
@@ -210,10 +219,14 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <div className="grid grid-cols-3 gap-3 sm:gap-4">
                 <div className="bg-gray-50 p-3 sm:p-4 rounded-2xl border border-gray-100 min-w-0">
                   <p className="text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-widest mb-1 truncate">Agencia</p>
                   <p className="text-xs sm:text-sm font-black text-gray-800 leading-tight truncate">{viewingQuote.agencia || 'Directo'}</p>
+                </div>
+                <div className="bg-gray-50 p-3 sm:p-4 rounded-2xl border border-gray-100 min-w-0">
+                  <p className="text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-widest mb-1 truncate">Comercial</p>
+                  <p className="text-xs sm:text-sm font-black text-gray-800 leading-tight truncate">{viewingQuote.comercial || '---'}</p>
                 </div>
                 <div className="bg-gray-50 p-3 sm:p-4 rounded-2xl border border-gray-100 min-w-0">
                   <p className="text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-widest mb-1 truncate">Destino</p>

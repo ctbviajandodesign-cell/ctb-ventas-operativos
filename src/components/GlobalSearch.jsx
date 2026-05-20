@@ -27,10 +27,11 @@ export default function GlobalSearch() {
     setShowResults(true)
     try {
       // Búsqueda en Cotizaciones
+      // Búsqueda en Cotizaciones
       const { data: qData } = await supabase
         .from('cotizaciones')
-        .select('id, codigo, agencia, destino, nombres_pasajeros')
-        .or(`codigo.ilike.%${query}%,agencia.ilike.%${query}%,destino.ilike.%${query}%`)
+        .select('id, codigo, agencia, destino, nombres_pasajeros, comercial')
+        .or(`codigo.ilike.%${query}%,agencia.ilike.%${query}%,destino.ilike.%${query}%,comercial.ilike.%${query}%`)
         .limit(5)
 
       // Búsqueda en Vouchers
@@ -99,7 +100,7 @@ export default function GlobalSearch() {
                         <div className="bg-primary/10 p-2.5 rounded-xl text-primary font-mono text-xs font-black">{q.codigo}</div>
                         <div>
                           <p className="text-sm font-black text-gray-800 leading-none mb-1 uppercase italic">{q.agencia || 'Directo'}</p>
-                          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">{q.destino}</p>
+                          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">{q.destino} {q.comercial ? `· Comercial: ${q.comercial}` : ''}</p>
                         </div>
                       </div>
 

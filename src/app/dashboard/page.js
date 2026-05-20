@@ -106,7 +106,7 @@ export default function DashboardPage() {
       let quotesQuery = supabase.from('cotizaciones').select('*, profiles(nombre)').order('created_at', { ascending: false }).limit(10)
       let pipelineQuery = supabase.from('cotizaciones').select('valor_total, destino, estado').eq('estado', 'abierta').gte('created_at', startIso)
       let openCountQuery = supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'abierta').gte('created_at', startIso)
-      let lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, created_at, profiles(nombre)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).order('created_at', { ascending: false })
+      let lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, created_at, comercial, profiles(nombre)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).order('created_at', { ascending: false })
 
       if (targetIdForIndividual) {
         ventasQuery = ventasQuery.eq('operativo_id', targetIdForIndividual)
@@ -685,7 +685,7 @@ export default function DashboardPage() {
                             {q.motivo_perdida || 'Sin Motivo'}
                           </span>
                           <span className="text-xs font-black text-gray-900">{q.codigo}</span>
-                          <span className="text-xs text-gray-400 font-bold">· {q.agencia || 'Directo'}</span>
+                          <span className="text-xs text-gray-400 font-bold">· {q.agencia || 'Directo'} {q.comercial ? `(${q.comercial})` : ''}</span>
                         </div>
                         <p className="text-sm font-bold text-gray-700 italic pt-1">
                           "{q.notas_seguimiento || 'Sin observaciones registradas'}"

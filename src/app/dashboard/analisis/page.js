@@ -48,7 +48,7 @@ export default function AnalisisPage() {
 
       let cotsQuery = supabase
         .from('cotizaciones')
-        .select('estado, valor_comision, valor_utilidad, destino, operativo_id')
+        .select('estado, valor_comision, valor_utilidad, destino, operativo_id, motivo_perdida')
         .gte('created_at', startOfMonth.toISOString())
 
       if (targetOp !== 'global') {
@@ -61,7 +61,8 @@ export default function AnalisisPage() {
       const total = cots?.length || 0
       const ganadas = cots?.filter(c => c.estado === 'ganada')?.length || 0
       const abiertas = cots?.filter(c => c.estado === 'abierta')?.length || 0
-      const perdidas = cots?.filter(c => c.estado === 'perdida' || c.estado === 'cancelada')?.length || 0
+      const cotsPerdidas = cots?.filter(c => c.estado === 'perdida' || c.estado === 'cancelada') || []
+      const perdidas = cotsPerdidas.length
       
       const ganancia = cots?.filter(c => c.estado === 'ganada').reduce((acc, curr) => {
         return acc + (Number(curr.valor_comision) || 0) + (Number(curr.valor_utilidad) || 0)
@@ -72,6 +73,19 @@ export default function AnalisisPage() {
       const destMap = {}
       cots?.forEach(q => { if (q.destino) destMap[q.destino] = (destMap[q.destino] || 0) + 1 })
       const topDestino = Object.keys(destMap).sort((a,b) => destMap[b] - destMap[a])[0] || 'N/A'
+
+      // Motivos de pérdida top
+      const motivosMap = {}
+      cotsPerdidas.forEach(q => { 
+        if (q.motivo_perdida && q.motivo_perdida.trim() !== '') {
+          motivosMap[q.motivo_perdida] = (motivosMap[q.motivo_perdida] || 0) + 1 
+        }
+      })
+      const topMotivos = Object.entries(motivosMap)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 2)
+        .map(([motivo, count]) => `${motivo} (${count})`)
+        .join(', ') || 'Sin clasificar'
 
       // Meta
       let meta = 50000
@@ -94,6 +108,7 @@ export default function AnalisisPage() {
         conversion,
         totalAporte: ganancia,
         topDestino,
+        topMotivos,
         globalGoal: meta,
         porcentajeMeta,
         nombreAsesor: targetOp === 'global' ? 'Equipo Global' : board.find(u => u.id === targetOp)?.nombre || profile?.nombre
@@ -228,6 +243,7 @@ export default function AnalisisPage() {
                   conversion: metrics.conversion,
                   totalAporte: metrics.totalAporte,
                   topDestino: metrics.topDestino,
+                  topMotivos: metrics.topMotivos,
                   globalGoal: metrics.globalGoal,
                   porcentajeMeta: metrics.porcentajeMeta,
                   nombreAsesor: metrics.nombreAsesor,

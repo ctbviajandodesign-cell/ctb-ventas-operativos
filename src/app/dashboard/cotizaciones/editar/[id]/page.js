@@ -29,7 +29,8 @@ export default function EditarCotizacionPage() {
     valor_total: 0,
     valor_comision: 0,
     valor_utilidad: 0,
-    valor_bono: 0
+    valor_bono: 0,
+    comercial: ''
   })
 
   useEffect(() => {
@@ -54,7 +55,8 @@ export default function EditarCotizacionPage() {
         valor_total: data.valor_total || 0,
         valor_comision: data.valor_comision || 0,
         valor_utilidad: data.valor_utilidad || 0,
-        valor_bono: data.valor_bono || 0
+        valor_bono: data.valor_bono || 0,
+        comercial: data.comercial || ''
       })
       setPasajeros(data.nombres_pasajeros || [''])
     }
@@ -107,6 +109,10 @@ export default function EditarCotizacionPage() {
               <div className="col-span-2 md:col-span-1">
                 <label className="label">Agencia</label>
                 <input required className="input" value={formData.agencia} onChange={e => setFormData({...formData, agencia: e.target.value})} />
+              </div>
+              <div className="col-span-2 md:col-span-1">
+                <label className="label">Comercial</label>
+                <input required className="input" value={formData.comercial} onChange={e => setFormData({...formData, comercial: e.target.value})} />
               </div>
               <div className="col-span-2 md:col-span-1">
                 <label className="label">Destino</label>
