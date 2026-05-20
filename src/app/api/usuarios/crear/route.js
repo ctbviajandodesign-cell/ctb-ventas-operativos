@@ -18,7 +18,7 @@ export async function POST(request) {
       }
     )
 
-    const { email, password, nombre, meta_mensual, rol, ciudad } = await request.json()
+    const { email, password, nombre, meta_mensual, rol, ciudad, celular } = await request.json()
 
     // 1. Verificar si ya existe en la tabla de perfiles (público)
     const { data: existingProfile } = await supabaseAdmin
@@ -62,7 +62,8 @@ export async function POST(request) {
           nombre, 
           meta_mensual: parseFloat(meta_mensual) || 0, 
           rol: rol || 'operativo',
-          ciudad: ciudad || null
+          ciudad: ciudad || null,
+          celular: celular || null
         }
       ])
 

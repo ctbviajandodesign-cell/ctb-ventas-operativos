@@ -46,7 +46,7 @@ export default function VouchersPage() {
     
     let query = supabase
       .from('vouchers')
-      .select('*, profiles!inner(ciudad)')
+      .select('*, profiles!inner(nombre, ciudad), ventas(id, cotizaciones(comercial))')
       .order('created_at', { ascending: false })
 
     if (p?.rol !== 'admin') {
@@ -109,7 +109,9 @@ export default function VouchersPage() {
 
   const filtered = vouchers.filter(v => {
     const matchSearch = v.codigo?.toLowerCase().includes(search.toLowerCase()) ||
-                        v.agencia?.toLowerCase().includes(search.toLowerCase())
+                        v.agencia?.toLowerCase().includes(search.toLowerCase()) ||
+                        v.profiles?.nombre?.toLowerCase().includes(search.toLowerCase()) ||
+                        (v.ventas?.cotizaciones?.comercial || '').toLowerCase().includes(search.toLowerCase())
     const matchCity = profile?.rol === 'admin' && selectedCity !== 'todas'
       ? v.profiles?.ciudad === selectedCity
       : true
@@ -146,7 +148,7 @@ export default function VouchersPage() {
             <Search className="absolute left-3 top-3 text-gray-400" size={18} />
             <input 
               className="input pl-10" 
-              placeholder="Buscar código o agencia..." 
+              placeholder="Buscar código, agencia, comercial u op..." 
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
@@ -163,6 +165,8 @@ export default function VouchersPage() {
                 <th className="py-4 px-6">Agencia / Destino</th>
                 <th className="py-4 px-6 text-right">Valor</th>
                 <th className="py-4 px-6">Vigencia</th>
+                <th className="py-4 px-6">Operativo</th>
+                <th className="py-4 px-6">Comercial</th>
                 <th className="py-4 px-6 text-right">Acciones</th>
               </tr>
             </thead>
@@ -185,6 +189,12 @@ export default function VouchersPage() {
                     <div className="text-xs font-medium text-gray-500">
                       {voucher.fecha_viaje_desde} al {voucher.fecha_viaje_hasta}
                     </div>
+                  </td>
+                  <td className="py-4 px-6 text-xs font-black text-primary uppercase tracking-tighter">
+                    {voucher.profiles?.nombre?.split(' ')[0] || '---'}
+                  </td>
+                  <td className="py-4 px-6 text-xs font-black text-amber-600 uppercase tracking-tighter">
+                    {voucher.ventas?.cotizaciones?.comercial || '---'}
                   </td>
 
                   <td className="py-4 px-6 text-right" onClick={(e) => e.stopPropagation()}>
@@ -279,6 +289,25 @@ export default function VouchersPage() {
                   </p>
                   <p className="text-base sm:text-lg font-black text-gray-800 leading-none">
                     {Array.isArray(viewingVoucher.pasajeros) ? viewingVoucher.pasajeros.length : (viewingVoucher.pasajeros || 0)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                <div className="bg-gray-50 p-3 sm:p-4 rounded-2xl border border-gray-100 min-w-0">
+                  <p className="text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-widest mb-1">
+                    👤 Operativo
+                  </p>
+                  <p className="text-xs sm:text-sm font-black text-gray-800 leading-tight truncate">
+                    {viewingVoucher.profiles?.nombre || 'N/A'}
+                  </p>
+                </div>
+                <div className="bg-gray-50 p-3 sm:p-4 rounded-2xl border border-gray-100 min-w-0">
+                  <p className="text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-widest mb-1">
+                    💼 Comercial
+                  </p>
+                  <p className="text-xs sm:text-sm font-black text-amber-700 leading-tight truncate">
+                    {viewingVoucher.ventas?.cotizaciones?.comercial || 'N/A'}
                   </p>
                 </div>
               </div>

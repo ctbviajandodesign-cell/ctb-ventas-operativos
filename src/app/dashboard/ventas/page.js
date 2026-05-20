@@ -37,7 +37,7 @@ export default function VentasPage() {
     try {
       let query = supabase
         .from('ventas')
-        .select('*, profiles!inner(ciudad), cotizaciones(id, agencia, destino, codigo, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono)')
+        .select('*, profiles!inner(nombre, ciudad), cotizaciones(id, agencia, destino, codigo, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial)')
         .order('created_at', { ascending: false })
 
       if (!isAdmin) {
@@ -115,9 +115,11 @@ export default function VentasPage() {
     if (search.trim()) {
       const s = search.toLowerCase()
       result = result.filter(v =>
-        v.cotizaciones?.agencia?.toLowerCase().includes(s) ||
-        v.cotizaciones?.codigo?.toLowerCase().includes(s) ||
-        v.cotizaciones?.destino?.toLowerCase().includes(s)
+        (v.cotizaciones?.agencia || '').toLowerCase().includes(s) ||
+        (v.cotizaciones?.codigo || '').toLowerCase().includes(s) ||
+        (v.cotizaciones?.destino || '').toLowerCase().includes(s) ||
+        (v.profiles?.nombre || '').toLowerCase().includes(s) ||
+        (v.cotizaciones?.comercial || '').toLowerCase().includes(s)
       )
     }
     return result
@@ -270,7 +272,7 @@ export default function VentasPage() {
           <Search className="absolute left-4 top-3 text-gray-300" size={16} />
           <input
             className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-10 pr-4 py-3 text-sm font-bold text-gray-800 outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-gray-300"
-            placeholder="Buscar por código o agencia..."
+            placeholder="Buscar código, agencia, comercial u op..."
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -288,6 +290,8 @@ export default function VentasPage() {
                 <th className="py-4 px-6">Agencia / Destino</th>
                 <th className="py-4 px-6 text-right">Total Venta</th>
                 <th className="py-4 px-6 text-right">Mi Ganancia</th>
+                <th className="py-4 px-6">Operativo</th>
+                <th className="py-4 px-6">Comercial</th>
                 <th className="py-4 px-6">Estado</th>
                 <th className="py-4 px-6 text-right">Acciones</th>
               </tr>
@@ -296,7 +300,7 @@ export default function VentasPage() {
             <tbody className="divide-y divide-gray-50">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="py-20 text-center">
+                  <td colSpan="10" className="py-20 text-center">
                     <div className="flex flex-col items-center gap-2 opacity-30">
                       <DollarSign size={48} />
                       <p className="text-xs font-black uppercase tracking-widest">Sin resultados</p>
@@ -338,6 +342,22 @@ export default function VentasPage() {
                     <span className="bg-success/10 text-success px-3 py-1 rounded-xl font-black text-xs">
                       ${(Number(venta.comision) + Number(venta.utilidad)).toLocaleString()}
                     </span>
+                  </td>
+                  <td className="py-4 px-6 text-xs font-black text-primary uppercase tracking-tighter">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 bg-primary/10 rounded-full flex items-center justify-center text-xs">
+                        {venta.profiles?.nombre?.charAt(0) || 'O'}
+                      </div>
+                      {venta.profiles?.nombre?.split(' ')[0] || '---'}
+                    </div>
+                  </td>
+                  <td className="py-4 px-6 text-xs font-black text-amber-600 uppercase tracking-tighter">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 bg-amber-500/10 rounded-full flex items-center justify-center text-xs text-amber-600">
+                        {venta.cotizaciones?.comercial?.charAt(0) || 'C'}
+                      </div>
+                      {venta.cotizaciones?.comercial || '---'}
+                    </div>
                   </td>
                   <td className="py-4 px-6">
                     {venta.estado === 'activa'
@@ -409,6 +429,22 @@ export default function VentasPage() {
             </div>
 
             <div className="p-8 space-y-6 overflow-y-auto max-h-[60vh]">
+              {/* Asignación */}
+              <div className="grid grid-cols-2 gap-4 bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
+                <div>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Operativo Responsable</p>
+                  <p className="text-xs font-black text-gray-850 uppercase mt-1">
+                    👤 {selectedVenta.profiles?.nombre || 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Comercial</p>
+                  <p className="text-xs font-black text-amber-700 uppercase mt-1">
+                    💼 {selectedVenta.cotizaciones?.comercial || 'N/A'}
+                  </p>
+                </div>
+              </div>
+
               {/* KPIs */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-gray-50 p-4 rounded-2xl">

@@ -78,7 +78,9 @@ export default function EditarCotizacionPage() {
         .from('cotizaciones')
         .update({
           ...formData,
-          nombres_pasajeros: pasajeros.filter(p => p.trim() !== '')
+          nombres_pasajeros: pasajeros.filter(p => p.trim() !== ''),
+          estado: 'abierta',
+          created_at: new Date().toISOString()
         })
         .eq('id', id)
       

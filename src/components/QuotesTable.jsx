@@ -35,6 +35,16 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
     if (status === 'ganada') return <span className="badge-success text-xs font-black">GANADA</span>
     if (status === 'perdida') return <span className="badge-danger text-xs font-black">CANCELADA</span>
     if (status === 'anulada') return <span className="bg-gray-100 text-gray-500 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-widest">ANULADA</span>
+    
+    // Check if more than 24 hours have passed since quote creation
+    const hours = (new Date() - new Date(quote.created_at)) / (1000 * 60 * 60)
+    if (hours > 24) {
+      return (
+        <span className="bg-red-50 text-red-650 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-widest inline-flex items-center gap-1 border border-red-100">
+          <Clock size={12} className="text-red-500" /> CADUCADA
+        </span>
+      )
+    }
     return <span className="badge-warning text-xs font-black">ABIERTA</span>
   }
 
