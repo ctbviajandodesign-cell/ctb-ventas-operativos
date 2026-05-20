@@ -29,7 +29,7 @@ export default function CotizacionesPage() {
     try {
       let query = supabase
         .from('cotizaciones')
-        .select('*, profiles(nombre)')
+        .select('*, profiles(nombre), ventas(*, vouchers(*))')
         .order('created_at', { ascending: false })
 
       if (!isAdmin) {
@@ -54,25 +54,99 @@ export default function CotizacionesPage() {
       return
     }
 
-    const headers = ['Código,Agencia,Comercial,Destino,Pasajeros,Valor Total,Aporte,Estado,Creado En']
+    const escapeCSV = (val) => {
+      if (val === undefined || val === null) return '""'
+      return `"${val.toString().replace(/"/g, '""')}"`
+    }
+
+    const headers = [
+      'Código',
+      'Agencia',
+      'Comercial',
+      'Destino',
+      'Pasajeros',
+      'Valor Cotizado',
+      'Estado Proforma',
+      'Creado En',
+      'Operativo Responsable',
+      'Venta Total ($)',
+      'Utilidad ($)',
+      'Comisión ($)',
+      'Total Cobrado ($)',
+      'Total Pendiente ($)',
+      'Plan de Pagos',
+      'Código Voucher',
+      'Estado Voucher',
+      'Viaje Inicio',
+      'Viaje Fin / Caducidad'
+    ].join(',')
+
     const rows = filtered.map(q => {
       const codigo = q.codigo || 'N/A'
-      const agencia = (q.agencia || 'Directo').replace(/,/g, ';')
-      const comercial = (q.comercial || 'N/A').replace(/,/g, ';')
-      const destino = (q.destino || 'N/A').replace(/,/g, ';')
+      const agencia = q.agencia || 'Directo'
+      const comercial = q.comercial || 'N/A'
+      const destino = q.destino || 'N/A'
       const pasajeros = q.numero_pasajeros || 0
       const valor = q.valor_total || 0
-      const aporte = (Number(q.valor_comision || 0) + Number(q.valor_utilidad || 0))
       const estado = q.estado || 'N/A'
       const fecha = q.created_at ? new Date(q.created_at).toLocaleDateString() : 'N/A'
-      return `${codigo},${agencia},${comercial},${destino},${pasajeros},${valor},${aporte},${estado},${fecha}`
+      const operativo = q.profiles?.nombre || 'N/A'
+
+      // Ventas y Voucher join data
+      const venta = q.ventas?.[0]
+      const ventaTotal = venta ? (Number(venta.total) || 0) : 0
+      const utilidad = venta ? (Number(venta.utilidad) || 0) : 0
+      const comision = venta ? (Number(venta.comision) || 0) : 0
+
+      // Plan de pagos
+      let totalCobrado = 0
+      let totalPendiente = 0
+      let planDePagosDesc = 'N/A'
+      if (venta && Array.isArray(venta.plan_pagos)) {
+        totalCobrado = venta.plan_pagos.filter(m => m.status === 'pagado').reduce((acc, m) => acc + (Number(m.amount) || 0), 0)
+        totalPendiente = Math.max(0, ventaTotal - totalCobrado)
+        planDePagosDesc = venta.plan_pagos.map(m => `${m.label}: $${m.amount} (${m.status === 'pagado' ? 'Pagado' : 'Pendiente'} - ${m.date || 'Sin fecha'})`).join(' | ')
+      } else if (venta) {
+        totalCobrado = ventaTotal
+        totalPendiente = 0
+        planDePagosDesc = 'Cobro Inicial Único'
+      }
+
+      // Voucher
+      const voucher = venta?.vouchers?.[0]
+      const voucherCodigo = voucher ? (voucher.codigo || 'N/A') : 'N/A'
+      const voucherEstado = voucher ? (voucher.estado || 'N/A') : 'N/A'
+      const viajeInicio = voucher ? (voucher.fecha_viaje_desde || 'N/A') : 'N/A'
+      const viajeFin = voucher ? (voucher.fecha_viaje_hasta || 'N/A') : 'N/A'
+
+      return [
+        escapeCSV(codigo),
+        escapeCSV(agencia),
+        escapeCSV(comercial),
+        escapeCSV(destino),
+        pasajeros,
+        valor,
+        escapeCSV(estado),
+        escapeCSV(fecha),
+        escapeCSV(operativo),
+        ventaTotal,
+        utilidad,
+        comision,
+        totalCobrado,
+        totalPendiente,
+        escapeCSV(planDePagosDesc),
+        escapeCSV(voucherCodigo),
+        escapeCSV(voucherEstado),
+        escapeCSV(viajeInicio),
+        escapeCSV(viajeFin)
+      ].join(',')
     })
 
     const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers, ...rows].join("\n")
     const encodedUri = encodeURI(csvContent)
     const link = document.createElement("a")
     link.setAttribute("href", encodedUri)
-    link.setAttribute("download", `Reporte_Cotizaciones_CTB_${new Date().toISOString().split('T')[0]}.csv`)
+    link.setAttribute("download", `Reporte_General_Cotizaciones_CTB_${new Date().toISOString().split('T')[0]}.csv`)
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
