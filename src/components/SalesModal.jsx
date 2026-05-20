@@ -8,6 +8,7 @@ import {
   QrCode, ExternalLink, Sparkles
 } from 'lucide-react'
 import Link from 'next/link'
+import { showToast } from '@/utils/toast'
 
 export default function SalesModal() {
   const [quote, setQuote] = useState(null)
@@ -175,7 +176,7 @@ export default function SalesModal() {
       window.location.reload()
     } catch (error) {
       console.error('Error en cierre:', error)
-      alert('Error: ' + (error.message || 'Error desconocido'))
+      showToast(error.message || 'Error desconocido', 'error')
     } finally {
       setLoading(false)
     }

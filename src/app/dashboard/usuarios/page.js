@@ -13,6 +13,7 @@ import {
   Edit,
   AlertCircle
 } from 'lucide-react'
+import { showToast } from '@/utils/toast'
 
 export default function UsuariosPage() {
   const router = useRouter()
@@ -65,6 +66,7 @@ export default function UsuariosPage() {
         meta_mensual: 1000,
         ciudad: 'Quito'
       })
+      showToast('¡Operativo creado con éxito!')
       fetchUsers()
     } catch (error) {
       setFormError(error.message)

@@ -23,9 +23,29 @@ export default function DashboardLayout({ children }) {
   const pathname = usePathname()
 
   const [profile, setProfile] = useState(null)
+  const [toast, setToast] = useState(null)
 
   useEffect(() => {
     fetchProfile()
+  }, [])
+
+  useEffect(() => {
+    let timer
+    const handleToast = (e) => {
+      const { message, type } = e.detail
+      setToast({ message, type })
+      
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => {
+        setToast(null)
+      }, 3000)
+    }
+
+    window.addEventListener('toast-notification', handleToast)
+    return () => {
+      window.removeEventListener('toast-notification', handleToast)
+      if (timer) clearTimeout(timer)
+    }
   }, [])
 
   async function fetchProfile() {
@@ -162,6 +182,22 @@ export default function DashboardLayout({ children }) {
           {children}
         </div>
       </main>
+
+      {toast && (
+        <div 
+          onClick={() => setToast(null)}
+          className="fixed bottom-8 right-8 z-[9999] cursor-pointer animate-in fade-in slide-in-from-bottom-6 zoom-in-95 duration-300 hover:scale-[1.02] active:scale-95 transition-all"
+        >
+          <div className={`flex items-center gap-3 px-6 py-4 rounded-[1.5rem] shadow-2xl border font-black text-xs uppercase tracking-widest text-white backdrop-blur-md ${
+            toast.type === 'success' 
+              ? 'bg-gray-900/95 border-gray-800 text-green-400' 
+              : 'bg-red-950/95 border-red-800 text-red-400'
+           }`}>
+            <span className="text-sm">{toast.type === 'success' ? '✓' : '⚠️'}</span>
+            <span className="text-white">{toast.message}</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

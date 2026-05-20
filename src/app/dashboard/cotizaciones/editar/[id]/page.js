@@ -12,6 +12,7 @@ import {
   Clock,
   DollarSign
 } from 'lucide-react'
+import { showToast } from '@/utils/toast'
 
 export default function EditarCotizacionPage() {
   const router = useRouter()
@@ -84,7 +85,7 @@ export default function EditarCotizacionPage() {
       if (error) throw error
       router.push('/dashboard/cotizaciones')
     } catch (error) {
-      alert(error.message)
+      showToast(error.message, 'error')
     } finally {
       setSaving(false)
     }

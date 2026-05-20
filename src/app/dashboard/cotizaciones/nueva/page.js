@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { Save, ArrowLeft, MapPin, Users, FileText } from 'lucide-react'
+import { showToast } from '@/utils/toast'
 
 export default function NuevaCotizacionPage() {
   const router = useRouter()
@@ -41,7 +42,7 @@ export default function NuevaCotizacionPage() {
       if (error) throw error
       router.push('/dashboard/cotizaciones')
     } catch (error) {
-      alert('Error: ' + error.message)
+      showToast(error.message, 'error')
     } finally {
       setLoading(false)
     }

@@ -7,6 +7,7 @@ import QuotesTable from '@/components/QuotesTable'
 import AIInsightCard from '@/components/AIInsightCard'
 import { Search, Plus, Filter, CheckCircle2, Clock, XCircle, AlertCircle, TrendingUp, DollarSign, FileText, Download } from 'lucide-react'
 import Link from 'next/link'
+import { showToast } from '@/utils/toast'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, CartesianGrid } from 'recharts'
 
 export default function CotizacionesPage() {
@@ -51,7 +52,7 @@ export default function CotizacionesPage() {
 
   const handleExportQuotes = () => {
     if (filtered.length === 0) {
-      alert('No hay datos para exportar con el filtro actual.')
+      showToast('No hay datos para exportar con el filtro actual.', 'error')
       return
     }
 

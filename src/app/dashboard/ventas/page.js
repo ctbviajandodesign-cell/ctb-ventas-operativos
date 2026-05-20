@@ -11,6 +11,7 @@ import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 import Link from 'next/link'
+import { showToast } from '@/utils/toast'
 
 export default function VentasPage() {
   const [ventas, setVentas] = useState([])
@@ -90,9 +91,10 @@ export default function VentasPage() {
       await supabase.from('ventas').update({ estado: 'anulada' }).eq('id', venta.id)
       await supabase.from('vouchers').update({ estado: 'inactivo' }).eq('venta_id', venta.id)
       await supabase.from('cotizaciones').update({ estado: 'en_seguimiento' }).eq('id', venta.cotizacion_id)
+      showToast('Venta anulada con éxito')
       fetchVentas()
     } catch (error) {
-      alert(error.message)
+      showToast(error.message, 'error')
     }
   }
 

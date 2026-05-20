@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { AlertTriangle, Clock, DollarSign, ArrowRight, CheckCircle2 } from 'lucide-react'
+import { showToast } from '@/utils/toast'
 
 export default function PaymentAlerts({ userId, isAdmin }) {
   const [alerts, setAlerts] = useState([])
@@ -99,11 +100,12 @@ export default function PaymentAlerts({ userId, isAdmin }) {
 
       if (updateErr) throw updateErr
 
+      showToast('Hito de pago registrado como pagado', 'success')
       // Refrescar alertas
       fetchAlerts()
     } catch (err) {
       console.error('Error actualizando hito de pago:', err)
-      alert('Error al marcar como pagado: ' + err.message)
+      showToast('Error al marcar como pagado: ' + err.message, 'error')
     } finally {
       setUpdatingId(null)
     }

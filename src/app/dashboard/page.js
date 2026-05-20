@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { showToast } from '@/utils/toast'
 import StatsCard from '@/components/StatsCard'
 import QuotesTable from '@/components/QuotesTable'
 import GlobalSearch from '@/components/GlobalSearch'
@@ -275,7 +276,7 @@ export default function DashboardPage() {
       : lostQuotes.filter(q => (q.motivo_perdida || '').toLowerCase().includes(lostFilter.toLowerCase()))
     
     if (filtered.length === 0) {
-      alert('No hay datos para exportar con el filtro actual.')
+      showToast('No hay datos para exportar con el filtro actual.', 'error')
       return
     }
 
