@@ -239,6 +239,19 @@ export default function DashboardPage() {
         }))
       }
 
+      // Calcular motivos principales de pérdida para el periodo actual
+      const motivesMap = {}
+      lostData?.forEach(q => {
+        if (q.motivo_perdida) {
+          motivesMap[q.motivo_perdida] = (motivesMap[q.motivo_perdida] || 0) + 1
+        }
+      })
+      const topMotivosText = Object.entries(motivesMap)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([motivo, count]) => `${motivo} (${count})`)
+        .join(', ') || 'Ninguno registrado aún'
+
       // Optimización del destino más popular
       const destMap = {}
       pipelineData?.forEach(q => { if(q.destino) destMap[q.destino] = (destMap[q.destino] || 0) + 1 })
@@ -261,7 +274,8 @@ export default function DashboardPage() {
         topDestino: popular,
         globalGoal: metaBase,
         porcentajeMeta: metaBase > 0 ? (totalMetaComp / metaBase) * 100 : 0,
-        totalAporte: totalMetaComp
+        totalAporte: totalMetaComp,
+        topMotivos: topMotivosText
       }))
 
     } catch (error) {
@@ -338,7 +352,7 @@ export default function DashboardPage() {
     const startOfMonth = new Date(); startOfMonth.setDate(1); startOfMonth.setHours(0,0,0,0)
     const [{ data: ventas }, { data: cots }, { count: vouchers }] = await Promise.all([
       supabase.from('ventas').select('total,comision,utilidad,created_at').eq('operativo_id', op.id).eq('estado','activa').gte('created_at', startOfMonth.toISOString()),
-      supabase.from('cotizaciones').select('estado,valor_total,destino').eq('operativo_id', op.id),
+      supabase.from('cotizaciones').select('estado,valor_total,destino,motivo_perdida').eq('operativo_id', op.id),
       supabase.from('vouchers').select('id', { count:'exact', head:true }).eq('operativo_id', op.id)
     ])
     const ganancia = ventas?.reduce((a,v)=>a+(Number(v.comision)||0)+(Number(v.utilidad)||0),0)||0
@@ -352,6 +366,19 @@ export default function DashboardPage() {
     const destMap = {}
     cots?.forEach(q => { if(q.destino) destMap[q.destino] = (destMap[q.destino] || 0) + 1 })
     const topDestino = Object.keys(destMap).sort((a,b) => destMap[b] - destMap[a])[0] || 'N/A'
+
+    // Calcular motivos principales de pérdida para el panel del operativo
+    const panelMotivesMap = {}
+    cots?.filter(c => ['perdida', 'anulada'].includes(c.estado)).forEach(q => {
+      if (q.motivo_perdida) {
+        panelMotivesMap[q.motivo_perdida] = (panelMotivesMap[q.motivo_perdida] || 0) + 1
+      }
+    })
+    const topMotivosOp = Object.entries(panelMotivesMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([motivo, count]) => `${motivo} (${count})`)
+      .join(', ') || 'Ninguno registrado aún'
 
     const panelData = {
       ...op,
@@ -388,7 +415,8 @@ export default function DashboardPage() {
             perdidas: panelData.perdidas,
             conversion: panelData.conversion,
             totalAporte: panelData.ganancia,
-            topDestino: panelData.topDestino
+            topDestino: panelData.topDestino,
+            topMotivos: topMotivosOp
           }
         })
       })
@@ -901,7 +929,8 @@ export default function DashboardPage() {
                     totalAporte: metrics.totalAporte,
                     topDestino: metrics.topDestino,
                     globalGoal: metrics.globalGoal,
-                    porcentajeMeta: metrics.porcentajeMeta
+                    porcentajeMeta: metrics.porcentajeMeta,
+                    topMotivos: metrics.topMotivos
                   }} 
                 />
               </div>

@@ -3,14 +3,17 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useUserSession } from '@/hooks/useUserSession'
-import { Sparkles, Trophy, ArrowRight, RefreshCw, AlertCircle, CheckCircle, TrendingUp } from 'lucide-react'
+import { Sparkles, Trophy, RefreshCw, AlertCircle, CheckCircle, TrendingUp } from 'lucide-react'
 import AIInsightCard from '@/components/AIInsightCard'
 
 export default function AnalisisPage() {
   const { user, profile, isAdmin, loading: sessionLoading } = useUserSession()
   const [board, setBoard] = useState([])
   const [selectedOp, setSelectedOp] = useState('global')
+  const [timeframe, setTimeframe] = useState('mes') // 'mes' | 'ano'
   const [loading, setLoading] = useState(true)
+  const [rankingVendidos, setRankingVendidos] = useState([])
+  const [rankingObjeciones, setRankingObjeciones] = useState([])
   const [metrics, setMetrics] = useState({
     total: 0,
     abiertas: 0,
@@ -22,12 +25,6 @@ export default function AnalisisPage() {
     globalGoal: 50000,
     porcentajeMeta: 0
   })
-
-  useEffect(() => {
-    if (!sessionLoading) {
-      fetchData()
-    }
-  }, [selectedOp, sessionLoading])
 
   async function fetchData() {
     setLoading(true)
@@ -41,15 +38,20 @@ export default function AnalisisPage() {
       // Determinar qué datos consultar
       const targetOp = isAdmin ? selectedOp : (user?.id || 'global')
 
-      // Filtro para mes actual
-      const startOfMonth = new Date()
-      startOfMonth.setDate(1)
-      startOfMonth.setHours(0, 0, 0, 0)
+      // Filtro de rango seleccionado
+      const startDate = new Date()
+      if (timeframe === 'mes') {
+        startDate.setDate(1)
+      } else {
+        startDate.setMonth(0)
+        startDate.setDate(1)
+      }
+      startDate.setHours(0, 0, 0, 0)
 
       let cotsQuery = supabase
         .from('cotizaciones')
-        .select('estado, valor_comision, valor_utilidad, destino, operativo_id, motivo_perdida')
-        .gte('created_at', startOfMonth.toISOString())
+        .select('estado, valor_total, valor_comision, valor_utilidad, destino, operativo_id, motivo_perdida')
+        .gte('created_at', startDate.toISOString())
 
       if (targetOp !== 'global') {
         cotsQuery = cotsQuery.eq('operativo_id', targetOp)
@@ -85,7 +87,7 @@ export default function AnalisisPage() {
         .sort((a, b) => b[1] - a[1])
         .slice(0, 2)
         .map(([motivo, count]) => `${motivo} (${count})`)
-        .join(', ') || 'Sin clasificar'
+        .join(', ') || 'Sin objeciones registradas'
 
       // Meta
       let meta = 50000
@@ -98,7 +100,50 @@ export default function AnalisisPage() {
         meta = Number(singleOp?.meta_mensual) || 5000
       }
 
+      if (timeframe === 'ano') {
+        meta = meta * 12
+      }
+
       const porcentajeMeta = meta > 0 ? (ganancia / meta) * 100 : 0
+
+      // 1. Destinos Más Vendidos (Ganadas)
+      const destinosGanadosMap = {}
+      cots?.filter(c => c.estado === 'ganada').forEach(c => {
+        if (c.destino) {
+          if (!destinosGanadosMap[c.destino]) {
+            destinosGanadosMap[c.destino] = { count: 0, valor: 0 }
+          }
+          destinosGanadosMap[c.destino].count += 1
+          destinosGanadosMap[c.destino].valor += Number(c.valor_total) || 0
+        }
+      })
+      const rankingVendidosData = Object.entries(destinosGanadosMap)
+        .map(([destino, data]) => ({ destino, ...data }))
+        .sort((a, b) => b.count - a.count)
+
+      // 2. Destinos con Más Objeciones (Perdidas / Canceladas)
+      const destinosPerdidosMap = {}
+      cots?.filter(c => c.estado === 'perdida' || c.estado === 'cancelada').forEach(c => {
+        if (c.destino) {
+          if (!destinosPerdidosMap[c.destino]) {
+            destinosPerdidosMap[c.destino] = { count: 0, motivos: {} }
+          }
+          destinosPerdidosMap[c.destino].count += 1
+          if (c.motivo_perdida) {
+            destinosPerdidosMap[c.destino].motivos[c.motivo_perdida] = (destinosPerdidosMap[c.destino].motivos[c.motivo_perdida] || 0) + 1
+          }
+        }
+      })
+      const rankingObjecionesData = Object.entries(destinosPerdidosMap)
+        .map(([destino, data]) => {
+          const mainObjection = Object.entries(data.motivos)
+            .sort((a, b) => b[1] - a[1])[0]?.[0] || 'Sin especificar'
+          return { destino, count: data.count, mainObjection }
+        })
+        .sort((a, b) => b.count - a.count)
+
+      setRankingVendidos(rankingVendidosData)
+      setRankingObjeciones(rankingObjecionesData)
 
       setMetrics({
         total,
@@ -121,12 +166,12 @@ export default function AnalisisPage() {
     }
   }
 
-  // Refetch cuando cambia el selectedOp
+  // Refetch cuando cambia el selectedOp, el timeframe o termina de cargar la sesión
   useEffect(() => {
-    if (profile) {
+    if (!sessionLoading) {
       fetchData()
     }
-  }, [selectedOp])
+  }, [selectedOp, sessionLoading, timeframe])
 
   const modoIA = profile?.rol === 'admin' ? (selectedOp === 'global' ? 'GLOBAL_ADMIN' : 'INDIVIDUAL_ADMIN') : 'OPERATIVE'
 
@@ -137,43 +182,61 @@ export default function AnalisisPage() {
         <div className="absolute top-0 right-0 w-40 h-40 bg-primary/10 rounded-full blur-3xl pointer-events-none -mr-10 -mt-10"></div>
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs font-black text-primary uppercase tracking-[0.2em] bg-primary/10 px-3 py-1 rounded-full">Módulo Premium</span>
+            <span className="text-xs font-black text-primary uppercase tracking-[0.2em] bg-primary/10 px-3 py-1 rounded-full">Análisis B2B</span>
           </div>
           <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
             <Sparkles className="text-primary animate-pulse" size={28} />
-            IA Comercial & Sugerencias
+            IA Comercial & Destinos
           </h1>
           <p className="text-sm text-gray-400 mt-1 max-w-xl">
-            Diagnóstico avanzado impulsado por OpenAI. Analiza cuellos de botella, cotizaciones abiertas y rendimiento de cierre bajo demanda.
+            Diagnóstico B2B para canales de agencias minoristas. Monitorea objeciones, cierres y volumen de cotización en tiempo real.
           </p>
         </div>
 
-        {profile?.rol === 'admin' && (
-          <div className="bg-gray-50 p-2 rounded-2xl border border-gray-100 flex items-center gap-2 w-full md:w-auto z-10">
-            <span className="text-xs font-black text-gray-400 uppercase tracking-widest px-3">Filtrar IA:</span>
-            <select
-              value={selectedOp}
-              onChange={(e) => setSelectedOp(e.target.value)}
-              className="bg-white border border-gray-200 text-xs font-black text-gray-800 uppercase tracking-widest py-2.5 px-4 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto z-10">
+          {/* Selector de Rango */}
+          <div className="bg-gray-50 p-1.5 rounded-2xl border border-gray-100 flex items-center gap-1">
+            <button
+              onClick={() => setTimeframe('mes')}
+              className={`text-xs font-black uppercase tracking-widest px-4 py-2.5 rounded-xl transition-all ${timeframe === 'mes' ? 'bg-primary text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
             >
-              <option value="global">🌐 Equipo Global</option>
-              {board.map(u => (
-                <option key={u.id} value={u.id}>👤 {u.nombre}</option>
-              ))}
-            </select>
+              Mes
+            </button>
+            <button
+              onClick={() => setTimeframe('ano')}
+              className={`text-xs font-black uppercase tracking-widest px-4 py-2.5 rounded-xl transition-all ${timeframe === 'ano' ? 'bg-primary text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+            >
+              Año
+            </button>
           </div>
-        )}
+
+          {profile?.rol === 'admin' && (
+            <div className="bg-gray-50 p-1.5 rounded-2xl border border-gray-100 flex items-center gap-2">
+              <span className="text-xs font-black text-gray-400 uppercase tracking-widest pl-2">Asesor:</span>
+              <select
+                value={selectedOp}
+                onChange={(e) => setSelectedOp(e.target.value)}
+                className="bg-white border border-gray-200 text-xs font-black text-gray-800 uppercase tracking-widest py-2 px-4 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+              >
+                <option value="global">🌐 Equipo Global</option>
+                {board.map(u => (
+                  <option key={u.id} value={u.id}>👤 {u.nombre}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
       </div>
 
       {loading ? (
         <div className="bg-white p-12 rounded-[3rem] shadow-sm border border-gray-100 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <RefreshCw className="text-primary animate-spin" size={32} />
-            <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Cargando métricas para IA...</p>
+            <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Cargando análisis comercial...</p>
           </div>
         </div>
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-10">
           {/* Tarjetas de Resumen Rápido */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-between">
@@ -205,7 +268,7 @@ export default function AnalisisPage() {
             </div>
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-between">
               <div>
-                <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Meta Asignada</p>
+                <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Meta ({timeframe === 'mes' ? 'Mes' : 'Año'})</p>
                 <p className="text-3xl font-black text-gray-900">${metrics.globalGoal?.toLocaleString()}</p>
               </div>
               <div className="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center text-gray-500">
@@ -225,9 +288,9 @@ export default function AnalisisPage() {
                   <Sparkles size={28} />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-black tracking-tight">Motor de Diagnóstico OpenAI</h2>
+                  <h2 className="text-2xl font-black tracking-tight">Recomendaciones & Feedback B2B</h2>
                   <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">
-                    Modo actual: <span className="text-primary font-bold">{modoIA === 'GLOBAL_ADMIN' ? 'Estratégico Global (Admin)' : modoIA === 'INDIVIDUAL_ADMIN' ? `Auditoría a ${metrics.nombreAsesor}` : 'Coach Personal (Operativo)'}</span>
+                    Análisis sobre: <span className="text-primary font-bold">{metrics.nombreAsesor}</span> ({timeframe === 'mes' ? 'Mes' : 'Año'})
                   </p>
                 </div>
               </div>
@@ -254,15 +317,72 @@ export default function AnalisisPage() {
 
               <div className="bg-white/5 border border-white/5 p-6 rounded-3xl flex items-center justify-between gap-4">
                 <div className="space-y-1">
-                  <p className="text-xs font-black text-gray-300 uppercase tracking-widest">¿Cómo funciona este análisis?</p>
+                  <p className="text-xs font-black text-gray-300 uppercase tracking-widest">Diagnóstico Automatizado B2B</p>
                   <p className="text-xs text-gray-400 max-w-xl leading-relaxed">
-                    Al presionar el botón de generación, la IA evalúa el balance entre cotizaciones abiertas, perdidas y ganadas. Ningún token se consume automáticamente al navegar o cambiar de filtro.
+                    La IA evalúa automáticamente el balance de cotizaciones B2B abiertas, ganadas y las objeciones principales de las agencias minoristas al cambiar filtros o periodos.
                   </p>
                 </div>
-                <div className="w-10 h-10 bg-white/10 rounded-2xl flex items-center justify-center text-white shrink-0">
-                  <ArrowRight size={18} />
-                </div>
               </div>
+            </div>
+          </div>
+
+          {/* Rankings de Destinos y Objeciones */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Destinos Más Vendidos */}
+            <div className="bg-white p-8 rounded-[3.5rem] shadow-sm border border-gray-100">
+              <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight mb-6 flex items-center gap-2">
+                <span className="w-8 h-8 rounded-xl bg-success/15 text-success flex items-center justify-center text-sm font-bold">✓</span>
+                Destinos Más Vendidos B2B ({timeframe === 'mes' ? 'Mes' : 'Año'})
+              </h3>
+              {rankingVendidos.length > 0 ? (
+                <div className="space-y-4">
+                  {rankingVendidos.slice(0, 5).map((item, idx) => (
+                    <div key={item.destino} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-black text-gray-400 w-5">#{idx + 1}</span>
+                        <div>
+                          <p className="text-sm font-black text-gray-800 uppercase tracking-tight">{item.destino}</p>
+                          <p className="text-xs text-gray-400 font-bold uppercase">{item.count} {item.count === 1 ? 'proforma ganada' : 'proformas ganadas'}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-black text-success">${item.valor.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400 italic text-center py-8">No hay ventas registradas en este periodo.</p>
+              )}
+            </div>
+
+            {/* Destinos con más Objeciones */}
+            <div className="bg-white p-8 rounded-[3.5rem] shadow-sm border border-gray-100">
+              <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight mb-6 flex items-center gap-2">
+                <span className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-600 flex items-center justify-center text-sm font-bold">✕</span>
+                Destinos con más Objeciones B2B ({timeframe === 'mes' ? 'Mes' : 'Año'})
+              </h3>
+              {rankingObjeciones.length > 0 ? (
+                <div className="space-y-4">
+                  {rankingObjeciones.slice(0, 5).map((item, idx) => (
+                    <div key={item.destino} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-black text-gray-400 w-5">#{idx + 1}</span>
+                        <div>
+                          <p className="text-sm font-black text-gray-800 uppercase tracking-tight">{item.destino}</p>
+                          <p className="text-xs text-gray-400 font-bold uppercase">{item.count} {item.count === 1 ? 'proforma perdida' : 'proformas perdidas'}</p>
+                        </div>
+                      </div>
+                      <div className="text-right bg-amber-50 px-3 py-1 rounded-xl border border-amber-100 max-w-[200px] truncate">
+                        <p className="text-[10px] font-black text-amber-700 uppercase tracking-wider mb-0.5">Objeción principal</p>
+                        <p className="text-xs font-black text-amber-900 truncate" title={item.mainObjection}>{item.mainObjection}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400 italic text-center py-8">No hay objeciones registradas en este periodo.</p>
+              )}
             </div>
           </div>
         </div>
