@@ -20,7 +20,28 @@ export async function POST(request) {
 
     const { email, password, nombre, meta_mensual, rol, ciudad } = await request.json()
 
-    // 1. Crear el usuario en Supabase Auth
+    // 1. Verificar si ya existe en la tabla de perfiles (público)
+    const { data: existingProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('email', email)
+      .maybeSingle()
+
+    if (existingProfile) {
+      return NextResponse.json({ error: 'El correo electrónico ya está registrado.' }, { status: 400 })
+    }
+
+    // 2. Verificar si existe un usuario huérfano en Auth (creado en Auth pero sin perfil)
+    const { data: listData, error: listError } = await supabaseAdmin.auth.admin.listUsers()
+    if (!listError && listData?.users) {
+      const orphanedUser = listData.users.find(u => u.email === email)
+      if (orphanedUser) {
+        // Eliminar el usuario huérfano para poder recrearlo limpiamente con los datos actuales
+        await supabaseAdmin.auth.admin.deleteUser(orphanedUser.id)
+      }
+    }
+
+    // 3. Crear el usuario en Supabase Auth
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -29,12 +50,14 @@ export async function POST(request) {
 
     if (authError) throw authError
 
-    // 2. Crear el perfil en la tabla 'profiles'
+    const userId = authData.user.id
+
+    // 4. Crear el perfil en la tabla 'profiles'
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .insert([
         { 
-          id: authData.user.id, 
+          id: userId, 
           email, 
           nombre, 
           meta_mensual: parseFloat(meta_mensual) || 0, 
@@ -43,7 +66,11 @@ export async function POST(request) {
         }
       ])
 
-    if (profileError) throw profileError
+    if (profileError) {
+      // Revertir creación en Auth para mantener consistencia
+      await supabaseAdmin.auth.admin.deleteUser(userId)
+      throw profileError
+    }
 
     return NextResponse.json({ success: true, user: authData.user })
 

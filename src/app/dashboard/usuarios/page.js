@@ -10,7 +10,8 @@ import {
   Target,
   ArrowLeft,
   Trash2,
-  Edit
+  Edit,
+  AlertCircle
 } from 'lucide-react'
 
 export default function UsuariosPage() {
@@ -18,6 +19,7 @@ export default function UsuariosPage() {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [formError, setFormError] = useState(null)
   const [formData, setFormData] = useState({
     nombre: '',
     email: '',
@@ -40,6 +42,7 @@ export default function UsuariosPage() {
   const handleCreateUser = async (e) => {
     e.preventDefault()
     setLoading(true)
+    setFormError(null)
 
     try {
       const response = await fetch('/api/usuarios/crear', {
@@ -52,11 +55,19 @@ export default function UsuariosPage() {
 
       if (result.error) throw new Error(result.error)
 
-      alert('¡Operativo creado con éxito!')
+      // Cerrar modal y limpiar formulario automáticamente en caso de éxito
       setShowModal(false)
+      setFormData({
+        nombre: '',
+        email: '',
+        password: '',
+        rol: 'operativo',
+        meta_mensual: 1000,
+        ciudad: 'Quito'
+      })
       fetchUsers()
     } catch (error) {
-      alert('Error: ' + error.message)
+      setFormError(error.message)
     } finally {
       setLoading(false)
     }
@@ -72,7 +83,7 @@ export default function UsuariosPage() {
           <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Gestión de Operativos</h1>
         </div>
         <button 
-          onClick={() => setShowModal(true)}
+          onClick={() => { setShowModal(true); setFormError(null); }}
           className="btn-primary flex items-center gap-2"
         >
           <UserPlus size={20} />
@@ -135,6 +146,12 @@ export default function UsuariosPage() {
             </div>
             
             <form onSubmit={handleCreateUser} className="p-10 space-y-5">
+              {formError && (
+                <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-xs font-bold border border-red-100 flex items-start gap-2 animate-in fade-in duration-200">
+                  <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                  <span>{formError}</span>
+                </div>
+              )}
               <div className="space-y-1">
                 <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Nombre Completo</label>
                 <input 
