@@ -88,7 +88,7 @@ export default function LoginPage() {
         </form>
         
         <p className="mt-8 text-center text-xs text-gray-400">
-          Desarrollado por Marcka.art · © 2026 Todos los derechos reservados · Confidencial
+          © 2026 CTB Viajando · Todos los derechos reservados
         </p>
       </div>
     </div>
