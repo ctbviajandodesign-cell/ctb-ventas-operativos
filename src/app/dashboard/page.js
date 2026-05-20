@@ -42,6 +42,7 @@ import {
 export default function DashboardPage() {
   const [profile, setProfile] = useState(null)
   const [selectedOperative, setSelectedOperative] = useState('global')
+  const [selectedCity, setSelectedCity] = useState('global')
   const [operatives, setOperatives] = useState([])
   const [operativePanel, setOperativePanel] = useState(null) // para drill-down de admin
   const [metrics, setMetrics] = useState({
@@ -68,7 +69,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchDashboardData()
-  }, [selectedOperative])
+  }, [selectedOperative, selectedCity])
 
   async function fetchDashboardData() {
     try {
@@ -89,7 +90,7 @@ export default function DashboardPage() {
 
       // Si es admin, cargar lista de operativos
       if (isAdmin && operatives.length === 0) {
-        const { data: ops } = await supabase.from('profiles').select('id, nombre').eq('rol', 'operativo')
+        const { data: ops } = await supabase.from('profiles').select('id, nombre, ciudad').eq('rol', 'operativo')
         setOperatives(ops || [])
       }
 
@@ -101,12 +102,23 @@ export default function DashboardPage() {
       const targetIdForIndividual = (!isAdmin || selectedOperative !== 'global') ? (isAdmin ? selectedOperative : user.id) : null
 
       // CONSTRUIR QUERIES EN PARALELO
-      let ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id').eq('estado', 'activa').gte('created_at', startIso)
-      let cotGanadasQuery = supabase.from('cotizaciones').select('valor_total').eq('estado', 'ganada').gte('created_at', startIso)
-      let quotesQuery = supabase.from('cotizaciones').select('*, profiles(nombre)').order('created_at', { ascending: false }).limit(10)
-      let pipelineQuery = supabase.from('cotizaciones').select('valor_total, destino, estado').eq('estado', 'abierta').gte('created_at', startIso)
-      let openCountQuery = supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'abierta').gte('created_at', startIso)
-      let lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, created_at, comercial, profiles(nombre)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).order('created_at', { ascending: false })
+      const activeCityFilter = isAdmin ? selectedCity : profileData?.ciudad
+
+      let ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id, profiles!inner(ciudad)').eq('estado', 'activa').gte('created_at', startIso)
+      let cotGanadasQuery = supabase.from('cotizaciones').select('valor_total, profiles!inner(ciudad)').eq('estado', 'ganada').gte('created_at', startIso)
+      let quotesQuery = supabase.from('cotizaciones').select('*, profiles!inner(nombre, ciudad)').order('created_at', { ascending: false }).limit(10)
+      let pipelineQuery = supabase.from('cotizaciones').select('valor_total, destino, estado, profiles!inner(ciudad)').eq('estado', 'abierta').gte('created_at', startIso)
+      let openCountQuery = supabase.from('cotizaciones').select('id, profiles!inner(ciudad)', { count: 'exact', head: true }).eq('estado', 'abierta').gte('created_at', startIso)
+      let lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, created_at, comercial, profiles!inner(nombre, ciudad)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).order('created_at', { ascending: false })
+
+      if (activeCityFilter && activeCityFilter !== 'global') {
+        ventasQuery = ventasQuery.eq('profiles.ciudad', activeCityFilter)
+        cotGanadasQuery = cotGanadasQuery.eq('profiles.ciudad', activeCityFilter)
+        quotesQuery = quotesQuery.eq('profiles.ciudad', activeCityFilter)
+        pipelineQuery = pipelineQuery.eq('profiles.ciudad', activeCityFilter)
+        openCountQuery = openCountQuery.eq('profiles.ciudad', activeCityFilter)
+        lostQuery = lostQuery.eq('profiles.ciudad', activeCityFilter)
+      }
 
       if (targetIdForIndividual) {
         ventasQuery = ventasQuery.eq('operativo_id', targetIdForIndividual)
@@ -143,7 +155,10 @@ export default function DashboardPage() {
       setQuotes(quotesData || [])
       setLostQuotes(lostData || [])
 
-      const board = resBoard?.success ? resBoard.leaderboard : []
+      const rawBoard = resBoard?.success ? resBoard.leaderboard : []
+      const board = (activeCityFilter && activeCityFilter !== 'global')
+        ? rawBoard.filter(op => op.ciudad === activeCityFilter)
+        : rawBoard
       setLeaderboard(board || [])
       setChartData(board || [])
 
@@ -184,16 +199,28 @@ export default function DashboardPage() {
           conversion: totalQ > 0 ? (((wonCount || 0) / totalQ) * 100).toFixed(1) : 0
         }))
       } else {
+        let wonAllQuery = supabase.from('cotizaciones').select('id, profiles!inner(ciudad)', { count: 'exact', head: true }).eq('estado', 'ganada').gte('created_at', startIso)
+        let openAllQuery = supabase.from('cotizaciones').select('id, profiles!inner(ciudad)', { count: 'exact', head: true }).eq('estado', 'abierta').gte('created_at', startIso)
+        let lostAllQuery = supabase.from('cotizaciones').select('id, profiles!inner(ciudad)', { count: 'exact', head: true }).eq('estado', 'perdida').gte('created_at', startIso)
+        let totalAllQuery = supabase.from('cotizaciones').select('id, profiles!inner(ciudad)', { count: 'exact', head: true }).gte('created_at', startIso)
+
+        if (activeCityFilter && activeCityFilter !== 'global') {
+          wonAllQuery = wonAllQuery.eq('profiles.ciudad', activeCityFilter)
+          openAllQuery = openAllQuery.eq('profiles.ciudad', activeCityFilter)
+          lostAllQuery = lostAllQuery.eq('profiles.ciudad', activeCityFilter)
+          totalAllQuery = totalAllQuery.eq('profiles.ciudad', activeCityFilter)
+        }
+
         const [
           { count: wonAll },
           { count: openAll },
           { count: lostAll },
           { count: totalAll }
         ] = await Promise.all([
-          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'ganada').gte('created_at', startIso),
-          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'abierta').gte('created_at', startIso),
-          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'perdida').gte('created_at', startIso),
-          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).gte('created_at', startIso)
+          wonAllQuery,
+          openAllQuery,
+          lostAllQuery,
+          totalAllQuery
         ])
 
         setMetrics(prev => ({ 
@@ -547,7 +574,30 @@ export default function DashboardPage() {
           <div className="flex flex-wrap items-center gap-4 bg-white p-2 rounded-[2rem] shadow-xl border border-gray-100">
             <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-2xl border border-gray-100">
               <Filter size={16} className="text-primary" />
-              <span className="text-xs font-black uppercase text-gray-400">Filtrar por Operativo:</span>
+              <span className="text-xs font-black uppercase text-gray-400">Ciudad:</span>
+            </div>
+
+            <select 
+              value={selectedCity}
+              onChange={(e) => {
+                setSelectedCity(e.target.value)
+                setSelectedOperative('global')
+              }}
+              className="bg-transparent border-none font-black text-sm text-gray-800 outline-none pr-8 cursor-pointer focus:ring-0"
+            >
+              <option value="global">Todas las Ciudades</option>
+              <option value="Quito">Quito</option>
+              <option value="Guayaquil">Guayaquil</option>
+              <option value="Cuenca">Cuenca</option>
+              <option value="Manta">Manta</option>
+              <option value="Loja">Loja</option>
+            </select>
+
+            <div className="h-6 w-px bg-gray-200 hidden md:block" />
+
+            <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-2xl border border-gray-100">
+              <Filter size={16} className="text-primary" />
+              <span className="text-xs font-black uppercase text-gray-400">Operativo:</span>
             </div>
 
             <select 
@@ -555,10 +605,12 @@ export default function DashboardPage() {
               onChange={(e) => setSelectedOperative(e.target.value)}
               className="bg-transparent border-none font-black text-sm text-gray-800 outline-none pr-8 cursor-pointer focus:ring-0"
             >
-              <option value="global">Vista Global (Todo el equipo)</option>
-              {operatives.map(op => (
-                <option key={op.id} value={op.id}>{op.nombre}</option>
-              ))}
+              <option value="global">Todos</option>
+              {operatives
+                .filter(op => selectedCity === 'global' || op.ciudad === selectedCity)
+                .map(op => (
+                  <option key={op.id} value={op.id}>{op.nombre}</option>
+                ))}
             </select>
           </div>
         )}

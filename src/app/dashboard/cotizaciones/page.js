@@ -14,6 +14,7 @@ export default function CotizacionesPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('todas')
+  const [selectedCity, setSelectedCity] = useState('todas')
   const { user, profile, isAdmin, loading: sessionLoading } = useUserSession()
   const [errorState, setErrorState] = useState(null)
 
@@ -29,11 +30,11 @@ export default function CotizacionesPage() {
     try {
       let query = supabase
         .from('cotizaciones')
-        .select('*, profiles(nombre), ventas(*, vouchers(*))')
+        .select('*, profiles!inner(nombre, ciudad), ventas(*, vouchers(*))')
         .order('created_at', { ascending: false })
 
       if (!isAdmin) {
-        query = query.eq('operativo_id', user.id)
+        query = query.eq('profiles.ciudad', profile.ciudad)
       }
 
       const { data, error } = await query
@@ -173,7 +174,7 @@ export default function CotizacionesPage() {
     { name: 'No Concretadas', value: stats.perdidas, color: '#F5A623' },
   ]
 
-  // Filtros combinados: estado + búsqueda de texto
+  // Filtros combinados: estado + búsqueda de texto + ciudad (para admin)
   const filtered = useMemo(() => {
     let result = quotes
     if (statusFilter !== 'todas') {
@@ -182,6 +183,9 @@ export default function CotizacionesPage() {
       } else {
         result = result.filter(q => (q.estado || '').trim() === statusFilter)
       }
+    }
+    if (isAdmin && selectedCity !== 'todas') {
+      result = result.filter(q => q.profiles?.ciudad === selectedCity)
     }
     if (search.trim()) {
       const s = search.toLowerCase()
@@ -194,7 +198,7 @@ export default function CotizacionesPage() {
       )
     }
     return result
-  }, [quotes, statusFilter, search])
+  }, [quotes, statusFilter, selectedCity, search, isAdmin])
 
   const filterTabs = [
     { key: 'todas', label: 'Todas', icon: FileText, color: 'gray' },
@@ -352,6 +356,24 @@ export default function CotizacionesPage() {
             )
           })}
         </div>
+
+        {/* Filtro por ciudad (solo admin) */}
+        {isAdmin && (
+          <div className="relative w-full md:w-48">
+            <select
+              className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 text-sm font-black text-gray-800 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+              value={selectedCity}
+              onChange={e => setSelectedCity(e.target.value)}
+            >
+              <option value="todas">Todas las Ciudades</option>
+              <option value="Quito">Quito</option>
+              <option value="Guayaquil">Guayaquil</option>
+              <option value="Cuenca">Cuenca</option>
+              <option value="Manta">Manta</option>
+              <option value="Loja">Loja</option>
+            </select>
+          </div>
+        )}
 
         {/* Búsqueda de texto */}
         <div className="relative w-full md:w-80">

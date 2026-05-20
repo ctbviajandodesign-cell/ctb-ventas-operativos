@@ -23,7 +23,8 @@ export default function UsuariosPage() {
     email: '',
     password: '',
     rol: 'operativo',
-    meta_mensual: 1000
+    meta_mensual: 1000,
+    ciudad: 'Quito'
   })
 
   useEffect(() => {
@@ -96,7 +97,14 @@ export default function UsuariosPage() {
             </div>
             
             <h3 className="font-black text-xl text-gray-900 tracking-tight leading-none mb-2">{user.nombre}</h3>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-8">{user.email}</p>
+            <div className="flex items-center gap-2 mb-8 flex-wrap">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{user.email}</p>
+              {user.ciudad && (
+                <span className="text-[10px] font-black uppercase tracking-widest bg-gray-100 text-gray-600 px-2.5 py-0.5 rounded-full">
+                  {user.ciudad}
+                </span>
+              )}
+            </div>
 
             <div className="bg-gray-50 p-6 rounded-[2rem] border border-gray-100 group-hover:bg-white transition-colors">
               <div className="flex justify-between items-center">
@@ -158,7 +166,20 @@ export default function UsuariosPage() {
                 </div>
               </div>
 
-
+              <div className="space-y-1">
+                <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Ciudad</label>
+                <select 
+                  className="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 font-black text-gray-800 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  value={formData.ciudad}
+                  onChange={e => setFormData({...formData, ciudad: e.target.value})}
+                >
+                  <option value="Quito">Quito</option>
+                  <option value="Guayaquil">Guayaquil</option>
+                  <option value="Cuenca">Cuenca</option>
+                  <option value="Manta">Manta</option>
+                  <option value="Loja">Loja</option>
+                </select>
+              </div>
               <div className="flex gap-4 pt-8">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-4 font-black text-gray-400 text-xs uppercase tracking-widest hover:text-gray-600 transition-colors">Cancelar</button>
                 <button type="submit" disabled={loading} className="flex-1 bg-primary text-white py-4 rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-primary/30 hover:scale-[1.02] transition-all">

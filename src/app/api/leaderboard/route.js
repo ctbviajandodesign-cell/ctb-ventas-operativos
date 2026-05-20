@@ -20,7 +20,7 @@ export async function GET(request) {
     // Traer todos los operativos
     const { data: allOps, error: opsErr } = await supabaseAdmin
       .from('profiles')
-      .select('id, nombre, meta_mensual')
+      .select('id, nombre, meta_mensual, ciudad')
       .eq('rol', 'operativo')
     
     if (opsErr) throw opsErr
@@ -45,7 +45,8 @@ export async function GET(request) {
         total: totalOp,
         meta,
         cumplimiento: meta > 0 ? (totalOp / meta) * 100 : 0,
-        avatar: op.nombre?.charAt(0)?.toUpperCase() || '?'
+        avatar: op.nombre?.charAt(0)?.toUpperCase() || '?',
+        ciudad: op.ciudad
       }
     }).sort((a, b) => b.cumplimiento - a.cumplimiento) || []
 

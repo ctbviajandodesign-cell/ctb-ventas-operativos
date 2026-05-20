@@ -17,6 +17,7 @@ export default function VentasPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('activa')
+  const [selectedCity, setSelectedCity] = useState('todas')
   const { user, profile, isAdmin, loading: sessionLoading } = useUserSession()
   const [errorState, setErrorState] = useState(null)
   const [selectedVenta, setSelectedVenta] = useState(null)
@@ -35,11 +36,11 @@ export default function VentasPage() {
     try {
       let query = supabase
         .from('ventas')
-        .select('*, cotizaciones(id, agencia, destino, codigo, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono)')
+        .select('*, profiles!inner(ciudad), cotizaciones(id, agencia, destino, codigo, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono)')
         .order('created_at', { ascending: false })
 
       if (!isAdmin) {
-        query = query.eq('operativo_id', user.id)
+        query = query.eq('profiles.ciudad', profile.ciudad)
       }
 
       const { data, error } = await query
@@ -106,6 +107,9 @@ export default function VentasPage() {
     if (statusFilter !== 'todas') {
       result = result.filter(v => v.estado === statusFilter)
     }
+    if (isAdmin && selectedCity !== 'todas') {
+      result = result.filter(v => v.profiles?.ciudad === selectedCity)
+    }
     if (search.trim()) {
       const s = search.toLowerCase()
       result = result.filter(v =>
@@ -115,7 +119,7 @@ export default function VentasPage() {
       )
     }
     return result
-  }, [ventas, statusFilter, search])
+  }, [ventas, statusFilter, selectedCity, search, isAdmin])
 
   if (loading) return (
     <div className="flex items-center justify-center py-32">
@@ -242,6 +246,24 @@ export default function VentasPage() {
             </button>
           ))}
         </div>
+        {/* Filtro por ciudad (solo admin) */}
+        {isAdmin && (
+          <div className="relative w-full md:w-48">
+            <select
+              className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 text-sm font-black text-gray-800 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+              value={selectedCity}
+              onChange={e => setSelectedCity(e.target.value)}
+            >
+              <option value="todas">Todas las Ciudades</option>
+              <option value="Quito">Quito</option>
+              <option value="Guayaquil">Guayaquil</option>
+              <option value="Cuenca">Cuenca</option>
+              <option value="Manta">Manta</option>
+              <option value="Loja">Loja</option>
+            </select>
+          </div>
+        )}
+
         <div className="relative w-full md:w-72">
           <Search className="absolute left-4 top-3 text-gray-300" size={16} />
           <input

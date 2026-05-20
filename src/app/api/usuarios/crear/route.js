@@ -18,7 +18,7 @@ export async function POST(request) {
       }
     )
 
-    const { email, password, nombre, meta_mensual, rol } = await request.json()
+    const { email, password, nombre, meta_mensual, rol, ciudad } = await request.json()
 
     // 1. Crear el usuario en Supabase Auth
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -38,7 +38,8 @@ export async function POST(request) {
           email, 
           nombre, 
           meta_mensual: parseFloat(meta_mensual) || 0, 
-          rol: rol || 'operativo' 
+          rol: rol || 'operativo',
+          ciudad: ciudad || null
         }
       ])
 
