@@ -1,18 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Sparkles, RefreshCw } from 'lucide-react'
 
 export default function AIInsightCard({ metricas, modo = 'OPERATIVE' }) {
   const [insight, setInsight] = useState(null)
   const [loading, setLoading] = useState(false)
 
-  // Cuando cambian las métricas (ej. cambio de operador), limpiamos el insight previo para no mostrar datos viejos
-  useEffect(() => {
-    setInsight(null)
-  }, [metricas?.total, metricas?.ganadas, metricas?.abiertas, metricas?.perdidas])
-
-  async function fetchInsight() {
+  const fetchInsight = useCallback(async () => {
     if (loading) return
     setLoading(true)
     try {
@@ -31,7 +26,39 @@ export default function AIInsightCard({ metricas, modo = 'OPERATIVE' }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [metricas, modo])
+
+  // Cargar automáticamente cuando cambian las métricas o el modo
+  useEffect(() => {
+    let active = true
+    async function autoLoad() {
+      setLoading(true)
+      try {
+        const res = await fetch('/api/insight', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ metricas, modo })
+        })
+        const data = await res.json()
+        if (active && data.insight) {
+          setInsight(data.insight)
+        }
+      } catch (err) {
+        console.error('AI insight error:', err)
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    setInsight(null)
+    if (metricas && (metricas.total !== undefined || metricas.ganadas !== undefined)) {
+      autoLoad()
+    }
+
+    return () => {
+      active = false
+    }
+  }, [metricas?.total, metricas?.ganadas, metricas?.abiertas, metricas?.perdidas, modo])
 
   return (
     <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-6 rounded-[2.5rem] text-white relative overflow-hidden border border-white/5 shadow-2xl">
@@ -76,16 +103,14 @@ export default function AIInsightCard({ metricas, modo = 'OPERATIVE' }) {
         ) : (
           <div className="text-center py-4 space-y-3">
             <p className="text-xs text-gray-400 max-w-sm mx-auto">
-              {modo === 'GLOBAL_ADMIN' 
-                ? 'Genera un diagnóstico estratégico sobre el cumplimiento de la meta global de todo el equipo.'
-                : 'Genera un análisis inteligente sobre cotizaciones abiertas, ventas cerradas y proformas perdidas de este asesor.'}
+              No se pudo cargar el análisis automático o aún no hay datos suficientes para el análisis.
             </p>
             <button
               onClick={fetchInsight}
               className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-black text-xs uppercase tracking-widest px-6 py-3 rounded-2xl shadow-lg shadow-primary/20 hover:scale-105 transition-all"
             >
-              <Sparkles size={14} />
-              Generar Análisis con IA
+              <RefreshCw size={14} />
+              Reintentar Carga
             </button>
           </div>
         )}
@@ -93,4 +118,3 @@ export default function AIInsightCard({ metricas, modo = 'OPERATIVE' }) {
     </div>
   )
 }
-

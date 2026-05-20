@@ -368,6 +368,39 @@ export default function DashboardPage() {
     }
 
     setOperativePanel(panelData)
+
+    // Trigger AI insight generation automatically immediately after opening the panel
+    try {
+      setLoadingPanelAi(true)
+      const res = await fetch('/api/insight', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          modo: 'INDIVIDUAL_ADMIN',
+          metricas: {
+            nombreAsesor: panelData.nombreCompleto || panelData.nombre,
+            meta: panelData.meta,
+            cumplimiento: panelData.cumplimiento,
+            vouchers: panelData.vouchers || 0,
+            total: panelData.totalCots,
+            abiertas: panelData.abiertas,
+            ganadas: panelData.ganadas,
+            perdidas: panelData.perdidas,
+            conversion: panelData.conversion,
+            totalAporte: panelData.ganancia,
+            topDestino: panelData.topDestino
+          }
+        })
+      })
+      const aiData = await res.json()
+      if (aiData.insight) {
+        setOperativePanel(prev => prev ? {...prev, aiInsight: aiData.insight} : null)
+      }
+    } catch (err) {
+      console.error('Error generating AI audit:', err)
+    } finally {
+      setLoadingPanelAi(false)
+    }
   }
 
   return (
@@ -487,7 +520,7 @@ export default function DashboardPage() {
                   ) : (
                     <div className="text-center py-2 space-y-3 w-full">
                       <p className="text-xs text-gray-400 max-w-sm mx-auto">
-                        Genera un diagnóstico experto sobre cotizaciones abiertas, ventas cerradas y cumplimiento de meta de este asesor.
+                        No se pudo cargar la auditoría automática.
                       </p>
                       <button
                         onClick={() => {
@@ -518,8 +551,8 @@ export default function DashboardPage() {
                         }}
                         className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-black text-xs uppercase tracking-widest px-5 py-2.5 rounded-2xl shadow-lg shadow-primary/20 hover:scale-105 transition-all"
                       >
-                        <Sparkles size={14} />
-                        Generar Auditoría con IA
+                        <RefreshCw size={14} />
+                        Reintentar Carga
                       </button>
                     </div>
                   )}
