@@ -38,8 +38,9 @@ export default function LoginPage() {
             alt="Logo CTB Viajando" 
             className="h-24 w-auto mb-4 object-contain filter drop-shadow-[0_4px_12px_rgba(245,166,35,0.15)]"
           />
-          <h1 className="text-3xl font-black text-gray-900 tracking-tighter uppercase italic">SISTEMA COMERCIAL</h1>
-          <p className="text-gray-400 text-xs font-black uppercase tracking-widest mt-1">Y LOGÍSTICA</p>
+          <h1 className="text-gray-900 text-xs font-black uppercase tracking-widest mt-4">
+            Sistema Comercial y Logística
+          </h1>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
