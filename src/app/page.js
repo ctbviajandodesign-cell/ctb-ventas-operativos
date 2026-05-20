@@ -32,9 +32,14 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="card w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary mb-2">CTB VIAJANDO</h1>
-          <p className="text-gray-500 font-medium">Gestión de Ventas Operativas</p>
+        <div className="text-center mb-8 flex flex-col items-center">
+          <img 
+            src="/logo.png" 
+            alt="Logo CTB Viajando" 
+            className="h-24 w-auto mb-4 object-contain filter drop-shadow-[0_4px_12px_rgba(245,166,35,0.15)]"
+          />
+          <h1 className="text-3xl font-black text-gray-900 tracking-tighter uppercase italic">CTB VIAJANDO</h1>
+          <p className="text-gray-400 text-xs font-black uppercase tracking-widest mt-1">Gestión de Ventas Operativas</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
