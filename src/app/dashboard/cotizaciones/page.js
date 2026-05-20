@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useUserSession } from '@/hooks/useUserSession'
 import QuotesTable from '@/components/QuotesTable'
 import AIInsightCard from '@/components/AIInsightCard'
-import { Search, Plus, Filter, CheckCircle2, Clock, XCircle, AlertCircle, TrendingUp, DollarSign, FileText } from 'lucide-react'
+import { Search, Plus, Filter, CheckCircle2, Clock, XCircle, AlertCircle, TrendingUp, DollarSign, FileText, Download } from 'lucide-react'
 import Link from 'next/link'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, CartesianGrid } from 'recharts'
 
@@ -48,6 +48,36 @@ export default function CotizacionesPage() {
     }
   }
 
+  const handleExportQuotes = () => {
+    if (filtered.length === 0) {
+      alert('No hay datos para exportar con el filtro actual.')
+      return
+    }
+
+    const headers = ['Código,Agencia,Comercial,Destino,Pasajeros,Valor Total,Aporte,Estado,Creado En']
+    const rows = filtered.map(q => {
+      const codigo = q.codigo || 'N/A'
+      const agencia = (q.agencia || 'Directo').replace(/,/g, ';')
+      const comercial = (q.comercial || 'N/A').replace(/,/g, ';')
+      const destino = (q.destino || 'N/A').replace(/,/g, ';')
+      const pasajeros = q.numero_pasajeros || 0
+      const valor = q.valor_total || 0
+      const aporte = (Number(q.valor_comision || 0) + Number(q.valor_utilidad || 0))
+      const estado = q.estado || 'N/A'
+      const fecha = q.created_at ? new Date(q.created_at).toLocaleDateString() : 'N/A'
+      return `${codigo},${agencia},${comercial},${destino},${pasajeros},${valor},${aporte},${estado},${fecha}`
+    })
+
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers, ...rows].join("\n")
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement("a")
+    link.setAttribute("href", encodedUri)
+    link.setAttribute("download", `Reporte_Cotizaciones_CTB_${new Date().toISOString().split('T')[0]}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   // Métricas para el mini-dashboard
   const stats = useMemo(() => {
     const total = quotes.length
@@ -85,6 +115,7 @@ export default function CotizacionesPage() {
         q.codigo?.toLowerCase().includes(s) ||
         q.agencia?.toLowerCase().includes(s) ||
         q.destino?.toLowerCase().includes(s) ||
+        q.comercial?.toLowerCase().includes(s) ||
         q.profiles?.nombre?.toLowerCase().includes(s)
       )
     }
@@ -267,6 +298,13 @@ export default function CotizacionesPage() {
             {filtered.length} resultado{filtered.length !== 1 ? 's' : ''}
             {statusFilter !== 'todas' && ` · ${filterTabs.find(t => t.key === statusFilter)?.label}`}
           </h3>
+          <button
+            onClick={handleExportQuotes}
+            className="flex items-center gap-2 bg-gray-900 hover:bg-primary text-white px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg hover:shadow-xl transition-all"
+            title="Descargar reporte en Excel / CSV"
+          >
+            <Download size={14} /> Exportar XLS
+          </button>
         </div>
         <div className="overflow-x-auto">
           <QuotesTable

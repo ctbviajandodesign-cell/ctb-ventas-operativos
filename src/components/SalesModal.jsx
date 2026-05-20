@@ -16,7 +16,7 @@ export default function SalesModal() {
   const isEditing = !!quote?.existingSale
 
   const [milestones, setMilestones] = useState([
-    { id: Date.now(), label: 'Pago Inicial / Reserva', amount: 0, percent: 0, date: new Date().toISOString().split('T')[0], status: 'pagado' }
+    { id: Date.now(), label: 'Primer Pago', amount: 0, percent: 0, date: new Date().toISOString().split('T')[0], status: 'pagado' }
   ])
   const [inclusions, setInclusions] = useState({ hotel: true, traslados: false, boletos: false, tours: false, seguro: false })
   const [formData, setFormData] = useState({
@@ -48,7 +48,7 @@ export default function SalesModal() {
           pasajeros_voucher: Array.isArray(q.nombres_pasajeros) ? q.nombres_pasajeros.join('\n') : (q.nombres_pasajeros || '')
         })
         if (s.plan_pagos?.length) setMilestones(s.plan_pagos)
-        else setMilestones([{ id: Date.now(), label: 'Pago Inicial / Reserva', amount: s.total || 0, percent: 100, date: new Date().toISOString().split('T')[0], status: 'pagado' }])
+        else setMilestones([{ id: Date.now(), label: 'Primer Pago', amount: s.total || 0, percent: 100, date: new Date().toISOString().split('T')[0], status: 'pagado' }])
 
         // Cargar voucher existente
         const { data: voucher } = await supabase
@@ -76,7 +76,7 @@ export default function SalesModal() {
           pasajeros_voucher: Array.isArray(q.nombres_pasajeros) ? q.nombres_pasajeros.join('\n') : (q.nombres_pasajeros || '')
         })
         setMilestones([
-          { id: Date.now(), label: 'Pago Inicial / Reserva', amount: initialTotal, percent: 100, date: new Date().toISOString().split('T')[0], status: 'pagado' }
+          { id: Date.now(), label: 'Primer Pago', amount: initialTotal, percent: 100, date: new Date().toISOString().split('T')[0], status: 'pagado' }
         ])
       }
     }
@@ -158,7 +158,7 @@ export default function SalesModal() {
           estado: 'activo',
           fecha_viaje_desde: formData.fecha_viaje_desde || null,
           fecha_viaje_hasta: formData.fecha_viaje_hasta || null,
-          fecha_caducidad: formData.fecha_caducidad_voucher || null,
+          fecha_caducidad: formData.fecha_viaje_hasta || null,
           inclusiones: inclusions,
           notas: formData.notas_voucher,
           agencia: quote.agencia,
@@ -291,7 +291,21 @@ export default function SalesModal() {
               <p className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
                 <Calendar size={16} /> Plan de Pagos
               </p>
-              <button type="button" onClick={() => setMilestones([...milestones, { id: Date.now(), label: 'Abono', amount: 0, percent: 0, date: '', status: 'pendiente' }])}
+              <button type="button" onClick={() => {
+                const count = milestones.length + 1
+                let nextLabel = 'Pago ' + count
+                if (count === 1) nextLabel = 'Primer Pago'
+                else if (count === 2) nextLabel = 'Pago Dos'
+                else if (count === 3) nextLabel = 'Pago Tres'
+                else if (count === 4) nextLabel = 'Pago Cuatro'
+                else if (count === 5) nextLabel = 'Pago Cinco'
+                else if (count === 6) nextLabel = 'Pago Seis'
+                else if (count === 7) nextLabel = 'Pago Siete'
+                else if (count === 8) nextLabel = 'Pago Ocho'
+                else if (count === 9) nextLabel = 'Pago Nueve'
+                else if (count === 10) nextLabel = 'Pago Diez'
+                setMilestones([...milestones, { id: Date.now(), label: nextLabel, amount: 0, percent: 0, date: '', status: 'pendiente' }])
+              }}
                 className="text-xs font-black text-primary bg-primary/5 px-3 py-1.5 rounded-full hover:bg-primary/10 transition-colors">
                 + Añadir pago
               </button>
