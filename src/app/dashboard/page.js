@@ -106,29 +106,33 @@ export default function DashboardPage() {
       // CONSTRUIR QUERIES EN PARALELO
       const activeCityFilter = isAdmin ? selectedCity : profileData?.ciudad
 
-      let ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id, profiles!inner(ciudad)').eq('estado', 'activa').gte('created_at', startIso)
-      let cotGanadasQuery = supabase.from('cotizaciones').select('valor_total, profiles!inner(ciudad)').eq('estado', 'ganada').gte('created_at', startIso)
-      let quotesQuery = supabase.from('cotizaciones').select('*, profiles!inner(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10)
-      let pipelineQuery = supabase.from('cotizaciones').select('valor_total, destino, estado, profiles!inner(ciudad)').eq('estado', 'abierta').gte('created_at', startIso)
-      let openCountQuery = supabase.from('cotizaciones').select('id, profiles!inner(ciudad)', { count: 'exact', head: true }).eq('estado', 'abierta').gte('created_at', startIso)
-      let lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, created_at, comercial, profiles!inner(nombre, ciudad)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).order('created_at', { ascending: false })
-
-      if (activeCityFilter && activeCityFilter !== 'global') {
-        ventasQuery = ventasQuery.eq('profiles.ciudad', activeCityFilter)
-        cotGanadasQuery = cotGanadasQuery.eq('profiles.ciudad', activeCityFilter)
-        quotesQuery = quotesQuery.eq('profiles.ciudad', activeCityFilter)
-        pipelineQuery = pipelineQuery.eq('profiles.ciudad', activeCityFilter)
-        openCountQuery = openCountQuery.eq('profiles.ciudad', activeCityFilter)
-        lostQuery = lostQuery.eq('profiles.ciudad', activeCityFilter)
-      }
+      let ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id').eq('estado', 'activa').gte('created_at', startIso)
+      let cotGanadasQuery = supabase.from('cotizaciones').select('valor_total').eq('estado', 'ganada').gte('created_at', startIso)
+      let quotesQuery = supabase.from('cotizaciones').select('*, ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10)
+      let pipelineQuery = supabase.from('cotizaciones').select('valor_total, destino, estado').eq('estado', 'abierta').gte('created_at', startIso)
+      let openCountQuery = supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'abierta').gte('created_at', startIso)
+      let lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, created_at, comercial').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).order('created_at', { ascending: false })
 
       if (targetIdForIndividual) {
+        // MODO INDIVIDUAL: Filtrar exclusivamente por ID del operativo, sin joins complejos para evitar errores de RLS
         ventasQuery = ventasQuery.eq('operativo_id', targetIdForIndividual)
         cotGanadasQuery = cotGanadasQuery.eq('operativo_id', targetIdForIndividual)
         quotesQuery = quotesQuery.eq('operativo_id', targetIdForIndividual)
         pipelineQuery = pipelineQuery.eq('operativo_id', targetIdForIndividual)
         openCountQuery = openCountQuery.eq('operativo_id', targetIdForIndividual)
         lostQuery = lostQuery.eq('operativo_id', targetIdForIndividual)
+      } else if (activeCityFilter && activeCityFilter !== 'global') {
+        // MODO GLOBAL/ADMIN: Filtrar por ciudad haciendo join manual con profiles (requiere foreign keys intactas)
+        ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id, profiles!inner(ciudad)').eq('estado', 'activa').gte('created_at', startIso).eq('profiles.ciudad', activeCityFilter)
+        cotGanadasQuery = supabase.from('cotizaciones').select('valor_total, profiles!inner(ciudad)').eq('estado', 'ganada').gte('created_at', startIso).eq('profiles.ciudad', activeCityFilter)
+        quotesQuery = supabase.from('cotizaciones').select('*, profiles!inner(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10).eq('profiles.ciudad', activeCityFilter)
+        pipelineQuery = supabase.from('cotizaciones').select('valor_total, destino, estado, profiles!inner(ciudad)').eq('estado', 'abierta').gte('created_at', startIso).eq('profiles.ciudad', activeCityFilter)
+        openCountQuery = supabase.from('cotizaciones').select('id, profiles!inner(ciudad)', { count: 'exact', head: true }).eq('estado', 'abierta').gte('created_at', startIso).eq('profiles.ciudad', activeCityFilter)
+        lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, created_at, comercial, profiles!inner(nombre, ciudad)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).order('created_at', { ascending: false }).eq('profiles.ciudad', activeCityFilter)
+      } else {
+        // MODO GLOBAL TOTAL
+        quotesQuery = supabase.from('cotizaciones').select('*, profiles!left(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10)
+        lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, created_at, comercial, profiles!left(nombre, ciudad)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).order('created_at', { ascending: false })
       }
 
       // EJECUTAR PROMISE.ALL PARA MAXIMA VELOCIDAD
