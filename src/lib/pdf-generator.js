@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
-export const generateVoucherPDF = (voucher) => {
+export const generateVoucherPDF = (voucher, qrBase64) => {
   const doc = new jsPDF({
     orientation: 'p',
     unit: 'mm',
@@ -125,6 +125,11 @@ export const generateVoucherPDF = (voucher) => {
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(...primaryColor)
   doc.text('CTB CLOUD VERIFIED', 165, footerY + 7)
+
+  // QR Code
+  if (qrBase64) {
+    doc.addImage(qrBase64, 'PNG', 160, footerY - 35, 30, 30)
+  }
 
   doc.save(`Voucher_${voucher.codigo}.pdf`)
 }

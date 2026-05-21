@@ -99,6 +99,8 @@ export default function VouchersPage() {
     img.onload = () => {
       canvas.width = img.width
       canvas.height = img.height
+      ctx.fillStyle = "#ffffff"
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
       ctx.drawImage(img, 0, 0)
       const pngFile = canvas.toDataURL("image/png")
       const downloadLink = document.createElement("a")
@@ -107,6 +109,27 @@ export default function VouchersPage() {
       downloadLink.click()
     }
     img.src = "data:image/svg+xml;base64," + btoa(svgData)
+  }
+
+  const getQrBase64 = (id) => {
+    return new Promise((resolve) => {
+      const svg = document.getElementById(id)
+      if (!svg) return resolve(null)
+      const svgData = new XMLSerializer().serializeToString(svg)
+      const canvas = document.createElement("canvas")
+      const ctx = canvas.getContext("2d")
+      const img = new Image()
+      img.onload = () => {
+        canvas.width = img.width
+        canvas.height = img.height
+        ctx.fillStyle = "#ffffff"
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        ctx.drawImage(img, 0, 0)
+        resolve(canvas.toDataURL("image/png"))
+      }
+      img.onerror = () => resolve(null)
+      img.src = "data:image/svg+xml;base64," + btoa(svgData)
+    })
   }
 
   const filtered = vouchers.filter(v => {
@@ -452,7 +475,10 @@ export default function VouchersPage() {
 
             <div className="p-4 sm:p-8 bg-gray-50 flex flex-col gap-2 shrink-0 border-t border-gray-100">
               <button 
-                onClick={() => generateVoucherPDF(viewingVoucher)}
+                onClick={async () => {
+                  const qrBase64 = await getQrBase64(viewingVoucher.codigo)
+                  generateVoucherPDF(viewingVoucher, qrBase64)
+                }}
                 className="btn-primary py-3 sm:py-4 flex items-center justify-center gap-2 text-xs sm:text-sm"
               >
                 <FileDown size={18} /> Descargar PDF Oficial
