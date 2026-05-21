@@ -213,8 +213,8 @@ export default function UsuariosPage() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[4rem] w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in duration-300">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-[4rem] w-full max-w-md overflow-hidden shadow-2xl">
             <div className="bg-primary p-10 text-white">
               <h2 className="text-3xl font-black uppercase tracking-tighter leading-none">{editingUser ? 'Editar Usuario' : 'Alta de Usuario'}</h2>
               <p className="text-xs font-bold opacity-80 uppercase tracking-widest mt-2">{editingUser ? 'Actualizar datos de perfil de usuario' : 'Provisionamiento de nuevo perfil de usuario'}</p>

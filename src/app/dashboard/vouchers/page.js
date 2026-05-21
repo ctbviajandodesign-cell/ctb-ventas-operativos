@@ -294,8 +294,8 @@ export default function VouchersPage() {
 
       {/* Modal Visualizador de Voucher COMPLETO */}
       {viewingVoucher && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-white rounded-[2rem] sm:rounded-[3rem] max-w-lg w-full overflow-hidden shadow-2xl animate-in zoom-in duration-300 max-h-[95vh] flex flex-col">
+        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-[2rem] sm:rounded-[3rem] max-w-lg w-full overflow-hidden shadow-2xl max-h-[95vh] flex flex-col">
             <div className="bg-gray-900 p-6 sm:p-8 text-center text-white space-y-3 sm:space-y-4 shrink-0">
               <div className="inline-block bg-white p-3 sm:p-4 rounded-2xl shadow-xl">
                 <QRCodeSVG 
@@ -423,8 +423,8 @@ export default function VouchersPage() {
 
       {/* Modal Editar Voucher */}
       {editingVoucher && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
-          <form onSubmit={handleUpdateVoucher} className="bg-white rounded-[2.5rem] max-w-lg w-full overflow-hidden shadow-2xl animate-in zoom-in duration-300">
+        <div className="fixed inset-0 bg-black/60 z-[110] flex items-center justify-center p-4">
+          <form onSubmit={handleUpdateVoucher} className="bg-white rounded-[2.5rem] max-w-lg w-full overflow-hidden shadow-2xl">
             <div className="bg-primary p-8 text-white">
               <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-black">Editar Voucher</h2>

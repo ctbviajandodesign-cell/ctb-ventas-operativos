@@ -437,8 +437,8 @@ export default function DashboardPage() {
 
       {/* PANEL DRILL-DOWN DE OPERATIVO (ADMIN) */}
       {operativePanel && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[150] flex items-center justify-center p-4 overflow-y-auto" onClick={() => setOperativePanel(null)}>
-          <div className="bg-white rounded-[3rem] w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in duration-300 my-8 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/60 z-[150] flex items-center justify-center p-4 overflow-y-auto" onClick={() => setOperativePanel(null)}>
+          <div className="bg-white rounded-[3rem] w-full max-w-lg overflow-hidden shadow-2xl my-8 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
             <div className="bg-gray-900 text-white p-8 flex items-start justify-between shrink-0 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full -mr-10 -mt-10 blur-2xl pointer-events-none"></div>
               <div className="flex items-center gap-4 relative z-10">

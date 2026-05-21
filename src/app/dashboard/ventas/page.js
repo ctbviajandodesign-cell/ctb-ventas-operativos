@@ -457,8 +457,8 @@ export default function VentasPage() {
 
       {/* MODAL DETALLE */}
       {selectedVenta && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[3rem] max-w-2xl w-full overflow-hidden shadow-2xl animate-in zoom-in duration-300">
+        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[3rem] max-w-2xl w-full overflow-hidden shadow-2xl">
             <div className="bg-gray-900 p-8 text-white flex justify-between items-start">
               <div>
                 <p className="text-xs font-black text-primary uppercase tracking-widest">Detalle de Venta</p>

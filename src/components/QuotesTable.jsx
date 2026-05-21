@@ -232,8 +232,8 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
 
       {/* Modal Visualizador de Cotización COMPLETO */}
       {viewingQuote && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-white rounded-[2rem] sm:rounded-[3rem] max-w-lg w-full overflow-hidden shadow-2xl animate-in zoom-in duration-300 max-h-[95vh] flex flex-col">
+        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-[2rem] sm:rounded-[3rem] max-w-lg w-full overflow-hidden shadow-2xl max-h-[95vh] flex flex-col">
             <div className="bg-primary p-6 sm:p-8 text-white relative shrink-0">
               <button onClick={() => setViewingQuote(null)} className="absolute top-6 right-6 hover:rotate-90 transition-transform"><XCircle size={24} /></button>
               <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tighter pr-8">Expediente CTB</h2>
@@ -327,8 +327,8 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
 
       {/* Modal de Anulación Premium */}
       {closingQuote && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[110] flex items-center justify-center p-4">
-          <form onSubmit={handleMarcarPerdida} className="bg-white rounded-[3rem] max-w-md w-full overflow-hidden shadow-2xl animate-in zoom-in duration-300">
+        <div className="fixed inset-0 bg-black/60 z-[110] flex items-center justify-center p-4">
+          <form onSubmit={handleMarcarPerdida} className="bg-white rounded-[3rem] max-w-md w-full overflow-hidden shadow-2xl">
             <div className="bg-[#f5a623] p-10 text-white flex justify-between items-start">
               <div>
                 <h2 className="text-4xl font-black uppercase tracking-tighter leading-none">Cierre Negativo</h2>
