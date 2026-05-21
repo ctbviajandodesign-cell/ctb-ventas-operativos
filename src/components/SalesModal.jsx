@@ -229,8 +229,8 @@ export default function SalesModal() {
   const incIcons = { hotel: Hotel, traslados: Bus, boletos: Plane, tours: Map, seguro: AlertCircle }
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
-      <div className="bg-white rounded-[2.5rem] w-full max-w-3xl overflow-hidden shadow-2xl flex flex-col max-h-[95vh] animate-in zoom-in duration-300">
+    <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4">
+      <div className="bg-white rounded-[2.5rem] w-full max-w-3xl overflow-hidden shadow-2xl flex flex-col max-h-[95vh]">
 
         {/* HEADER — diferente según modo */}
         <div className={`p-7 text-white flex justify-between items-start ${isEditing ? 'bg-gray-900' : 'bg-primary'}`}>
@@ -294,8 +294,8 @@ export default function SalesModal() {
             <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
               <DollarSign size={16} /> Valores Financieros
             </p>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              <div className="bg-gray-50 p-4 rounded-2xl">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
                 <p className="text-xs font-black text-gray-400 uppercase mb-1">Total Venta</p>
                 <div className="flex items-baseline gap-1">
                   <span className="text-gray-400 font-bold">$</span>
@@ -303,26 +303,25 @@ export default function SalesModal() {
                 </div>
               </div>
               <div className="bg-success/5 p-4 rounded-2xl border border-success/10">
-                <p className="text-xs font-black text-success/80 uppercase mb-1">Ganancia (Comisión + Utilidad)</p>
-                <p className="text-xl font-black text-success">${(Number(formData.comision || 0) + Number(formData.utilidad || 0)).toLocaleString()}</p>
+                <p className="text-xs font-black text-success/80 uppercase mb-1">Comisión</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-success/80 font-bold">$</span>
+                  <input type="number" step="0.01" className="bg-transparent border-none font-black text-success text-xl p-0 w-full outline-none" value={formData.comision} onChange={e => setFormData({ ...formData, comision: e.target.value })} />
+                </div>
+              </div>
+              <div className="bg-success/5 p-4 rounded-2xl border border-success/10">
+                <p className="text-xs font-black text-success/80 uppercase mb-1">Utilidad</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-success/80 font-bold">$</span>
+                  <input type="number" step="0.01" className="bg-transparent border-none font-black text-success text-xl p-0 w-full outline-none" value={formData.utilidad} onChange={e => setFormData({ ...formData, utilidad: e.target.value })} />
+                </div>
               </div>
               <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10">
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-xs font-black text-primary/80 uppercase">Bono Counter</p>
-                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded font-bold uppercase">Constante</span>
-                </div>
+                <p className="text-xs font-black text-primary/80 uppercase mb-1">Bono Counter</p>
                 <div className="flex items-baseline gap-1">
                   <span className="text-primary font-bold">$</span>
                   <input type="number" step="0.01" className="bg-transparent border-none font-black text-primary text-xl p-0 w-full outline-none" value={formData.bono_counter} onChange={e => setFormData({ ...formData, bono_counter: e.target.value })} />
                 </div>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-2xl">
-                <p className="text-xs font-black text-gray-400 uppercase mb-1">Comisión $</p>
-                <input type="number" step="0.01" className="bg-transparent border-none font-black text-lg p-0 w-full outline-none text-gray-800" value={formData.comision} onChange={e => setFormData({ ...formData, comision: e.target.value })} />
-              </div>
-              <div className="bg-gray-50 p-4 rounded-2xl">
-                <p className="text-xs font-black text-gray-400 uppercase mb-1">Utilidad $</p>
-                <input type="number" step="0.01" className="bg-transparent border-none font-black text-lg p-0 w-full outline-none text-gray-800" value={formData.utilidad} onChange={e => setFormData({ ...formData, utilidad: e.target.value })} />
               </div>
             </div>
           </div>
