@@ -4,14 +4,16 @@
  */
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
-const CHAT_ADMIN = process.env.TELEGRAM_CHAT_ADMIN
-const CHAT_MAP = {
-  quito:     process.env.TELEGRAM_CHAT_UIO,
-  uio:       process.env.TELEGRAM_CHAT_UIO,
-  guayaquil: process.env.TELEGRAM_CHAT_GYE,
-  gye:       process.env.TELEGRAM_CHAT_GYE,
-  cuenca:    process.env.TELEGRAM_CHAT_CUE,
-  cue:       process.env.TELEGRAM_CHAT_CUE,
+
+function getChatMap() {
+  return {
+    quito:     process.env.TELEGRAM_CHAT_UIO,
+    uio:       process.env.TELEGRAM_CHAT_UIO,
+    guayaquil: process.env.TELEGRAM_CHAT_GYE,
+    gye:       process.env.TELEGRAM_CHAT_GYE,
+    cuenca:    process.env.TELEGRAM_CHAT_CUE,
+    cue:       process.env.TELEGRAM_CHAT_CUE,
+  }
 }
 
 /**
@@ -43,10 +45,12 @@ export async function sendTelegram(chatId, text) {
  */
 export function getChatIds(ciudad = '') {
   const key = ciudad.trim().toLowerCase()
-  const cityChat = CHAT_MAP[key] || null
+  const map = getChatMap()
+  const cityChat = map[key] || null
+  const CHAT_ADMIN = process.env.TELEGRAM_CHAT_ADMIN
   const ids = [CHAT_ADMIN]
   if (cityChat && cityChat !== CHAT_ADMIN) ids.push(cityChat)
-  return [...new Set(ids)] // sin duplicados
+  return [...new Set(ids.filter(Boolean))] // sin duplicados y sin nulos
 }
 
 /**
@@ -62,7 +66,8 @@ export async function notifyAll(ciudad, text) {
  */
 export async function notifyCity(ciudad, text) {
   const key = ciudad.trim().toLowerCase()
-  const chatId = CHAT_MAP[key] || CHAT_ADMIN
+  const map = getChatMap()
+  const chatId = map[key] || process.env.TELEGRAM_CHAT_ADMIN
   return sendTelegram(chatId, text)
 }
 
@@ -70,7 +75,7 @@ export async function notifyCity(ciudad, text) {
  * Envía solo al Admin
  */
 export async function notifyAdmin(text) {
-  return sendTelegram(CHAT_ADMIN, text)
+  return sendTelegram(process.env.TELEGRAM_CHAT_ADMIN, text)
 }
 
 /**
