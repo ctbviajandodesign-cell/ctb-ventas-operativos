@@ -49,10 +49,16 @@ export default function UsuariosPage() {
     setFormError(null)
 
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+
       const endpoint = editingUser ? '/api/usuarios/editar' : '/api/usuarios/crear'
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(editingUser ? { ...formData, id: editingUser.id } : formData)
       })
 
@@ -85,9 +91,15 @@ export default function UsuariosPage() {
     if (!confirm(`¿Estás seguro de que deseas eliminar permanentemente a ${user.nombre}? Esta acción no se puede deshacer.`)) return
     setLoading(true)
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+
       const response = await fetch('/api/usuarios/eliminar', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ id: user.id })
       })
 

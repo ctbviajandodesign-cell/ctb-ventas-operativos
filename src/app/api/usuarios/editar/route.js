@@ -16,6 +16,18 @@ export async function POST(request) {
       }
     )
 
+    // === PROTECCIÓN DE API (MÁXIMA SEGURIDAD) ===
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: verifyError } = await supabaseAdmin.auth.getUser(token)
+    if (verifyError || !user) return NextResponse.json({ error: 'Sesión inválida' }, { status: 401 })
+    
+    // Verificar que quien hace la petición sea admin
+    const { data: adminProfile } = await supabaseAdmin.from('profiles').select('rol').eq('id', user.id).single()
+    if (adminProfile?.rol !== 'admin') return NextResponse.json({ error: 'Permisos insuficientes' }, { status: 403 })
+    // ============================================
+
     const { id, nombre, email, password, rol, meta_mensual, ciudad, celular } = await request.json()
 
     if (!id) {
