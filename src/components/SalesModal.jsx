@@ -25,7 +25,9 @@ export default function SalesModal() {
     generar_voucher: false, numero_proforma: '',
     fecha_viaje_desde: '', fecha_viaje_hasta: '',
     fecha_caducidad_voucher: '', notas_voucher: '',
-    pasajeros_voucher: ''
+    pasajeros_voucher: '',
+    recordatorio_dias_antes: '',
+    recordatorio_texto: ''
   })
 
   useEffect(() => {
@@ -207,7 +209,9 @@ export default function SalesModal() {
           agencia: quote.agencia,
           valor_total: Number(formData.total) || 0,
           pasajeros: pasajerosArr,
-          destino: quote.destino
+          destino: quote.destino,
+          recordatorio_dias_antes: formData.recordatorio_dias_antes ? Number(formData.recordatorio_dias_antes) : null,
+          recordatorio_texto: formData.recordatorio_texto || null
         }])
         if (vchError) throw vchError
         window.location.href = '/dashboard/vouchers'
@@ -430,6 +434,15 @@ export default function SalesModal() {
                     <div className="col-span-2">
                       <label className="text-xs font-black text-gray-400 uppercase">Notas para el pasajero</label>
                       <textarea className="input text-xs mt-1 min-h-[70px]" placeholder="Indicaciones, observaciones..." value={formData.notas_voucher} onChange={e => setFormData({ ...formData, notas_voucher: e.target.value })} />
+                    </div>
+                    <div className="col-span-1">
+                      <label className="text-xs font-black text-gray-400 uppercase">Días para Aviso</label>
+                      <input type="number" min="0" className="input font-bold mt-1 text-xs" placeholder="Ej: 5" value={formData.recordatorio_dias_antes} onChange={e => setFormData({ ...formData, recordatorio_dias_antes: e.target.value })} />
+                      <p className="text-[10px] text-gray-400 mt-1">Aviso telegram antes de viaje</p>
+                    </div>
+                    <div className="col-span-1">
+                      <label className="text-xs font-black text-gray-400 uppercase">Nota de aviso</label>
+                      <input type="text" className="input font-bold mt-1 text-xs" placeholder="Ej: Pago de hotel" value={formData.recordatorio_texto} onChange={e => setFormData({ ...formData, recordatorio_texto: e.target.value })} />
                     </div>
                   </div>
                 </div>

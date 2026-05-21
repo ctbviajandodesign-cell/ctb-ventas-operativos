@@ -77,8 +77,10 @@ export default function VouchersPage() {
         pasajeros: pasajerosArr,
         fecha_viaje_desde: editingVoucher.fecha_viaje_desde,
         fecha_viaje_hasta: editingVoucher.fecha_viaje_hasta,
-        fecha_caducidad: editingVoucher.fecha_caducidad,
-        notas: editingVoucher.notas
+        fecha_caducidad: editingVoucher.fecha_viaje_hasta,
+        notas: editingVoucher.notas,
+        recordatorio_texto: editingVoucher.recordatorio_texto || null,
+        recordatorio_dias_antes: editingVoucher.recordatorio_dias_antes || null
       })
       .eq('id', editingVoucher.id)
     if (!error) {
@@ -484,14 +486,28 @@ export default function VouchersPage() {
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-black text-gray-400 uppercase">Fecha Caducidad QR</label>
-                <input 
-                  type="date"
-                  className="input text-sm" 
-                  value={editingVoucher.fecha_caducidad || ''}
-                  onChange={e => setEditingVoucher({...editingVoucher, fecha_caducidad: e.target.value})}
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-black text-gray-400 uppercase">Días antes para Recordatorio</label>
+                  <input 
+                    type="number"
+                    min="0"
+                    placeholder="Ej: 5"
+                    className="input text-sm" 
+                    value={editingVoucher.recordatorio_dias_antes || ''}
+                    onChange={e => setEditingVoucher({...editingVoucher, recordatorio_dias_antes: e.target.value ? Number(e.target.value) : null})}
+                  />
+                  <p className="text-[10px] text-gray-400 font-bold">Aviso en Telegram antes del inicio del viaje</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-black text-gray-400 uppercase">Nota del Recordatorio</label>
+                  <input 
+                    className="input text-sm" 
+                    placeholder="Ej: Pagar a hotel y traslados"
+                    value={editingVoucher.recordatorio_texto || ''}
+                    onChange={e => setEditingVoucher({...editingVoucher, recordatorio_texto: e.target.value})}
+                  />
+                </div>
               </div>
 
               <div className="space-y-1">

@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf'
-import 'jspdf-autotable'
+import autoTable from 'jspdf-autotable'
 
 export const generateVoucherPDF = (voucher) => {
   const doc = new jsPDF({
@@ -57,7 +57,7 @@ export const generateVoucherPDF = (voucher) => {
   doc.text(voucher.codigo, 110, 76)
 
   // Tabla de Pasajeros
-  doc.autoTable({
+  autoTable(doc, {
     startY: 85,
     head: [['LISTADO DE PASAJEROS', 'IDENTIFICACIÓN']],
     body: (voucher.pasajeros || []).map(p => [p.toUpperCase(), 'REGISTRADO']),
