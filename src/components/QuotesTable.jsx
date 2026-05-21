@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-
+import { QRCodeSVG } from 'qrcode.react'
 
 import { 
   CheckCircle2, 
@@ -20,7 +20,8 @@ import {
   AlertTriangle,
   MessageSquare,
   ChevronDown,
-  FileText
+  FileText,
+  QrCode
 } from 'lucide-react'
 
 export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
@@ -32,7 +33,7 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
   
   const getStatusBadge = (quote) => {
     const status = (quote.estado || '').toString().trim().toLowerCase()
-    if (status === 'ganada') return <span className="badge-success text-xs font-black">GANADA</span>
+    if (status === 'ganada') return <span className="bg-success text-white px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-widest">VENDIDA</span>
     if (status === 'perdida') return <span className="badge-danger text-xs font-black">CANCELADA</span>
     if (status === 'anulada') return <span className="bg-gray-100 text-gray-500 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-widest">ANULADA</span>
     
@@ -45,7 +46,16 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
         </span>
       )
     }
-    return <span className="badge-warning text-xs font-black">ABIERTA</span>
+    return <span className="bg-primary/10 text-primary px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-widest">ACTIVA</span>
+  }
+
+  const getVoucherCodigo = (quote) => {
+    const ventas = Array.isArray(quote.ventas) ? quote.ventas : (quote.ventas ? [quote.ventas] : [])
+    for (const v of ventas) {
+      const voucherArr = Array.isArray(v.vouchers) ? v.vouchers : (v.vouchers ? [v.vouchers] : [])
+      if (voucherArr.length > 0) return voucherArr[0].codigo
+    }
+    return null
   }
 
 
@@ -191,6 +201,21 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
                       </>
                     )}
 
+                    {isGanada && (() => {
+                      const vCodigo = getVoucherCodigo(quote)
+                      return vCodigo ? (
+                        <a
+                          href={`/v/${vCodigo}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2 text-primary hover:bg-primary/10 rounded-lg border border-primary/10 transition-all"
+                          title="Ver Voucher (QR)"
+                        >
+                          <QrCode size={18} />
+                        </a>
+                      ) : null
+                    })()}
+
                     <Link href={`/dashboard/cotizaciones/editar/${quote.id}`} className="p-2 text-gray-400 hover:text-primary rounded-lg" title="Editar"><Edit size={18} /></Link>
                     {isAdmin && (
                       <button onClick={() => handleDelete(quote.id)} className="p-2 text-gray-300 hover:text-danger rounded-lg transition-colors">
@@ -268,7 +293,7 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
             </div>
 
             <div className="p-4 sm:p-8 bg-gray-50 flex gap-2 sm:gap-3 shrink-0 border-t border-gray-100">
-              {(viewingQuote.estado || '').trim().toLowerCase() !== 'ganada' && (
+              {(viewingQuote.estado || '').trim().toLowerCase() !== 'ganada' ? (
                 <button 
                   onClick={() => {
                     const q = {...viewingQuote}
@@ -281,7 +306,19 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
                 >
                   <CheckCircle2 size={18} className="shrink-0" /> <span className="truncate">Aprobar Venta</span>
                 </button>
-              )}
+              ) : (() => {
+                const vCodigo = getVoucherCodigo(viewingQuote)
+                return vCodigo ? (
+                  <a
+                    href={`/v/${vCodigo}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 bg-primary text-white py-3 sm:py-4 rounded-2xl font-black text-xs sm:text-sm shadow-lg shadow-primary/20 flex items-center justify-center gap-1.5 sm:gap-2"
+                  >
+                    <QrCode size={18} className="shrink-0" /> <span className="truncate">Abrir Voucher</span>
+                  </a>
+                ) : null
+              })()}
               <button onClick={() => setViewingQuote(null)} className="flex-1 py-3 sm:py-4 text-xs sm:text-sm font-bold text-gray-400 hover:text-gray-600 transition-colors text-center truncate">Cerrar Expediente</button>
             </div>
           </div>
