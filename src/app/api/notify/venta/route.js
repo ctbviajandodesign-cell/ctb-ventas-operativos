@@ -45,7 +45,7 @@ export async function POST(req) {
       `<code>${progressBar(pct)}</code>`,
     ].join('\n')
 
-    await notifyAll(ciudad, ventaText)
+    const tgRes = await notifyAll(ciudad, ventaText)
 
     // ── 2. Mensajes de hito de meta ────────────────────────────
     const cruzó100  = pctAnterior < 100 && pct >= 100
@@ -137,7 +137,7 @@ export async function POST(req) {
       await notifyAll(ciudad, motivMsg)
     }
 
-    return Response.json({ ok: true })
+    return Response.json({ ok: true, telegram_debug: tgRes })
   } catch (err) {
     console.error('notify/venta error:', err)
     return Response.json({ ok: false, error: err.message }, { status: 500 })
