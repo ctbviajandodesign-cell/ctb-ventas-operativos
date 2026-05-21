@@ -86,11 +86,26 @@ export default function VentasPage() {
   }, [ventas])
 
   const handleAnular = async (venta) => {
-    if (!confirm('¿Seguro que deseas ANULAR esta venta? El voucher asociado quedará inactivo.')) return
+    const motivo = window.prompt('¿Seguro que deseas ANULAR esta venta? Ingresa el MOTIVO de la anulación (Ej: Cliente canceló viaje, error de precio, etc):')
+    if (motivo === null) return // User pressed Cancel
+    if (motivo.trim() === '') {
+      showToast('Debes ingresar un motivo para anular la venta.', 'error')
+      return
+    }
+
     try {
+      // 1. Anular la Venta
       await supabase.from('ventas').update({ estado: 'anulada' }).eq('id', venta.id)
+      
+      // 2. Inactivar el Voucher
       await supabase.from('vouchers').update({ estado: 'inactivo' }).eq('venta_id', venta.id)
-      await supabase.from('cotizaciones').update({ estado: 'en_seguimiento' }).eq('id', venta.cotizacion_id)
+      
+      // 3. Actualizar la Cotización base a 'anulada' con el motivo
+      await supabase.from('cotizaciones').update({ 
+        estado: 'anulada',
+        motivo_perdida: motivo.trim()
+      }).eq('id', venta.cotizacion_id)
+      
       showToast('Venta anulada con éxito')
       fetchVentas()
     } catch (error) {
