@@ -15,10 +15,6 @@
     {
       "path": "/api/notify/monthly",
       "schedule": "0 1 28-31 * *"
-    },
-    {
-      "path": "/api/notify/vouchers",
-      "schedule": "0 12 * * *"
     }
   ]
 }

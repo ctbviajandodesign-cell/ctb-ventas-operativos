@@ -120,6 +120,26 @@ export default function VouchersPage() {
     return matchSearch && matchCity
   })
 
+  // Calcular Recordatorios Activos
+  const getActiveReminders = () => {
+    if (!vouchers.length) return []
+    const today = new Date()
+    today.setHours(0,0,0,0)
+
+    return vouchers.filter(v => {
+      if (v.estado !== 'activo' || !v.fecha_viaje_desde || !v.recordatorio_dias_antes) return false
+      
+      const fechaViaje = new Date(v.fecha_viaje_desde + 'T00:00:00')
+      const fechaRecordatorio = new Date(fechaViaje)
+      fechaRecordatorio.setDate(fechaViaje.getDate() - v.recordatorio_dias_antes)
+      
+      // Mostrar si hoy es mayor o igual al día del recordatorio, Y el viaje aún no ha pasado
+      return today >= fechaRecordatorio && today <= fechaViaje
+    })
+  }
+
+  const activeReminders = getActiveReminders()
+
   const handleExportVouchers = () => {
     if (filtered.length === 0) {
       alert('No hay datos para exportar.')
@@ -194,6 +214,38 @@ export default function VouchersPage() {
           </button>
         </div>
       </div>
+
+      {activeReminders.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 sm:p-6 shadow-sm mb-6 animate-in fade-in slide-in-from-top-4">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="bg-amber-100 p-2 rounded-xl text-amber-600">
+              <Clock size={20} />
+            </div>
+            <h2 className="text-lg font-black text-amber-900 tracking-tight">Recordatorios Activos ({activeReminders.length})</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {activeReminders.map(r => (
+              <div key={`rem-${r.id}`} className="bg-white p-4 rounded-xl border border-amber-100 shadow-sm flex flex-col gap-2 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1 h-full bg-amber-400"></div>
+                <div className="flex justify-between items-start">
+                  <p className="text-xs font-black uppercase tracking-widest text-amber-700">{r.codigo}</p>
+                  <p className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">{r.fecha_viaje_desde}</p>
+                </div>
+                <p className="text-sm font-bold text-gray-800 break-words">{r.recordatorio_texto}</p>
+                <div className="mt-1 flex items-center justify-between">
+                  <p className="text-xs text-gray-500 font-medium">{r.agencia || 'Directo'} - {r.destino}</p>
+                  <button 
+                    onClick={() => setViewingVoucher(r)}
+                    className="text-[10px] font-black uppercase bg-gray-50 hover:bg-gray-100 px-3 py-1.5 rounded-lg text-gray-600 transition-colors"
+                  >
+                    Ver detalle
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="card overflow-hidden border-t-4 border-t-success">
         <div className="overflow-x-auto">
