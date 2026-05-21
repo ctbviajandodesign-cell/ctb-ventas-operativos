@@ -169,7 +169,10 @@ export default function SalesModal() {
               destino: quote.destino || 'N/A',
               agencia: quote.agencia || 'Directo',
               valorTotal: Number(formData.total) || 0,
-              metaPct
+              metaPct,
+              meta,
+              aporteVenta: Number(formData.comision || 0) + Number(formData.utilidad || 0),
+              operativoId: user.id
             })
           }).catch(err => console.warn('Telegram notify skipped:', err))
         } catch (notifyErr) {
