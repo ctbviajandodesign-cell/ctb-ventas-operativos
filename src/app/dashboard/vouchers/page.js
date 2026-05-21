@@ -108,7 +108,7 @@ export default function VouchersPage() {
       downloadLink.href = `${pngFile}`
       downloadLink.click()
     }
-    img.src = "data:image/svg+xml;base64," + btoa(svgData)
+    img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)))
   }
 
   const getQrBase64 = (id) => {
@@ -128,7 +128,7 @@ export default function VouchersPage() {
         resolve(canvas.toDataURL("image/png"))
       }
       img.onerror = () => resolve(null)
-      img.src = "data:image/svg+xml;base64," + btoa(svgData)
+      img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)))
     })
   }
 
@@ -328,14 +328,21 @@ export default function VouchersPage() {
                         <Edit size={18} />
                       </button>
                       <button 
-                        onClick={() => generateVoucherPDF(voucher)}
+                        onClick={async (e) => {
+                          e.stopPropagation()
+                          const qrBase64 = await getQrBase64(voucher.codigo)
+                          generateVoucherPDF(voucher, qrBase64)
+                        }}
                         className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
                         title="Descargar PDF Profesional"
                       >
                         <FileDown size={18} />
                       </button>
                       <button 
-                        onClick={() => downloadQR(voucher.codigo)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          downloadQR(voucher.codigo)
+                        }}
                         className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
                         title="Descargar PNG (Solo QR)"
                       >
@@ -376,6 +383,7 @@ export default function VouchersPage() {
             <div className="bg-gray-900 p-6 sm:p-8 text-center text-white space-y-3 sm:space-y-4 shrink-0">
               <div className="inline-block bg-white p-3 sm:p-4 rounded-2xl shadow-xl">
                 <QRCodeSVG 
+                  id={`popup-${viewingVoucher.codigo}`}
                   value={`${baseUrl}/v/${viewingVoucher.codigo}`}
                   size={120}
                   level="H"
@@ -476,7 +484,8 @@ export default function VouchersPage() {
             <div className="p-4 sm:p-8 bg-gray-50 flex flex-col gap-2 shrink-0 border-t border-gray-100">
               <button 
                 onClick={async () => {
-                  const qrBase64 = await getQrBase64(viewingVoucher.codigo)
+                  let qrBase64 = await getQrBase64(`popup-${viewingVoucher.codigo}`)
+                  if (!qrBase64) qrBase64 = await getQrBase64(viewingVoucher.codigo)
                   generateVoucherPDF(viewingVoucher, qrBase64)
                 }}
                 className="btn-primary py-3 sm:py-4 flex items-center justify-center gap-2 text-xs sm:text-sm"
@@ -484,7 +493,10 @@ export default function VouchersPage() {
                 <FileDown size={18} /> Descargar PDF Oficial
               </button>
               <button 
-                onClick={() => downloadQR(viewingVoucher.codigo)}
+                onClick={() => {
+                  const el = document.getElementById(`popup-${viewingVoucher.codigo}`)
+                  downloadQR(el ? `popup-${viewingVoucher.codigo}` : viewingVoucher.codigo)
+                }}
                 className="py-2.5 sm:py-3 text-[10px] sm:text-xs font-black text-primary uppercase tracking-widest hover:bg-primary/5 rounded-2xl transition-all text-center"
               >
                 Descargar Solo Código QR (PNG)
