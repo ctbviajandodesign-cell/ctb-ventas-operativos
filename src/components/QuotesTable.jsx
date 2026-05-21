@@ -34,8 +34,18 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
   const getStatusBadge = (quote) => {
     const status = (quote.estado || '').toString().trim().toLowerCase()
     if (status === 'ganada') return <span className="bg-success text-white px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-widest">VENDIDA</span>
-    if (status === 'perdida') return <span className="badge-danger text-xs font-black">CANCELADA</span>
-    if (status === 'anulada') return <span className="bg-gray-100 text-gray-500 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-widest">ANULADA</span>
+    if (status === 'perdida' || status === 'anulada') {
+      return (
+        <div className="flex flex-col items-start gap-1">
+          <span className="badge-danger text-xs font-black">CANCELADA</span>
+          {quote.motivo_perdida && (
+            <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded-lg max-w-[150px] truncate" title={quote.motivo_perdida}>
+              Motivo: {quote.motivo_perdida}
+            </span>
+          )}
+        </div>
+      )
+    }
     
     // Check if more than 24 hours have passed since quote creation
     const hours = (new Date() - new Date(quote.created_at)) / (1000 * 60 * 60)

@@ -24,6 +24,7 @@ export default function VentasPage() {
   const [selectedVenta, setSelectedVenta] = useState(null)
   const [selectedVoucher, setSelectedVoucher] = useState(null)
   const [voucherLoading, setVoucherLoading] = useState(false)
+  const [annulVentaModal, setAnnulVentaModal] = useState(null) // { venta, motivo }
 
   useEffect(() => {
     if (!sessionLoading && user) {
@@ -85,14 +86,17 @@ export default function VentasPage() {
       }))
   }, [ventas])
 
-  const handleAnular = async (venta) => {
-    const motivo = window.prompt('¿Seguro que deseas ANULAR esta venta? Ingresa el MOTIVO de la anulación (Ej: Cliente canceló viaje, error de precio, etc):')
-    if (motivo === null) return // User pressed Cancel
-    if (motivo.trim() === '') {
+  const promptAnular = (venta) => {
+    setAnnulVentaModal({ venta, motivo: '' })
+  }
+
+  const confirmAnular = async () => {
+    if (!annulVentaModal.motivo.trim()) {
       showToast('Debes ingresar un motivo para anular la venta.', 'error')
       return
     }
 
+    const { venta, motivo } = annulVentaModal
     try {
       // 1. Anular la Venta
       await supabase.from('ventas').update({ estado: 'anulada' }).eq('id', venta.id)
@@ -107,6 +111,7 @@ export default function VentasPage() {
       }).eq('id', venta.cotizacion_id)
       
       showToast('Venta anulada con éxito')
+      setAnnulVentaModal(null)
       fetchVentas()
     } catch (error) {
       showToast(error.message, 'error')
@@ -444,7 +449,7 @@ export default function VentasPage() {
                             <Edit size={18} />
                           </button>
                           <button
-                            onClick={() => handleAnular(venta)}
+                            onClick={() => promptAnular(venta)}
                             className="p-2 text-amber-500 hover:bg-amber-50 rounded-xl transition-colors"
                             title="Anular Venta"
                           >
@@ -622,6 +627,51 @@ export default function VentasPage() {
                   <Edit size={16} /> Editar Plan de Pagos
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL ANULAR VENTA */}
+      {annulVentaModal && (
+        <div className="fixed inset-0 bg-black/60 z-[110] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2rem] max-w-md w-full overflow-hidden shadow-2xl p-8 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-red-50 p-3 rounded-full text-danger"><AlertTriangle size={24} /></div>
+              <h3 className="text-xl font-black text-gray-900 tracking-tighter uppercase">Anular Venta</h3>
+            </div>
+            
+            <p className="text-sm text-gray-500 mb-6 font-bold">
+              Estás a punto de anular la venta <span className="text-gray-900">#{annulVentaModal.venta.cotizaciones?.codigo}</span>.
+              Esta acción desactivará el voucher asociado y notificará la cancelación en el historial general de la empresa.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-black text-gray-400 uppercase tracking-widest block mb-2">Motivo de la cancelación</label>
+                <textarea 
+                  className="w-full bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm font-bold text-gray-800 focus:ring-2 focus:ring-danger/20 outline-none resize-none min-h-[100px]"
+                  placeholder="Ej: Cliente canceló el viaje, error en cotización, falta de pago..."
+                  value={annulVentaModal.motivo}
+                  onChange={(e) => setAnnulVentaModal({...annulVentaModal, motivo: e.target.value})}
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button 
+                  onClick={() => setAnnulVentaModal(null)}
+                  className="px-6 py-3 rounded-xl text-xs font-black text-gray-400 hover:text-gray-600 uppercase tracking-widest transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={confirmAnular}
+                  className="bg-danger hover:bg-red-600 text-white px-6 py-3 rounded-xl text-sm font-black uppercase tracking-widest transition-colors shadow-lg shadow-danger/20"
+                >
+                  Confirmar Anulación
+                </button>
+              </div>
             </div>
           </div>
         </div>
