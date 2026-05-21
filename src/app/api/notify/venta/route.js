@@ -3,6 +3,7 @@
  * Se llama cuando se registra una venta nueva.
  * Body: { operativo, ciudad, destino, agencia, valorTotal, metaPct }
  */
+export const dynamic = 'force-dynamic'
 import { notifyAll, formatMoney, progressBar } from '@/lib/telegram'
 
 export async function POST(req) {

@@ -14,7 +14,7 @@
     },
     {
       "path": "/api/notify/monthly",
-      "schedule": "0 1 L * *"
+      "schedule": "0 1 28-31 * *"
     }
   ]
 }
