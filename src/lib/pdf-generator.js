@@ -1,8 +1,8 @@
-import jsPDF from 'jspdf'
+import { jsPDF } from 'jspdf'
 import 'jspdf-autotable'
 
 export const generateVoucherPDF = (voucher) => {
-  const doc = jsPDF({
+  const doc = new jsPDF({
     orientation: 'p',
     unit: 'mm',
     format: 'a4'

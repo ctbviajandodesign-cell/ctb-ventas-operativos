@@ -118,11 +118,7 @@ export default function VentasPage() {
     }
   }
 
-  const handleDelete = async (id) => {
-    if (!confirm('ELIMINACIÓN TOTAL: ¿Estás seguro? Esta acción no se puede deshacer.')) return
-    const { error } = await supabase.from('ventas').delete().eq('id', id)
-    if (!error) fetchVentas()
-  }
+
 
   const handleExportVentas = () => {
     if (filtered.length === 0) {
@@ -456,15 +452,6 @@ export default function VentasPage() {
                             <XCircle size={18} />
                           </button>
                         </>
-                      )}
-                      {profile?.rol === 'admin' && (
-                        <button
-                          onClick={() => handleDelete(venta.id)}
-                          className="p-2 text-danger hover:bg-red-50 rounded-xl transition-colors"
-                          title="Eliminar"
-                        >
-                          <Trash2 size={18} />
-                        </button>
                       )}
                     </div>
                   </td>
