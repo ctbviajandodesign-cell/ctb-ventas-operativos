@@ -65,11 +65,24 @@ export async function GET(req) {
       aporteMap[v.operativo_id] += Number(v.comision || 0) + Number(v.utilidad || 0)
     }
 
+    // Fecha corta para mensajes de ciudad
+    const dayStr = now.toLocaleDateString('es-EC', { day: 'numeric', month: 'short' })
+
     if (!ventasHoy || ventasHoy.length === 0) {
-      // Sin ventas hoy → solo aviso admin
-      await notifyAdmin(
-        `🌙 <b>Resumen Diario CTB</b>\n<i>${diaHoy}</i>\n\n❌ Sin ventas registradas hoy.\n\n💪 ¡Mañana será mejor!`
-      )
+      // Sin ventas en ninguna ciudad → mensaje a cada grupo + aviso admin
+      const allCities = [...new Set((allOps || []).map(op => (op.ciudad || 'otra').toLowerCase()))]
+      for (const ciudad of allCities) {
+        const opsInCity = (allOps || []).filter(op => (op.ciudad || 'otra').toLowerCase() === ciudad)
+        const cityAporte = opsInCity.reduce((a, op) => a + (aporteMap[op.id] || 0), 0)
+        const cityMeta = opsInCity.reduce((a, op) => a + Number(op.meta_mensual || 5000), 0)
+        const cityPct = cityMeta > 0 ? (cityAporte / cityMeta) * 100 : 0
+        await notifyCity(ciudad, [
+          `🌙 <b>${ciudad.toUpperCase()} — ${dayStr}</b>`,
+          `Sin ventas hoy. Mañana es otra oportunidad. 💪`,
+          `Meta del mes: <code>${progressBar(cityPct)}</code> ${cityPct.toFixed(1)}%`
+        ].join('\n'))
+      }
+      await notifyAdmin(`🌙 <b>Resumen Diario CTB</b>\n<i>${diaHoy}</i>\n\n❌ Sin ventas registradas hoy en ninguna ciudad.\n\n💪 ¡Mañana será mejor!`)
       return Response.json({ ok: true, ventas: 0 })
     }
 
@@ -99,28 +112,23 @@ export async function GET(req) {
       globalHoyUtilidad += utilidad
     }
 
-    // Mensajes por ciudad (solo grupos con ventas hoy)
-    for (const [ciudad, data] of Object.entries(porCiudad)) {
-      const sorted = Object.entries(data.ops).sort((a, b) => b[1].ventas - a[1].ventas)
-      const lines = [
-        `🌙 <b>Resumen del Día — ${ciudad.toUpperCase()}</b>`,
-        `<i>${diaHoy}</i>`,
-        ``
-      ]
-      sorted.forEach(([nombre, d], i) => {
-        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '▪️'
-        // Calcular % meta del mes para este operativo
-        const op = allOps?.find(o => o.id === d.id)
-        const meta = Number(op?.meta_mensual || 5000)
-        const acumMes = aporteMap[d.id] || 0
-        const pct = meta > 0 ? (acumMes / meta) * 100 : 0
-        lines.push(`${medal} <b>${nombre}</b>: ${d.count} venta${d.count > 1 ? 's' : ''} · ${formatMoney(d.ventas)}`)
-        lines.push(`   Meta del mes: <code>${progressBar(pct)}</code> ${pct.toFixed(1)}%`)
-      })
-      lines.push(``)
-      lines.push(`📦 Total hoy ${ciudad.toUpperCase()}: <b>${formatMoney(data.totalVentas)}</b>`)
-      await notifyCity(ciudad, lines.join('\n'))
+    // Ciudades SIN ventas hoy → mensaje motivacional a esos grupos
+    const allCities = [...new Set((allOps || []).map(op => (op.ciudad || 'otra').toLowerCase()))]
+    const citiesWithSales = new Set(Object.keys(porCiudad))
+    const citiesWithoutSales = allCities.filter(c => !citiesWithSales.has(c))
+
+    for (const ciudad of citiesWithoutSales) {
+      const opsInCity = (allOps || []).filter(op => (op.ciudad || 'otra').toLowerCase() === ciudad)
+      const cityAporte = opsInCity.reduce((a, op) => a + (aporteMap[op.id] || 0), 0)
+      const cityMeta = opsInCity.reduce((a, op) => a + Number(op.meta_mensual || 5000), 0)
+      const cityPct = cityMeta > 0 ? (cityAporte / cityMeta) * 100 : 0
+      await notifyCity(ciudad, [
+        `🌙 <b>${ciudad.toUpperCase()} — ${dayStr}</b>`,
+        `Sin ventas hoy. Mañana es otra oportunidad. 💪`,
+        `Meta del mes: <code>${progressBar(cityPct)}</code> ${cityPct.toFixed(1)}%`
+      ].join('\n'))
     }
+    // Resumen diario detallado → solo admin
 
     // Detectar operativos sin ventas en los últimos 3 días
     const inactivos = (allOps || []).filter(op => !opsActivos3dias.has(op.id))

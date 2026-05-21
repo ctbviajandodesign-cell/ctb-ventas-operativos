@@ -61,23 +61,7 @@ export async function GET(req) {
 
     const semana = `${monday.toLocaleDateString('es-EC', { day: 'numeric', month: 'short' })} – ${now.toLocaleDateString('es-EC', { day: 'numeric', month: 'short' })}`
 
-    // Mensaje por ciudad
-    for (const [ciudad, data] of Object.entries(porCiudad)) {
-      const sorted = Object.entries(data.ops).sort((a, b) => b[1].total - a[1].total)
-      const lines = [
-        `📅 <b>RESUMEN SEMANAL — ${ciudad.toUpperCase()}</b>`,
-        `<i>Semana del ${semana}</i>`,
-        ``
-      ]
-      sorted.forEach(([nombre, d], i) => {
-        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '▪️'
-        lines.push(`${medal} <b>${nombre}</b>`)
-        lines.push(`   ${d.count} venta${d.count > 1 ? 's' : ''} · ${formatMoney(d.total)} · Aporte: ${formatMoney(d.aporte)}`)
-      })
-      lines.push(``)
-      lines.push(`🏁 Total semana: <b>${formatMoney(data.total)}</b>`)
-      await notifyCity(ciudad, lines.join('\n'))
-    }
+    // Resumen semanal → solo admin (los grupos solo reciben venta inmediata y morning)
 
     // Resumen admin global
     const adminLines = [

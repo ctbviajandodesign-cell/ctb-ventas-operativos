@@ -159,7 +159,7 @@ export async function GET(req) {
         })
       }
 
-      await notifyCity(ciudad, lines.join('\n'))
+      // Cierre mensual detallado → solo admin, no se envía a grupos de ciudad
     }
 
     // --- Informe admin global completo ---
