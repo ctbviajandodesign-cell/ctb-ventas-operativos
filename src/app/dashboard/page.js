@@ -26,7 +26,8 @@ import {
   Download,
   AlertTriangle,
   RefreshCw,
-  Sparkles
+  Sparkles,
+  MapPin
 } from 'lucide-react'
 
 import { 
@@ -748,6 +749,72 @@ export default function DashboardPage() {
             </div>
             <QuotesTable quotes={quotes} isAdmin={isAdmin} onUpdate={fetchDashboardData} />
           </div>
+
+          {/* WIDGET COMPACTO: TOP DESTINOS MES ACTUAL */}
+          {(() => {
+            // Destinos más vendidos (de quotes ganadas)
+            const soldMap = {}
+            quotes.filter(q => q.estado === 'ganada').forEach(q => {
+              if (q.destino) soldMap[q.destino] = (soldMap[q.destino] || 0) + 1
+            })
+            const topSold = Object.entries(soldMap).sort((a,b) => b[1]-a[1]).slice(0,4)
+
+            // Destinos con más objeciones (de lostQuotes)
+            const objMap = {}
+            lostQuotes.forEach(q => {
+              if (q.destino) objMap[q.destino] = (objMap[q.destino] || 0) + 1
+            })
+            const topObj = Object.entries(objMap).sort((a,b) => b[1]-a[1]).slice(0,4)
+
+            if (topSold.length === 0 && topObj.length === 0) return null
+
+            return (
+              <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-gray-50">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="font-black text-xl uppercase tracking-tighter flex items-center gap-3 text-gray-800">
+                    <MapPin size={20} className="text-primary" /> Radar de Destinos
+                  </h3>
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-3 py-1.5 rounded-full">Mes Actual</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Más Vendidos */}
+                  <div>
+                    <p className="text-[10px] font-black text-success uppercase tracking-widest mb-3 flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-success inline-block"></span> Más Vendidos
+                    </p>
+                    <div className="space-y-2">
+                      {topSold.length > 0 ? topSold.map(([destino, count], i) => (
+                        <div key={destino} className="flex items-center justify-between bg-success/5 px-4 py-2.5 rounded-2xl border border-success/10">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black text-gray-400">#{i+1}</span>
+                            <span className="text-xs font-black text-gray-800 uppercase tracking-tight">{destino}</span>
+                          </div>
+                          <span className="text-xs font-black text-success">{count} cierre{count > 1 ? 's' : ''}</span>
+                        </div>
+                      )) : <p className="text-xs text-gray-400 italic">Sin cierres aún</p>}
+                    </div>
+                  </div>
+                  {/* Más Objeciones */}
+                  <div>
+                    <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-3 flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-amber-500 inline-block"></span> Con Más Objeciones
+                    </p>
+                    <div className="space-y-2">
+                      {topObj.length > 0 ? topObj.map(([destino, count], i) => (
+                        <div key={destino} className="flex items-center justify-between bg-amber-50 px-4 py-2.5 rounded-2xl border border-amber-100">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black text-gray-400">#{i+1}</span>
+                            <span className="text-xs font-black text-gray-800 uppercase tracking-tight">{destino}</span>
+                          </div>
+                          <span className="text-xs font-black text-amber-600">{count} pérdida{count > 1 ? 's' : ''}</span>
+                        </div>
+                      )) : <p className="text-xs text-gray-400 italic">Sin objeciones registradas</p>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
 
           {/* MÓDULO INTELIGENTE DE ANÁLISIS DE VENTAS NO CONCRETADAS (PÉRDIDAS) */}
           <div className="bg-white p-10 rounded-[3rem] shadow-sm border border-gray-50 space-y-6 animate-in fade-in duration-500">

@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useUserSession } from '@/hooks/useUserSession'
 import { 
   TrendingUp, Search, XCircle, Trash2, Edit, DollarSign,
-  CheckCircle2, BarChart3, QrCode, ExternalLink, AlertCircle
+  CheckCircle2, BarChart3, QrCode, ExternalLink, AlertCircle, Download
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -102,6 +102,39 @@ export default function VentasPage() {
     if (!confirm('ELIMINACIÓN TOTAL: ¿Estás seguro? Esta acción no se puede deshacer.')) return
     const { error } = await supabase.from('ventas').delete().eq('id', id)
     if (!error) fetchVentas()
+  }
+
+  const handleExportVentas = () => {
+    if (filtered.length === 0) {
+      showToast('No hay datos para exportar.', 'error')
+      return
+    }
+    const headers = ['ID,Codigo,Agencia,Destino,Valor Total,Comision,Utilidad,Aporte,Pasajeros,Operativo,Comercial,Estado,Fecha']
+    const rows = filtered.map(v => {
+      const id = v.id
+      const codigo = v.cotizaciones?.codigo || 'N/A'
+      const agencia = (v.cotizaciones?.agencia || 'Directo').replace(/,/g, ';')
+      const destino = (v.cotizaciones?.destino || '').replace(/,/g, ';')
+      const total = v.total || 0
+      const comision = v.comision || 0
+      const utilidad = v.utilidad || 0
+      const aporte = (Number(v.comision) || 0) + (Number(v.utilidad) || 0)
+      const pasajeros = (v.cotizaciones?.nombres_pasajeros || '').replace(/,/g, ';').replace(/\n/g, ' ')
+      const operativo = v.profiles?.nombre || 'N/A'
+      const comercial = v.cotizaciones?.comercial || 'N/A'
+      const estado = v.estado || 'activa'
+      const fecha = new Date(v.created_at).toLocaleDateString()
+      return `${id},${codigo},${agencia},${destino},${total},${comision},${utilidad},${aporte},${pasajeros},${operativo},${comercial},${estado},${fecha}`
+    })
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join("\n")
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement("a")
+    link.setAttribute("href", encodedUri)
+    link.setAttribute("download", `Reporte_Ventas_CTB_${new Date().toISOString().split('T')[0]}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
   const filtered = useMemo(() => {
@@ -250,32 +283,41 @@ export default function VentasPage() {
             </button>
           ))}
         </div>
-        {/* Filtro por ciudad (solo admin) */}
-        {isAdmin && (
-          <div className="relative w-full md:w-48">
-            <select
-              className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 text-sm font-black text-gray-800 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
-              value={selectedCity}
-              onChange={e => setSelectedCity(e.target.value)}
-            >
-              <option value="todas">Todas las Ciudades</option>
-              <option value="Quito">Quito</option>
-              <option value="Guayaquil">Guayaquil</option>
-              <option value="Cuenca">Cuenca</option>
-              <option value="Manta">Manta</option>
-              <option value="Loja">Loja</option>
-            </select>
-          </div>
-        )}
+        <div className="flex flex-col md:flex-row gap-2 items-center w-full md:w-auto">
+          {/* Filtro por ciudad (solo admin) */}
+          {isAdmin && (
+            <div className="relative w-full md:w-44">
+              <select
+                className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 text-xs font-black text-gray-800 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer uppercase tracking-wider"
+                value={selectedCity}
+                onChange={e => setSelectedCity(e.target.value)}
+              >
+                <option value="todas">Todas las Ciudades</option>
+                <option value="Quito">Quito</option>
+                <option value="Guayaquil">Guayaquil</option>
+                <option value="Cuenca">Cuenca</option>
+                <option value="Manta">Manta</option>
+                <option value="Loja">Loja</option>
+              </select>
+            </div>
+          )}
 
-        <div className="relative w-full md:w-72">
-          <Search className="absolute left-4 top-3 text-gray-300" size={16} />
-          <input
-            className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-10 pr-4 py-3 text-sm font-bold text-gray-800 outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-gray-300"
-            placeholder="Buscar código, agencia, comercial u op..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+          <div className="relative w-full md:w-64">
+            <Search className="absolute left-4 top-3.5 text-gray-300" size={14} />
+            <input
+              className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-10 pr-4 py-3 text-xs font-bold text-gray-800 outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-gray-300"
+              placeholder="Buscar..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+
+          <button
+            onClick={handleExportVentas}
+            className="w-full md:w-auto bg-gray-900 hover:bg-gray-800 text-white text-xs font-black uppercase tracking-widest px-5 py-3 rounded-2xl flex items-center justify-center gap-2 hover:scale-102 transition-all shadow-md shrink-0 animate-in fade-in duration-300"
+          >
+            <Download size={14} /> Exportar XLS
+          </button>
         </div>
       </div>
 

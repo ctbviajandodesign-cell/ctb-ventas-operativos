@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useUserSession } from '@/hooks/useUserSession'
-import { Sparkles, Trophy, RefreshCw, AlertCircle, CheckCircle, TrendingUp } from 'lucide-react'
+import { Sparkles, Trophy, RefreshCw, AlertCircle, CheckCircle, TrendingUp, Download } from 'lucide-react'
 import AIInsightCard from '@/components/AIInsightCard'
 
 export default function AnalisisPage() {
@@ -175,6 +175,30 @@ export default function AnalisisPage() {
 
   const modoIA = profile?.rol === 'admin' ? (selectedOp === 'global' ? 'GLOBAL_ADMIN' : 'INDIVIDUAL_ADMIN') : 'OPERATIVE'
 
+  const exportCSV = (filename, headers, rows) => {
+    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join("\n")
+    const link = document.createElement("a")
+    link.setAttribute("href", encodeURI(csvContent))
+    link.setAttribute("download", `${filename}_${new Date().toISOString().split('T')[0]}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const handleExportVendidos = () => {
+    if (rankingVendidos.length === 0) return
+    const headers = 'Ranking,Destino,Proformas Ganadas,Valor Total ($)'
+    const rows = rankingVendidos.map((item, i) => `${i+1},${item.destino},${item.count},${item.valor}`)
+    exportCSV('Ranking_Destinos_Vendidos_CTB', headers, rows)
+  }
+
+  const handleExportObjeciones = () => {
+    if (rankingObjeciones.length === 0) return
+    const headers = 'Ranking,Destino,Proformas Perdidas,Objecion Principal'
+    const rows = rankingObjeciones.map((item, i) => `${i+1},${item.destino},${item.count},"${item.mainObjection}"`)
+    exportCSV('Ranking_Objeciones_Destinos_CTB', headers, rows)
+  }
+
   return (
     <div className="space-y-10 animate-in fade-in duration-700 pb-20 max-w-6xl mx-auto">
       {/* Header */}
@@ -330,10 +354,15 @@ export default function AnalisisPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Destinos Más Vendidos */}
             <div className="bg-white p-8 rounded-[3.5rem] shadow-sm border border-gray-100">
-              <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight mb-6 flex items-center gap-2">
-                <span className="w-8 h-8 rounded-xl bg-success/15 text-success flex items-center justify-center text-sm font-bold">✓</span>
-                Destinos Más Vendidos B2B ({timeframe === 'mes' ? 'Mes' : 'Año'})
-              </h3>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-xl bg-success/15 text-success flex items-center justify-center text-sm font-bold">✓</span>
+                  Destinos Más Vendidos B2B ({timeframe === 'mes' ? 'Mes' : 'Año'})
+                </h3>
+                <button onClick={handleExportVendidos} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest bg-gray-900 hover:bg-primary text-white px-3 py-2 rounded-xl transition-all shadow-sm">
+                  <Download size={12} /> XLS
+                </button>
+              </div>
               {rankingVendidos.length > 0 ? (
                 <div className="space-y-4">
                   {rankingVendidos.slice(0, 5).map((item, idx) => (
@@ -358,10 +387,15 @@ export default function AnalisisPage() {
 
             {/* Destinos con más Objeciones */}
             <div className="bg-white p-8 rounded-[3.5rem] shadow-sm border border-gray-100">
-              <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight mb-6 flex items-center gap-2">
-                <span className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-600 flex items-center justify-center text-sm font-bold">✕</span>
-                Destinos con más Objeciones B2B ({timeframe === 'mes' ? 'Mes' : 'Año'})
-              </h3>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-600 flex items-center justify-center text-sm font-bold">✕</span>
+                  Destinos con más Objeciones B2B ({timeframe === 'mes' ? 'Mes' : 'Año'})
+                </h3>
+                <button onClick={handleExportObjeciones} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest bg-gray-900 hover:bg-amber-600 text-white px-3 py-2 rounded-xl transition-all shadow-sm">
+                  <Download size={12} /> XLS
+                </button>
+              </div>
               {rankingObjeciones.length > 0 ? (
                 <div className="space-y-4">
                   {rankingObjeciones.slice(0, 5).map((item, idx) => (

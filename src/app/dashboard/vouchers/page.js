@@ -118,6 +118,36 @@ export default function VouchersPage() {
     return matchSearch && matchCity
   })
 
+  const handleExportVouchers = () => {
+    if (filtered.length === 0) {
+      alert('No hay datos para exportar.')
+      return
+    }
+    const headers = ['Codigo,Agencia,Destino,Pasajeros,Desde,Hasta,Estado,Operativo,Comercial,Notas']
+    const rows = filtered.map(v => {
+      const codigo = v.codigo || ''
+      const agencia = (v.agencia || 'Directo').replace(/,/g, ';')
+      const destino = (v.destino || '').replace(/,/g, ';')
+      const pasajeros = (Array.isArray(v.pasajeros) ? v.pasajeros.join('; ') : '').replace(/,/g, ';')
+      const desde = v.fecha_viaje_desde || ''
+      const hasta = v.fecha_viaje_hasta || ''
+      const estado = v.estado || 'activo'
+      const operativo = v.profiles?.nombre || 'N/A'
+      const comercial = v.ventas?.cotizaciones?.comercial || 'N/A'
+      const notas = (v.notas || '').replace(/,/g, ';').replace(/\n/g, ' ')
+      return `${codigo},${agencia},${destino},${pasajeros},${desde},${hasta},${estado},${operativo},${comercial},${notas}`
+    })
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join("\n")
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement("a")
+    link.setAttribute("href", encodedUri)
+    link.setAttribute("download", `Reporte_Vouchers_CTB_${new Date().toISOString().split('T')[0]}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   if (loading) return <div className="p-8 text-center text-gray-400 font-medium animate-pulse">Cargando archivo de vouchers...</div>
 
   return (
@@ -148,11 +178,18 @@ export default function VouchersPage() {
             <Search className="absolute left-3 top-3 text-gray-400" size={18} />
             <input 
               className="input pl-10" 
-              placeholder="Buscar código, agencia, comercial u op..." 
+              placeholder="Buscar..." 
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
           </div>
+
+          <button
+            onClick={handleExportVouchers}
+            className="bg-gray-900 hover:bg-gray-800 text-white text-xs font-black uppercase tracking-widest px-5 py-3 rounded-2xl flex items-center gap-2 hover:scale-102 transition-all shadow-md shrink-0"
+          >
+            <Download size={14} /> Exportar XLS
+          </button>
         </div>
       </div>
 
