@@ -40,21 +40,20 @@ export async function sendTelegram(chatId, text) {
 }
 
 /**
- * Resuelve los chat IDs a notificar según la ciudad del operativo
- * Siempre incluye Admin. También incluye el grupo de la ciudad si aplica.
+ * Resuelve los chat IDs a notificar según la ciudad del operativo.
+ * Solo incluye el grupo de la ciudad (no admin).
  */
 export function getChatIds(ciudad = '') {
   const key = ciudad.trim().toLowerCase()
   const map = getChatMap()
   const cityChat = map[key] || null
-  const CHAT_ADMIN = process.env.TELEGRAM_CHAT_ADMIN
-  const ids = [CHAT_ADMIN]
-  if (cityChat && cityChat !== CHAT_ADMIN) ids.push(cityChat)
+  const ids = []
+  if (cityChat) ids.push(cityChat)
   return [...new Set(ids.filter(Boolean))] // sin duplicados y sin nulos
 }
 
 /**
- * Envía a Admin + grupo de ciudad
+ * Envía al grupo de ciudad
  */
 export async function notifyAll(ciudad, text) {
   const ids = getChatIds(ciudad)
