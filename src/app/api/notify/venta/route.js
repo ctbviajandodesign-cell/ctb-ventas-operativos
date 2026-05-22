@@ -40,9 +40,10 @@ export async function POST(req) {
       ``,
       `👤 <b>Asesor:</b> ${operativo}`,
       `✈️ <b>Destino:</b> ${destino || 'N/A'}  |  🏢 <b>Agencia:</b> ${agencia || 'Directo'}`,
-      `💰 <b>Valor:</b> ${formatMoney(valorTotal)}`,
+      `💵 <b>Aporte CTB:</b> ${formatMoney(thisAporte)}`,
+      `💰 <b>Valor Total:</b> ${formatMoney(valorTotal)}`,
       ``,
-      `📊 <b>Meta del mes:</b> ${pct.toFixed(1)}%`,
+      `📊 <b>Meta del mes:</b> ${pct.toFixed(1)}% (${formatMoney((pct / 100) * metaAmount)} de ${formatMoney(metaAmount)})`,
       `<code>${progressBar(pct)}</code>`,
     ].join('\n')
 

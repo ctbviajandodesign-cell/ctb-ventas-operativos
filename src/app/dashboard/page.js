@@ -65,6 +65,7 @@ export default function DashboardPage() {
   const [individualStats, setIndividualStats] = useState([])
   const [quotes, setQuotes] = useState([])
   const [lostQuotes, setLostQuotes] = useState([])
+  const [pipelineDataState, setPipelineDataState] = useState([])
   const [lostFilter, setLostFilter] = useState('ALL') // Filtro inteligente de perdidas
   const [loading, setLoading] = useState(true)
   const [loadingPanelAi, setLoadingPanelAi] = useState(false)
@@ -166,6 +167,7 @@ export default function DashboardPage() {
 
       setQuotes(quotesData || [])
       setLostQuotes(lostData || [])
+      setPipelineDataState(pipelineData || [])
 
       const rawBoard = resBoard?.success ? resBoard.leaderboard : []
       const userCity = profileData?.ciudad
@@ -649,67 +651,67 @@ export default function DashboardPage() {
           <GlobalSearch />
         </div>
         
-        <div className="flex flex-wrap items-center gap-4 bg-white p-2 rounded-[2rem] shadow-xl border border-gray-100">
+        <div className="flex flex-wrap items-center gap-3 bg-white p-2 rounded-[2rem] shadow-xl border border-gray-100">
           {isAdmin && (
             <>
-              <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-2xl border border-gray-100">
-                <Filter size={16} className="text-primary" />
-                <span className="text-xs font-black uppercase text-gray-400">Ciudad:</span>
+              {/* Ciudad Capsule */}
+              <div className="flex items-center gap-2 px-4 py-2 bg-gray-50/80 rounded-2xl border border-gray-100 hover:bg-gray-50 transition-all">
+                <Filter size={14} className="text-primary" />
+                <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider">Ciudad:</span>
+                <select 
+                  value={selectedCity}
+                  onChange={(e) => {
+                    setSelectedCity(e.target.value)
+                    setSelectedOperative('global')
+                  }}
+                  className="bg-transparent border-none font-black text-xs text-gray-850 outline-none pr-6 cursor-pointer focus:ring-0 p-0"
+                >
+                  <option value="global">Todas las Ciudades</option>
+                  <option value="Quito">Quito</option>
+                  <option value="Guayaquil">Guayaquil</option>
+                  <option value="Cuenca">Cuenca</option>
+                  <option value="Manta">Manta</option>
+                  <option value="Loja">Loja</option>
+                </select>
               </div>
 
-              <select 
-                value={selectedCity}
-                onChange={(e) => {
-                  setSelectedCity(e.target.value)
-                  setSelectedOperative('global')
-                }}
-                className="bg-transparent border-none font-black text-sm text-gray-800 outline-none pr-8 cursor-pointer focus:ring-0"
-              >
-                <option value="global">Todas las Ciudades</option>
-                <option value="Quito">Quito</option>
-                <option value="Guayaquil">Guayaquil</option>
-                <option value="Cuenca">Cuenca</option>
-                <option value="Manta">Manta</option>
-                <option value="Loja">Loja</option>
-              </select>
+              <div className="h-6 w-px bg-gray-200 hidden lg:block" />
 
-              <div className="h-6 w-px bg-gray-200 hidden md:block" />
-
-              <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-2xl border border-gray-100">
-                <Filter size={16} className="text-primary" />
-                <span className="text-xs font-black uppercase text-gray-400">Operativo:</span>
+              {/* Operativo Capsule */}
+              <div className="flex items-center gap-2 px-4 py-2 bg-gray-50/80 rounded-2xl border border-gray-100 hover:bg-gray-50 transition-all">
+                <Users size={14} className="text-primary" />
+                <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider">Operativo:</span>
+                <select 
+                  value={selectedOperative}
+                  onChange={(e) => setSelectedOperative(e.target.value)}
+                  className="bg-transparent border-none font-black text-xs text-gray-850 outline-none pr-6 cursor-pointer focus:ring-0 p-0 max-w-[150px]"
+                >
+                  <option value="global">Todos</option>
+                  {operatives
+                    .filter(op => selectedCity === 'global' || op.ciudad === selectedCity)
+                    .map(op => (
+                      <option key={op.id} value={op.id}>{op.nombre}</option>
+                    ))}
+                </select>
               </div>
 
-              <select 
-                value={selectedOperative}
-                onChange={(e) => setSelectedOperative(e.target.value)}
-                className="bg-transparent border-none font-black text-sm text-gray-800 outline-none pr-8 cursor-pointer focus:ring-0"
-              >
-                <option value="global">Todos</option>
-                {operatives
-                  .filter(op => selectedCity === 'global' || op.ciudad === selectedCity)
-                  .map(op => (
-                    <option key={op.id} value={op.id}>{op.nombre}</option>
-                  ))}
-              </select>
-
-              <div className="h-6 w-px bg-gray-200 hidden md:block" />
+              <div className="h-6 w-px bg-gray-200 hidden lg:block" />
             </>
           )}
 
-          <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-2xl border border-gray-100">
-            <Calendar size={16} className="text-primary" />
-            <span className="text-xs font-black uppercase text-gray-400">Período:</span>
+          {/* Período Capsule */}
+          <div className="flex items-center gap-2 px-4 py-2 bg-gray-50/80 rounded-2xl border border-gray-100 hover:bg-gray-50 transition-all">
+            <Calendar size={14} className="text-primary" />
+            <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider">Período:</span>
+            <select 
+              value={selectedPeriod}
+              onChange={(e) => setSelectedPeriod(e.target.value)}
+              className="bg-transparent border-none font-black text-xs text-gray-855 outline-none pr-6 cursor-pointer focus:ring-0 p-0"
+            >
+              <option value="mes">Mes Actual</option>
+              <option value="año">Año Actual</option>
+            </select>
           </div>
-
-          <select 
-            value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value)}
-            className="bg-transparent border-none font-black text-sm text-gray-800 outline-none pr-8 cursor-pointer focus:ring-0"
-          >
-            <option value="mes">Mes Actual</option>
-            <option value="año">Año Actual</option>
-          </select>
         </div>
 
         {/* QUICK ACTION — Nueva Cotización (visible para todos) */}
@@ -783,31 +785,58 @@ export default function DashboardPage() {
 
           {/* WIDGET COMPACTO: TOP DESTINOS MES ACTUAL */}
           {(() => {
-            // Destinos más vendidos (de quotes ganadas)
+            // Destinos más cotizados (todos los de pipeline)
+            const quotedMap = {}
+            pipelineDataState.forEach(q => {
+              if (q.destino) quotedMap[q.destino] = (quotedMap[q.destino] || 0) + 1
+            })
+            const topQuoted = Object.entries(quotedMap).sort((a,b) => b[1]-a[1]).slice(0,4)
+
+            // Destinos más vendidos (de pipeline ganadas)
             const soldMap = {}
-            quotes.filter(q => q.estado === 'ganada').forEach(q => {
+            pipelineDataState.filter(q => q.estado === 'ganada').forEach(q => {
               if (q.destino) soldMap[q.destino] = (soldMap[q.destino] || 0) + 1
             })
             const topSold = Object.entries(soldMap).sort((a,b) => b[1]-a[1]).slice(0,4)
 
-            // Destinos con más objeciones (de lostQuotes)
+            // Destinos con más objeciones (de pipeline perdidas o anuladas)
             const objMap = {}
-            lostQuotes.forEach(q => {
+            pipelineDataState.filter(q => q.estado === 'perdida' || q.estado === 'anulada').forEach(q => {
               if (q.destino) objMap[q.destino] = (objMap[q.destino] || 0) + 1
             })
             const topObj = Object.entries(objMap).sort((a,b) => b[1]-a[1]).slice(0,4)
 
-            if (topSold.length === 0 && topObj.length === 0) return null
+            if (topQuoted.length === 0 && topSold.length === 0 && topObj.length === 0) return null
 
             return (
-              <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-gray-50">
+              <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-gray-50 animate-in fade-in duration-500">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="font-black text-xl uppercase tracking-tighter flex items-center gap-3 text-gray-800">
                     <MapPin size={20} className="text-primary" /> Radar de Destinos
                   </h3>
-                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-3 py-1.5 rounded-full">Mes Actual</span>
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-3 py-1.5 rounded-full">
+                    {selectedPeriod === 'mes' ? 'Mes Actual' : 'Año Actual'}
+                  </span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Más Cotizados */}
+                  <div>
+                    <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-3 flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-primary inline-block"></span> Más Cotizados
+                    </p>
+                    <div className="space-y-2">
+                      {topQuoted.length > 0 ? topQuoted.map(([destino, count], i) => (
+                        <div key={destino} className="flex items-center justify-between bg-primary/5 px-4 py-2.5 rounded-2xl border border-primary/10">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black text-gray-400">#{i+1}</span>
+                            <span className="text-xs font-black text-gray-800 uppercase tracking-tight">{destino}</span>
+                          </div>
+                          <span className="text-xs font-black text-primary">{count} cotizació{count > 1 ? 'nes' : 'n'}</span>
+                        </div>
+                      )) : <p className="text-xs text-gray-400 italic">Sin cotizaciones aún</p>}
+                    </div>
+                  </div>
+
                   {/* Más Vendidos */}
                   <div>
                     <p className="text-[10px] font-black text-success uppercase tracking-widest mb-3 flex items-center gap-1">
@@ -825,6 +854,7 @@ export default function DashboardPage() {
                       )) : <p className="text-xs text-gray-400 italic">Sin cierres aún</p>}
                     </div>
                   </div>
+
                   {/* Más Objeciones */}
                   <div>
                     <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-3 flex items-center gap-1">
