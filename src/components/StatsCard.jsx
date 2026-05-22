@@ -1,24 +1,25 @@
 export default function StatsCard({ title, value, icon: Icon, trend, color = 'primary' }) {
   const colors = {
     primary: 'bg-primary/10 text-primary',
-    accent: 'bg-accent/10 text-accent',
+    accent: 'bg-purple-500/10 text-purple-650',
     success: 'bg-success/10 text-success',
-    danger: 'bg-danger/10 text-danger',
+    danger: 'bg-rose-500/10 text-rose-600',
+    warning: 'bg-amber-500/10 text-amber-600',
   }
 
   return (
-    <div className="card flex items-start justify-between">
-      <div>
-        <p className="text-gray-500 text-sm font-medium mb-1 uppercase tracking-wider">{title}</p>
-        <h3 className="text-3xl font-bold text-gray-900">{value}</h3>
+    <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-gray-50 flex items-center justify-between gap-3 hover:scale-[1.01] hover:shadow-md transition-all duration-300">
+      <div className="min-w-0">
+        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-0.5 truncate">{title}</p>
+        <h3 className="text-xl md:text-2xl font-black text-gray-900 tracking-tighter truncate">{value}</h3>
         {trend && (
-          <p className={`text-xs mt-2 font-semibold ${trend.startsWith('+') ? 'text-success' : 'text-danger'}`}>
-            {trend} <span className="text-gray-400 font-normal ml-1">vs mes pasado</span>
+          <p className={`text-[10px] mt-1 font-bold ${trend.startsWith('+') ? 'text-success' : 'text-danger'}`}>
+            {trend}
           </p>
         )}
       </div>
-      <div className={`p-3 rounded-xl ${colors[color]}`}>
-        <Icon size={24} />
+      <div className={`p-2.5 rounded-2xl ${colors[color] || colors.primary} shrink-0`}>
+        <Icon size={18} />
       </div>
     </div>
   )

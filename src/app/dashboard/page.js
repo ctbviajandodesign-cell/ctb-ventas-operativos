@@ -58,7 +58,8 @@ export default function DashboardPage() {
     topDestino: 'N/A',
     globalGoal: 50000,
     vouchersEmitidos: 0,
-    conversionRate: 0
+    conversionRate: 0,
+    ganadas: 0
   })
   const [leaderboard, setLeaderboard] = useState([])
   const [chartData, setChartData] = useState([])
@@ -724,29 +725,35 @@ export default function DashboardPage() {
       </div>
 
       {/* KPI GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <StatsCard 
           title="Total Vendido"
           value={`$${metrics.totalVendido.toLocaleString()}`} 
           icon={DollarSign}
+          color="success"
+        />
+        <StatsCard 
+          title="Proformas Vendidas"
+          value={(metrics.ganadas || 0).toLocaleString()} 
+          icon={Trophy}
+          color="accent"
+        />
+        <StatsCard 
+          title={isAdmin && selectedOperative === 'global' ? 'Ganancia del Equipo' : 'Mi Ganancia'} 
+          value={`$${metrics.metaComputable.toLocaleString()}`} 
+          icon={TrendingUp}
           color="primary"
         />
         <StatsCard 
           title="Cotizaciones Emitidas" 
           value={metrics.pipeline.toLocaleString()} 
           icon={Target}
-          color="accent"
-        />
-        <StatsCard 
-          title={isAdmin && selectedOperative === 'global' ? 'Ganancia del Equipo' : 'Ganancia Total'} 
-          value={`$${metrics.metaComputable.toLocaleString()}`} 
-          icon={TrendingUp}
-          color="success"
+          color="warning"
         />
         <StatsCard 
           title={selectedOperative === 'global' && isAdmin ? "Cotizaciones en Espera" : "Vouchers Emitidos"} 
           value={selectedOperative === 'global' && isAdmin ? metrics.cotizacionesAbiertas : metrics.vouchersEmitidos} 
-          icon={selectedOperative === 'global' && isAdmin ? FileText : Trophy}
+          icon={FileText}
           color="danger"
         />
       </div>
