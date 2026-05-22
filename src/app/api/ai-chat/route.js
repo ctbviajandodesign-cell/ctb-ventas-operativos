@@ -16,33 +16,52 @@ export async function POST(request) {
     }
 
     // Format the dataset to keep it minimal and save tokens
-    const cleanDataset = dataset?.map(q => ({
-      ref: q.codigo,
-      agencia: q.agencia || 'Directo',
-      destino: q.destino || 'Desconocido',
-      estado: q.estado, // ganada (vendida), perdida (cancelada), anulada (cancelada), abierta (activa/caducada)
-      valor_venta: Number(q.valor_total || 0),
-      comision: Number(q.valor_comision || 0),
-      utilidad: Number(q.valor_utilidad || 0),
-      aporte_ctb: Number(q.valor_utilidad || 0) + Number(q.valor_comision || 0),
-      operativo: q.profiles?.nombre || 'Desconocido',
-      ciudad: q.profiles?.ciudad || 'Desconocido',
-      comercial: q.comercial || '---',
-      pasajeros: q.numero_pasajeros || (Array.isArray(q.nombres_pasajeros) ? q.nombres_pasajeros.length : 0),
-      motivo_perdida: q.motivo_perdida || '',
-      fecha: q.created_at ? q.created_at.split('T')[0] : ''
-    })) || []
+    const cleanDataset = dataset?.map(q => {
+      // Treat as ganada (sold) if the record has an active voucher in any of its ventas
+      const hasVoucher = q.ventas ? (Array.isArray(q.ventas) ? q.ventas.some(v => v.vouchers && (Array.isArray(v.vouchers) ? v.vouchers.length > 0 : !!v.vouchers.codigo)) : false) : false
+      const isSold = q.estado === 'ganada' || hasVoucher
+      
+      return {
+        ref: q.codigo,
+        agencia: q.agencia || 'Directo',
+        destino: q.destino || 'Desconocido',
+        estado: isSold ? 'ganada' : q.estado, // ganada (vendida), perdida (cancelada), anulada (cancelada), abierta (activa/caducada)
+        valor_venta: Number(q.valor_total || 0),
+        comision: Number(q.valor_comision || 0),
+        utilidad: Number(q.valor_utilidad || 0),
+        aporte_ctb: Number(q.valor_utilidad || 0) + Number(q.valor_comision || 0),
+        operativo: q.profiles?.nombre || 'Desconocido',
+        ciudad: q.profiles?.ciudad || 'Desconocido',
+        comercial: q.comercial || '---',
+        pasajeros: q.numero_pasajeros || (Array.isArray(q.nombres_pasajeros) ? q.nombres_pasajeros.length : 0),
+        motivo_perdida: q.motivo_perdida || '',
+        fecha: q.created_at ? q.created_at.split('T')[0] : ''
+      }
+    }) || []
 
-    // Format leaderboard to track goals and quotas
-    const cleanLeaderboard = leaderboard?.map(op => ({
-      nombre: op.nombre || 'Desconocido',
-      ciudad: op.ciudad || 'Desconocido',
-      meta: Number(op.meta || 0),
-      aporte_ganado: Number(op.ganancia || 0),
-      porcentaje_meta: Number(op.porcentaje || 0),
-      ventas: Number(op.num_ventas || 0),
-      cotizaciones: Number(op.num_cotizaciones || 0)
-    })) || []
+    // Format leaderboard to track goals and quotas accurately mapped from the real database results
+    const cleanLeaderboard = leaderboard?.map(op => {
+      const nombreLargo = op.nombreCompleto || op.nombre || 'Desconocido'
+      const nombreCorto = op.nombre || ''
+      
+      // Match and count from the cleanDataset to align metrics perfectly
+      const matchingQuotes = cleanDataset.filter(q => 
+        q.operativo.toLowerCase().includes(nombreLargo.toLowerCase()) || 
+        q.operativo.toLowerCase().includes(nombreCorto.toLowerCase())
+      )
+      const numCotizaciones = matchingQuotes.length
+      const numVentas = matchingQuotes.filter(q => q.estado === 'ganada').length
+
+      return {
+        nombre: nombreLargo,
+        ciudad: op.ciudad || 'Desconocido',
+        meta: Number(op.meta || 0),
+        aporte_ganado: Number(op.total || 0),
+        porcentaje_meta: Number(op.cumplimiento || 0),
+        ventas: numVentas,
+        cotizaciones: numCotizaciones
+      }
+    }) || []
 
     const prompt = `Eres un asistente de datos comercial analítico y ultra-preciso para "CTB Viajando".
 Tienes acceso a dos conjuntos de datos: las cotizaciones y el rendimiento del equipo de asesores/operativos en el periodo filtrado en pantalla.
