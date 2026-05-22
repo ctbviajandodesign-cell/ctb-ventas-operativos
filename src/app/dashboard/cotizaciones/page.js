@@ -164,9 +164,9 @@ export default function CotizacionesPage() {
   // Enriquecer cotizaciones con estado real basado en si tienen ventas asociadas (ganada/vendida)
   const enrichedQuotes = useMemo(() => {
     return quotes.map(q => {
-      const hasVenta = Array.isArray(q.ventas) && q.ventas.length > 0
+      const hasActiveVenta = Array.isArray(q.ventas) && q.ventas.some(v => v.estado !== 'anulada')
       let computedEstado = (q.estado || '').trim()
-      if (hasVenta) {
+      if (computedEstado !== 'anulada' && computedEstado !== 'perdida' && hasActiveVenta) {
         computedEstado = 'ganada'
       }
       return {

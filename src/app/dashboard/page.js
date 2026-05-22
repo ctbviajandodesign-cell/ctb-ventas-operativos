@@ -206,10 +206,14 @@ export default function DashboardPage() {
       // Enriquecer pipeline con bandera isVenta antes de guardar en estado
       const pipelineEnriched = (pipelineData || []).map(q => ({
         ...q,
-        _esVenta: q.estado === 'ganada' || (
-          Array.isArray(q.ventas) && q.ventas.some(v =>
-            Array.isArray(v.vouchers) ? v.vouchers.length > 0
-            : (v.vouchers && (v.vouchers.codigo || Object.keys(v.vouchers).length > 0))
+        _esVenta: q.estado !== 'anulada' && q.estado !== 'perdida' && (
+          q.estado === 'ganada' || (
+            Array.isArray(q.ventas) && q.ventas.some(v =>
+              v.estado !== 'anulada' && (
+                Array.isArray(v.vouchers) ? v.vouchers.length > 0
+                : (v.vouchers && (v.vouchers.codigo || Object.keys(v.vouchers).length > 0))
+              )
+            )
           )
         )
       }))
