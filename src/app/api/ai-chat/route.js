@@ -26,6 +26,7 @@ export async function POST(request) {
       utilidad: Number(q.valor_utilidad || 0),
       aporte_ctb: Number(q.valor_utilidad || 0) + Number(q.valor_comision || 0),
       operativo: q.profiles?.nombre || 'Desconocido',
+      ciudad: q.profiles?.ciudad || 'Desconocido',
       comercial: q.comercial || '---',
       pasajeros: q.numero_pasajeros || (Array.isArray(q.nombres_pasajeros) ? q.nombres_pasajeros.length : 0),
       motivo_perdida: q.motivo_perdida || '',
