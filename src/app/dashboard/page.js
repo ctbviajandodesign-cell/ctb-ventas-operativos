@@ -342,14 +342,19 @@ export default function DashboardPage() {
       // Las queries anteriores usan solo estado='ganada' pero hay ventas
       // confirmadas que tienen estado='activa' con voucher activo.
       // El pipeline ya tiene _esVenta calculado correctamente.
-      // IMPORTANTE: totalVendido = comision + utilidad (aporte CTB), NO valor_total del cliente
+      // IMPORTANTE: totalVendido = valor_total de cotizaciones ganadas/vendidas (Total Ventas)
+      //             metaComputable/totalAporte = comision + utilidad (Total Ganancia CTB)
       const ganadasReal    = pipelineEnriched.filter(q => q._esVenta)
       const ganadasCount   = ganadasReal.length
-      const totalVendidoReal = ganadasReal.reduce((a, q) => {
+      
+      const totalVendidoReal = ganadasReal.reduce((a, q) => a + (Number(q.valor_total) || 0), 0)
+      
+      const totalGananciaReal = ganadasReal.reduce((a, q) => {
         const com = Number(q.valor_comision || 0)
         const uti = Number(q.valor_utilidad || 0)
         return a + com + uti
       }, 0)
+      
       const abiertasReal   = pipelineEnriched.filter(q => !q._esVenta && q.estado !== 'perdida' && q.estado !== 'anulada').length
       const perdidasReal   = pipelineEnriched.filter(q => q.estado === 'perdida').length
       const totalReal      = pipelineEnriched.length
@@ -358,6 +363,8 @@ export default function DashboardPage() {
       setMetrics(prev => ({
         ...prev,
         totalVendido:    totalVendidoReal,
+        metaComputable:  totalGananciaReal,
+        totalAporte:     totalGananciaReal,
         ganadas:         ganadasCount,
         vouchersEmitidos: ganadasCount,
         abiertas:        abiertasReal,
@@ -365,7 +372,8 @@ export default function DashboardPage() {
         perdidas:        perdidasReal,
         total:           totalReal,
         conversionRate:  convReal,
-        conversion:      convReal.toFixed(1)
+        conversion:      convReal.toFixed(1),
+        porcentajeMeta:  metaBase > 0 ? (totalGananciaReal / metaBase) * 100 : 0
       }))
 
     } catch (error) {
@@ -862,7 +870,7 @@ export default function DashboardPage() {
       {/* KPI GRID */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <StatsCard 
-          title="Aporte CTB"
+          title="Total Ventas"
           value={`$${metrics.totalVendido.toLocaleString()}`} 
           icon={DollarSign}
           color="success"
