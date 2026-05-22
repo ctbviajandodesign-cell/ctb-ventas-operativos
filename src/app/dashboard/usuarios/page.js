@@ -171,6 +171,7 @@ export default function UsuariosPage() {
                 {user.nombre?.charAt(0) || '?'}
               </div>
               <div className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest ${
+                user.rol === 'superadmin' ? 'bg-indigo-100 text-indigo-700 font-extrabold border border-indigo-200/50' :
                 user.rol === 'admin' ? 'bg-amber-100 text-amber-600' :
                 user.rol === 'comercial' ? 'bg-emerald-100 text-emerald-600' :
                 'bg-blue-100 text-blue-600'
@@ -326,6 +327,7 @@ export default function UsuariosPage() {
                     <option value="operativo">Operativo</option>
                     <option value="comercial">Comercial</option>
                     <option value="admin">Administrador</option>
+                    <option value="superadmin">Super Administrador</option>
                   </select>
                 </div>
               </div>

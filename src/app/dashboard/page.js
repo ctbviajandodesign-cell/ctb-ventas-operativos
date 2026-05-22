@@ -565,18 +565,18 @@ export default function DashboardPage() {
                   <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(operativePanel.cumplimiento, 100)}%`, background: operativePanel.cumplimiento >= 100 ? '#16A34A' : operativePanel.cumplimiento >= 60 ? '#0066CC' : '#F5A623' }} />
                 </div>
                 <div className="flex justify-between mt-1">
-                  <span className="text-xs text-success font-black">Ganancia: ${operativePanel.ganancia?.toLocaleString()}</span>
+                  <span className="text-xs text-success font-black">Ganancia CTB: ${operativePanel.ganancia?.toLocaleString()}</span>
                   <span className="text-xs text-gray-400 font-bold">Restan: ${Math.max(0, (operativePanel.meta||0) - (operativePanel.ganancia||0)).toLocaleString()}</span>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100">
-                  <p className="text-xs font-black text-gray-400 uppercase">Valor al Cliente (Mes)</p>
+                  <p className="text-xs font-black text-gray-400 uppercase">Total de Ventas</p>
                   <p className="text-2xl font-black text-gray-900 mt-1">${(operativePanel.valorTotalCliente || operativePanel.totalVendido)?.toLocaleString()}</p>
                 </div>
                 <div className="bg-success/5 p-5 rounded-2xl border border-success/10">
-                  <p className="text-xs font-black text-success/80 uppercase">Ganancia (Mes)</p>
+                  <p className="text-xs font-black text-success/80 uppercase">Ganancia CTB</p>
                   <p className="text-2xl font-black text-success mt-1">${operativePanel.ganancia?.toLocaleString()}</p>
                 </div>
                 <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100">
@@ -738,7 +738,6 @@ export default function DashboardPage() {
             </p>
           </div>
           <GlobalSearch />
-          <GlobalSearch />
         </div>
 
         <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 w-full xl:w-auto">
@@ -756,7 +755,7 @@ export default function DashboardPage() {
                       setSelectedCity(e.target.value)
                       setSelectedOperative('global')
                     }}
-                    className="appearance-none bg-transparent border-none font-black text-xs text-gray-800 outline-none pr-8 cursor-pointer focus:ring-0 p-0 w-full sm:w-auto bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%230066CC%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-[position:right_2px_center] bg-[size:16px_16px]"
+                    className="appearance-none bg-transparent border-none font-black text-xs text-gray-800 outline-none py-1 pr-8 pl-1 cursor-pointer focus:ring-0 w-full sm:w-auto bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%230066CC%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_2px_center] bg-[size:16px_16px]"
                   >
                     <option value="global">Todas las Ciudades</option>
                     <option value="Quito">Quito</option>
@@ -776,7 +775,7 @@ export default function DashboardPage() {
                   <select 
                     value={selectedOperative}
                     onChange={(e) => setSelectedOperative(e.target.value)}
-                    className="appearance-none bg-transparent border-none font-black text-xs text-gray-800 outline-none pr-8 cursor-pointer focus:ring-0 p-0 w-full sm:w-auto max-w-full sm:max-w-[150px] bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%230066CC%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-[position:right_2px_center] bg-[size:16px_16px]"
+                    className="appearance-none bg-transparent border-none font-black text-xs text-gray-800 outline-none py-1 pr-8 pl-1 cursor-pointer focus:ring-0 w-full sm:w-auto max-w-full sm:max-w-[150px] bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%230066CC%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_2px_center] bg-[size:16px_16px]"
                   >
                     <option value="global">Todos</option>
                     {operatives
@@ -798,7 +797,7 @@ export default function DashboardPage() {
               <select 
                 value={selectedPeriod}
                 onChange={(e) => setSelectedPeriod(e.target.value)}
-                className="appearance-none bg-transparent border-none font-black text-xs text-gray-800 outline-none pr-8 cursor-pointer focus:ring-0 p-0 w-full sm:w-auto bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%230066CC%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-[position:right_2px_center] bg-[size:16px_16px]"
+                className="appearance-none bg-transparent border-none font-black text-xs text-gray-800 outline-none py-1 pr-8 pl-1 cursor-pointer focus:ring-0 w-full sm:w-auto bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%230066CC%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_2px_center] bg-[size:16px_16px]"
               >
                 <option value="mes">Mes Actual</option>
                 <option value="año">Año Actual</option>
@@ -886,7 +885,7 @@ export default function DashboardPage() {
           color="accent"
         />
         <StatsCard 
-          title={isAdmin && selectedOperative === 'global' ? 'Ganancia del Equipo' : 'Mi Ganancia'} 
+          title={isAdmin && selectedOperative === 'global' ? 'Ganancia CTB (Equipo)' : 'Mi Ganancia CTB'} 
           value={`$${metrics.metaComputable.toLocaleString()}`} 
           icon={TrendingUp}
           color="primary"

@@ -86,7 +86,10 @@ export function formatMoney(n) {
 
 export function progressBar(pct) {
   const percent = Number(pct) || 0
-  const filled = Math.min(10, Math.max(0, Math.round(percent / 10)))
+  let filled = Math.min(10, Math.max(0, Math.round(percent / 10)))
+  if (percent > 0 && filled === 0) {
+    filled = 1
+  }
   const empty = 10 - filled
   
   let block = '🟥' // < 50% -> Rojo
