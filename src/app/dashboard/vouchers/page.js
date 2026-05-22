@@ -18,10 +18,12 @@ import {
   Clock,
   Building2,
   DollarSign,
-  FileDown
+  FileDown,
+  Share2
 } from 'lucide-react'
 import { generateVoucherPDF } from '@/lib/pdf-generator'
 import { logActivity } from '@/utils/audit'
+import { showToast } from '@/utils/toast'
 
 export default function VouchersPage() {
   const [vouchers, setVouchers] = useState([])
@@ -32,6 +34,13 @@ export default function VouchersPage() {
   const [selectedCity, setSelectedCity] = useState('todas')
   const [baseUrl, setBaseUrl] = useState('')
   const [profile, setProfile] = useState(null)
+
+  const copyVoucherLink = (e, codigo) => {
+    if (e) e.stopPropagation()
+    const url = `${baseUrl}/v/${codigo}`
+    navigator.clipboard.writeText(url)
+    showToast('Enlace de voucher copiado al portapapeles!')
+  }
 
   useEffect(() => {
     fetchVouchers()
@@ -326,6 +335,13 @@ export default function VouchersPage() {
                       >
                         <QrIcon size={18} />
                       </button>
+                      <button 
+                        onClick={(e) => copyVoucherLink(e, voucher.codigo)}
+                        className="p-2 text-gray-400 hover:text-success hover:bg-success/5 rounded-lg transition-colors"
+                        title="Copiar Enlace del Voucher"
+                      >
+                        <Share2 size={18} />
+                      </button>
                       {profile?.rol === 'superadmin' && (
                         <button 
                           onClick={() => setEditingVoucher(voucher)}
@@ -499,6 +515,12 @@ export default function VouchersPage() {
                 className="btn-primary py-3 sm:py-4 flex items-center justify-center gap-2 text-xs sm:text-sm"
               >
                 <FileDown size={18} /> Descargar PDF Oficial
+              </button>
+              <button 
+                onClick={() => copyVoucherLink(null, viewingVoucher.codigo)}
+                className="py-3 sm:py-4 bg-success text-white rounded-2xl font-black text-xs sm:text-sm shadow-lg shadow-success/20 flex items-center justify-center gap-2 hover:bg-success/90 transition-all hover:scale-102"
+              >
+                <Share2 size={18} /> Copiar Enlace del Voucher
               </button>
               <button 
                 onClick={() => {

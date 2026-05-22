@@ -84,10 +84,17 @@ export function formatMoney(n) {
   return `$${Number(n || 0).toLocaleString('es-EC', { minimumFractionDigits: 0 })}`
 }
 
-/**
- * Barra de progreso visual para Telegram
- */
 export function progressBar(pct) {
-  const filled = Math.round(Math.min(pct, 100) / 10)
-  return '█'.repeat(filled) + '░'.repeat(10 - filled)
+  const percent = Number(pct) || 0
+  const filled = Math.min(10, Math.max(0, Math.round(percent / 10)))
+  const empty = 10 - filled
+  
+  let block = '🟥' // < 50% -> Rojo
+  if (percent >= 90) {
+    block = '🟩'   // >= 90% -> Verde
+  } else if (percent >= 50) {
+    block = '🟨'   // >= 50% -> Amarillo
+  }
+
+  return block.repeat(filled) + '⬜'.repeat(empty)
 }

@@ -21,8 +21,10 @@ import {
   MessageSquare,
   ChevronDown,
   FileText,
-  QrCode
+  QrCode,
+  Share2
 } from 'lucide-react'
+import { showToast } from '@/utils/toast'
 
 export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, onUpdate }) {
   const [viewingQuote, setViewingQuote] = useState(null)
@@ -237,15 +239,29 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, onUpdate })
                     {isGanada && (() => {
                       const vCodigo = getVoucherCodigo(quote)
                       return vCodigo ? (
-                        <a
-                          href={`/v/${vCodigo}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-1.5 text-primary hover:bg-primary/10 rounded-lg border border-primary/10 transition-all"
-                          title="Ver Voucher (QR)"
-                        >
-                          <QrCode size={16} />
-                        </a>
+                        <div className="flex items-center gap-1">
+                          <a
+                            href={`/v/${vCodigo}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 text-primary hover:bg-primary/10 rounded-lg border border-primary/10 transition-all"
+                            title="Ver Voucher (QR)"
+                          >
+                            <QrCode size={16} />
+                          </a>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const url = `${window.location.origin}/v/${vCodigo}`
+                              navigator.clipboard.writeText(url)
+                              showToast('Enlace del voucher copiado!')
+                            }}
+                            className="p-1.5 text-gray-400 hover:text-success hover:bg-success/10 rounded-lg border border-gray-100 transition-all"
+                            title="Copiar Enlace del Voucher"
+                          >
+                            <Share2 size={16} />
+                          </button>
+                        </div>
                       ) : null
                     })()}
 
@@ -344,14 +360,26 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, onUpdate })
               ) : (() => {
                 const vCodigo = getVoucherCodigo(viewingQuote)
                 return vCodigo ? (
-                  <a
-                    href={`/v/${vCodigo}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 bg-primary text-white py-3 sm:py-4 rounded-2xl font-black text-xs sm:text-sm shadow-lg shadow-primary/20 flex items-center justify-center gap-1.5 sm:gap-2"
-                  >
-                    <QrCode size={18} className="shrink-0" /> <span className="truncate">Abrir Voucher</span>
-                  </a>
+                  <>
+                    <a
+                      href={`/v/${vCodigo}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 bg-primary text-white py-3 sm:py-4 rounded-2xl font-black text-xs sm:text-sm shadow-lg shadow-primary/20 flex items-center justify-center gap-1.5 sm:gap-2"
+                    >
+                      <QrCode size={18} className="shrink-0" /> <span className="truncate">Abrir Voucher</span>
+                    </a>
+                    <button
+                      onClick={() => {
+                        const url = `${window.location.origin}/v/${vCodigo}`
+                        navigator.clipboard.writeText(url)
+                        showToast('Enlace del voucher copiado al portapapeles!')
+                      }}
+                      className="flex-1 bg-success text-white py-3 sm:py-4 rounded-2xl font-black text-xs sm:text-sm shadow-lg shadow-success/20 flex items-center justify-center gap-1.5 sm:gap-2"
+                    >
+                      <Share2 size={18} className="shrink-0" /> <span className="truncate">Copiar Link</span>
+                    </button>
+                  </>
                 ) : null
               })()}
               <button onClick={() => setViewingQuote(null)} className="flex-1 py-3 sm:py-4 text-xs sm:text-sm font-bold text-gray-400 hover:text-gray-600 transition-colors text-center truncate">Cerrar Expediente</button>
