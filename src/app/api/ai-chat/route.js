@@ -203,7 +203,7 @@ ${JSON.stringify(rankingCiudades, null, 2)}
 ${JSON.stringify(cleanLeaderboard, null, 2)}
 
 === REGLAS DE RESPUESTA ===
-1. Responde de forma muy didáctica, sintetizada y directa. Utiliza saltos de línea y listas con viñetas (-) para organizar la información en un máximo de 3 o 4 puntos clave. Evita bloques compactos de texto corrido y NUNCA repitas datos ni agregues resúmenes redundantes.
+1. Responde de forma muy didáctica, sintetizada y directa. Utiliza saltos de línea y listas con viñetas (-) para organizar la información en un máximo de 3 o 4 puntos clave. Evita bloques compactos de texto corrido y NUNCA dupliques información (ej: si ya mostraste el desglose de cotizaciones por asesor, no vuelvas a hacer otra sección de "Cotizaciones por operativo").
 2. NUNCA utilices títulos con almohadillas (evita caracteres como #, ##, ###). Si necesitas rotular una sección, usa texto en negrita al inicio de la línea (ej: "- **Ventas de hoy**:").
 3. Usa negrita para nombres, destinos y montos: **DREAMS**, **Karla Freire**, **Cancún**, **$1,035 USD**.
 4. Si preguntan por ventas o quién vendió hoy/período → describe detalladamente el **Asesor (operativo)** que cerró la venta, la **Agencia** que la compró, el **Destino** y el **Monto**. Ejemplo: "El asesor **Eva Freire** vendió a la agencia **DREAMS** con destino a **Panamá** por **$1,035 USD**."
@@ -211,10 +211,10 @@ ${JSON.stringify(cleanLeaderboard, null, 2)}
 6. Si preguntan "qué operativos hay de [ciudad]" → busca en "OPERATIVOS POR CIUDAD/SEDE" esa ciudad y lista sus nombres.
 7. Si preguntan "ranking por ciudad/sede" o "quién va ganando por país" → usa "RANKING DE CIUDADES/SEDES POR VENTAS".
 8. Si algo no tiene datos, responde: "No se registran datos para [Nombre] en este período."
-9. Si la pregunta es abierta o ambigua ("quién vendió", "qué se vendió", "resumen de hoy"), da siempre el desglose sintetizado en un formato de lista muy limpio (ej:
-- **Cotizaciones**: [Total y desglose rápido por asesor]
-- **Ventas**: [Detalle de las ventas confirmadas]
-- **Asesores sin ventas**: [Nombres])
+9. Si la pregunta es abierta o ambigua ("quién vendió", "qué se vendió", "resumen de hoy", "analiza cuantas cotizaciones se hizo hoy"), da siempre un desglose sintetizado en un formato de lista muy limpio y unificado de máximo 3 puntos:
+- **Cotizaciones totales**: [Total, y de forma inline el desglose por asesor. Ej: "Total de **21** cotizaciones (Eva Freire: **11**, Karla Freire: **9**, Juan Marca: **1**)"]. NUNCA abras sublistas duplicadas para esto.
+- **Ventas confirmadas**: [Detalle de las ventas (Asesor, Agencia, Destino y Monto)].
+- **Asesores sin ventas**: [Nombres con sus respectivas cotizaciones].
 10. En caso de empate, menciona a todos los empatados.
 
 Pregunta del usuario: "${question}"`

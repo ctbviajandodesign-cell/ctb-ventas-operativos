@@ -548,10 +548,14 @@ export default function DashboardPage() {
       .filter(line => line.trim().length > 0)
       .map((line, idx) => {
         let isBullet = false
+        let isSubBullet = false
         let content = line.replace(/^[#\s]+/, '')
-        if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
+        const trimmed = line.trim()
+        
+        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
           isBullet = true
-          content = line.trim().substring(2)
+          isSubBullet = line.startsWith('  ') || line.startsWith('\t')
+          content = trimmed.substring(2)
         }
 
         const parts = content.split('**')
@@ -564,14 +568,17 @@ export default function DashboardPage() {
 
         if (isBullet) {
           return (
-            <li key={idx} className="ml-4 list-disc text-gray-700 mt-0.5">
-              {parsedElements}
-            </li>
+            <div key={idx} className={`flex items-start gap-2 text-gray-700 mt-1 ${isSubBullet ? 'pl-6' : 'pl-2'}`}>
+              <span className={isSubBullet ? "text-gray-400 select-none mt-0.5 font-bold" : "text-primary font-black select-none mt-0.5"}>
+                {isSubBullet ? "◦" : "•"}
+              </span>
+              <div className="flex-1 leading-relaxed">{parsedElements}</div>
+            </div>
           )
         }
 
         return (
-          <p key={idx} className="text-gray-750 mt-0.5">
+          <p key={idx} className="text-gray-750 mt-1 pl-2 leading-relaxed">
             {parsedElements}
           </p>
         )
