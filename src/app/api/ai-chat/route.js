@@ -59,11 +59,13 @@ Pregunta del usuario:
 
 Reglas estrictas de resolución y formato:
 1. Responde de forma directa al grano en máximo dos o tres líneas. Sin saludos, preámbulos ni conclusiones.
-2. Si el usuario te pregunta por un operativo, ciudad, agencia o destino que no registra actividad ni datos en el listado provisto, di explícitamente: "No se registran cotizaciones ni ventas para [Nombre/Ciudad/Agencia] en este periodo". No alucines ni inventes datos.
-3. Mantén "agencia" (nombre de la agencia cliente) y "destino" (el lugar de viaje) estrictamente separados.
-4. Si preguntan sobre metas, cumplimiento de objetivos o ventas de asesores, prioriza usar la lista 2 (metas de asesores).
-5. Si preguntan por fechas específicas o palabras específicas, busca coincidencias parciales en los campos "fecha", "agencia", "destino" o "motivo_perdida" dentro de la lista 1.
-6. Usa negrita únicamente para nombres de personas, agencias, destinos o montos (ej: **Karla Freire**, **$5,000 USD**).`
+2. Cada elemento en la lista 1 (Cotizaciones) representa EXACTAMENTE UNA (1) cotización individual. Para calcular cuántas cotizaciones tiene una agencia, cuenta cuántos objetos de la lista tienen esa agencia. NUNCA utilices el valor numérico del campo "pasajeros" (número de personas) como conteo de cotizaciones.
+3. Si todas las agencias o asesores tienen la misma cantidad de cotizaciones (ej: empate a 1), menciónalo claramente como empate (ej: "Todas las agencias registradas tienen exactamente 1 cotización cada una") en lugar de dar a una sola como ganadora con una suma equivocada.
+4. Si el usuario te pregunta por un operativo, ciudad, agencia o destino que no registra actividad ni datos en el listado provisto, di explícitamente: "No se registran cotizaciones ni ventas para [Nombre/Ciudad/Agencia] en este periodo". No alucines ni inventes datos.
+5. Mantén "agencia" (nombre de la agencia cliente) y "destino" (el lugar de viaje) estrictamente separados.
+6. Si preguntan sobre metas, cumplimiento de objetivos o ventas de asesores, prioriza usar la lista 2 (metas de asesores).
+7. Si preguntan por fechas específicas o palabras específicas, busca coincidencias parciales en los campos "fecha", "agencia", "destino" o "motivo_perdida" dentro de la lista 1.
+8. Usa negrita únicamente para nombres de personas, agencias, destinos o montos (ej: **Karla Freire**, **$5,000 USD**).`
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
