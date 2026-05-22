@@ -97,21 +97,18 @@ export default function VentasPage() {
     }
 
     const { venta, motivo } = annulVentaModal
-    try {
-      // 1. Anular la Venta
-      await supabase.from('ventas').update({ estado: 'anulada' }).eq('id', venta.id)
-      
-      // 2. Inactivar el Voucher
-      await supabase.from('vouchers').update({ estado: 'inactivo' }).eq('venta_id', venta.id)
-      
-      // 3. Actualizar la Cotización base a 'anulada' con el motivo
       const targetCotizacionId = venta.cotizacion_id || venta.cotizaciones?.id
-      if (targetCotizacionId) {
-        await supabase.from('cotizaciones').update({ 
-          estado: 'anulada',
-          motivo_perdida: motivo.trim()
-        }).eq('id', targetCotizacionId)
-      }
+      const res = await fetch('/api/admin/anular-venta', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ventaId: venta.id,
+          cotizacionId: targetCotizacionId,
+          motivo: motivo.trim()
+        })
+      })
+      const result = await res.json()
+      if (!result.ok) throw new Error(result.error || 'Error al anular la venta')
       
       showToast('Venta anulada con éxito')
       setAnnulVentaModal(null)

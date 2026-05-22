@@ -73,23 +73,25 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
   const handleDelete = async (quote) => {
     if (!confirm('¿Seguro que quieres anular y archivar esta proforma?')) return
     
-    // Si estaba ganada, necesitamos anular la venta y sus vouchers también
-    if ((quote.estado || '').trim().toLowerCase() === 'ganada') {
-      const { data: ventasMatch } = await supabase.from('ventas').select('id').eq('cotizacion_id', quote.id)
-      if (ventasMatch && ventasMatch.length > 0) {
-        for (const v of ventasMatch) {
-          await supabase.from('ventas').update({ estado: 'anulada' }).eq('id', v.id)
-          await supabase.from('vouchers').update({ estado: 'inactivo' }).eq('venta_id', v.id)
-        }
-      }
-    }
+    const isGanada = (quote.estado || '').trim().toLowerCase() === 'ganada'
 
-    const { error } = await supabase.from('cotizaciones').update({ 
-      estado: 'anulada', 
-      motivo_perdida: 'Anulada por Administrador' 
-    }).eq('id', quote.id)
-    
-    if (!error) onUpdate()
+    try {
+      const res = await fetch('/api/admin/anular-cotizacion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cotizacionId: quote.id,
+          anularVentas: isGanada
+        })
+      })
+      const result = await res.json()
+      if (!result.ok) throw new Error(result.error || 'Error al anular la cotización')
+      
+      onUpdate()
+    } catch (err) {
+      console.error(err)
+      alert(err.message)
+    }
   }
 
   const [loadingClosing, setLoadingClosing] = useState(false)
