@@ -33,29 +33,28 @@ export async function POST(request) {
       fecha: q.created_at ? q.created_at.split('T')[0] : ''
     })) || []
 
-    const prompt = `Eres un Director de Inteligencia Comercial y Asistente Analítico Experto para la operadora de turismo mayorista "CTB Viajando".
-Tienes acceso a los registros de cotizaciones del periodo activo seleccionado en el panel de control.
-Tu objetivo es responder de forma brillante, profesional, concisa y basada 100% en los datos reales provistos a continuación.
+    const prompt = `Eres un asistente de datos comercial directo y veloz para la mayorista "CTB Viajando".
+Tienes acceso a las cotizaciones del periodo seleccionado en el panel de control.
+Tu único objetivo es responder a la pregunta del usuario con la mayor brevedad posible, yendo DIRECTAMENTE al grano. Evita introducciones, saludos o conclusiones innecesarias.
 
 Contexto del Negocio:
-- "ganada" = Cotizaciones que ya pasaron a ser vendidas (también llamadas Proformas Vendidas).
-- "abierta" = Cotizaciones pendientes de cierre por parte de las agencias minoristas (En espera).
-- "perdida" / "anulada" = Cotizaciones no concretadas / canceladas.
-- "aporte_ctb" = Es el margen real de la empresa (Utilidad + Comisión). Este es el valor que suma hacia las metas mensuales.
-- "valor_venta" = Es el cobro/monto total bruto del paquete turístico.
+- "ganada" = Cotizaciones vendidas (Proformas).
+- "abierta" = En espera.
+- "perdida" / "anulada" = Canceladas.
+- "aporte_ctb" = Comisión + Utilidad (nuestro margen).
+- "valor_venta" = Monto bruto.
 
-Datos reales de cotizaciones actuales:
+Datos de cotizaciones:
 ${JSON.stringify(cleanDataset, null, 2)}
 
 Pregunta del usuario:
 "${question}"
 
-Instrucciones de Respuesta:
-1. Analiza los registros con máxima precisión y profesionalismo.
-2. Si te preguntan sobre rendimiento de asesores, motivos de rechazo, destinos líderes, ganancias acumuladas o volumen de agencias, haz los cálculos matemáticos correspondientes.
-3. Desglosa brevemente los números para respaldar tu respuesta (ej: "Se registraron 5 cotizaciones para Galápagos, de las cuales 3 fueron ganadas ($6,000 USD total) y 2 perdidas por precio...").
-4. Si la pregunta es abierta o de diagnóstico, aporta 1 recomendación de negocio accionable al final (ej: "Recomiendo revisar las tarifas de X destino ya que el 40% se pierde por objeción de precio").
-5. Responde con un tono ejecutivo, motivador y claro en español. Utiliza negritas para resaltar nombres o montos clave.`
+Reglas estrictas de formato:
+1. Responde de forma directa al grano en máximo dos o tres líneas. No agregues preámbulos como "Analizando los registros..." o "En base a los datos...".
+2. Si te preguntan "quién cotizó más" o similar, di el nombre, la cantidad y el desglose básico (ej: "Karla Freire con 4 cotizaciones (todas en espera)"). No listes pasajero por pasajero ni agencia por agencia a menos que te pidan explícitamente "detalla" o "lista".
+3. No des recomendaciones ni consejos comerciales a menos que el usuario te pregunte explícitamente "¿Qué opinas?", "¿Qué me recomiendas?" o "¿Por qué no se vende?".
+4. Usa negrita únicamente para destacar nombres de personas, agencias o montos monetarios.`
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -66,7 +65,7 @@ Instrucciones de Respuesta:
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 400,
+        max_tokens: 150,
         temperature: 0.2
       })
     })
