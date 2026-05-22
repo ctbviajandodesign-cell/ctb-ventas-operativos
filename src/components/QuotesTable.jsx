@@ -70,9 +70,25 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
 
 
 
-  const handleDelete = async (id) => {
-    if (!confirm('¿Seguro que quieres eliminar esta proforma?')) return
-    const { error } = await supabase.from('cotizaciones').delete().eq('id', id)
+  const handleDelete = async (quote) => {
+    if (!confirm('¿Seguro que quieres anular y archivar esta proforma?')) return
+    
+    // Si estaba ganada, necesitamos anular la venta y sus vouchers también
+    if ((quote.estado || '').trim().toLowerCase() === 'ganada') {
+      const { data: ventasMatch } = await supabase.from('ventas').select('id').eq('cotizacion_id', quote.id)
+      if (ventasMatch && ventasMatch.length > 0) {
+        for (const v of ventasMatch) {
+          await supabase.from('ventas').update({ estado: 'anulada' }).eq('id', v.id)
+          await supabase.from('vouchers').update({ estado: 'inactivo' }).eq('venta_id', v.id)
+        }
+      }
+    }
+
+    const { error } = await supabase.from('cotizaciones').update({ 
+      estado: 'anulada', 
+      motivo_perdida: 'Anulada por Administrador' 
+    }).eq('id', quote.id)
+    
     if (!error) onUpdate()
   }
 
@@ -228,7 +244,7 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
 
                     <Link href={`/dashboard/cotizaciones/editar/${quote.id}`} className="p-2 text-gray-400 hover:text-primary rounded-lg" title="Editar"><Edit size={18} /></Link>
                     {isAdmin && (
-                      <button onClick={() => handleDelete(quote.id)} className="p-2 text-gray-300 hover:text-danger rounded-lg transition-colors">
+                      <button onClick={() => handleDelete(quote)} className="p-2 text-gray-300 hover:text-danger rounded-lg transition-colors">
                         <Trash2 size={18} />
                       </button>
                     )}
