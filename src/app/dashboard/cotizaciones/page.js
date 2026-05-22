@@ -31,7 +31,7 @@ export default function CotizacionesPage() {
     try {
       let query = supabase
         .from('cotizaciones')
-        .select('*, profiles!inner(nombre, ciudad), ventas(*, vouchers(*))')
+        .select('id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, comercial, estado, motivo_perdida, created_at, profiles!inner(nombre, ciudad), ventas(id, estado, vouchers(codigo))')
         .order('created_at', { ascending: false })
 
       if (!isAdmin) {
