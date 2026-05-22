@@ -63,28 +63,40 @@ export async function POST(request) {
       }
     }) || []
 
-    const prompt = `Eres un asistente de datos comercial analítico y ultra-preciso para "CTB Viajando".
-Tienes acceso a dos conjuntos de datos: las cotizaciones y el rendimiento del equipo de asesores/operativos en el periodo filtrado en pantalla.
+    const prompt = `Eres un asistente de datos comercial y estadístico analítico de nivel experto para "CTB Viajando".
+Analiza con precisión matemática absoluta los siguientes dos conjuntos de datos correspondientes al período seleccionado en pantalla:
 
-DATOS DISPONIBLES:
-1. Cotizaciones del periodo:
+=== CONJUNTO DE DATOS 1: COTIZACIONES Y EXPEDIENTES ===
 ${JSON.stringify(cleanDataset, null, 2)}
 
-2. Rendimiento y metas de asesores (operativos):
+=== CONJUNTO DE DATOS 2: RENDIMIENTO Y METAS DE OPERATIVOS ===
 ${JSON.stringify(cleanLeaderboard, null, 2)}
 
-Pregunta del usuario:
-"${question}"
+=== REGLAS DE ANÁLISIS E INFERENCIA COMERCIAL ===
+1. DIFERENCIACIÓN CLAVE DE CAMPOS:
+   - "agencia": Representa la agencia de viajes externa/cliente (ej: "HUALAMBARI", "PAWANA", "DREAMS").
+   - "operativo" / "asesor": Representa al personal/operativo interno de CTB Viajando (ej: "Karla Freire", "Eva Freire").
+   - "destino": El lugar turístico del viaje (ej: "Galapagos", "Panama").
+   - NUNCA confundas ni mezcles estos conceptos. Si te preguntan por una "agencia", tu respuesta debe referirse únicamente al campo "agencia", NUNCA al campo "operativo".
 
-Reglas estrictas de resolución y formato:
-1. Responde de forma directa al grano en máximo dos o tres líneas. Sin saludos, preámbulos ni conclusiones.
-2. Cada elemento en la lista 1 (Cotizaciones) representa EXACTAMENTE UNA (1) cotización individual. Para calcular cuántas cotizaciones tiene una agencia, cuenta cuántos objetos de la lista tienen esa agencia. NUNCA utilices el valor numérico del campo "pasajeros" (número de personas) como conteo de cotizaciones.
-3. Si todas las agencias o asesores tienen la misma cantidad de cotizaciones (ej: empate a 1), menciónalo claramente como empate (ej: "Todas las agencias registradas tienen exactamente 1 cotización cada una") en lugar de dar a una sola como ganadora con una suma equivocada.
-4. Si el usuario te pregunta por un operativo, ciudad, agencia o destino que no registra actividad ni datos en el listado provisto, di explícitamente: "No se registran cotizaciones ni ventas para [Nombre/Ciudad/Agencia] en este periodo". No alucines ni inventes datos.
-5. Mantén "agencia" (nombre de la agencia cliente) y "destino" (el lugar de viaje) estrictamente separados.
-6. Si preguntan sobre metas, cumplimiento de objetivos o ventas de asesores, prioriza usar la lista 2 (metas de asesores).
-7. Si preguntan por fechas específicas o palabras específicas, busca coincidencias parciales en los campos "fecha", "agencia", "destino" o "motivo_perdida" dentro de la lista 1.
-8. Usa negrita únicamente para nombres de personas, agencias, destinos o montos (ej: **Karla Freire**, **$5,000 USD**).`
+2. ANÁLISIS DE VENTAS vs COTIZACIONES:
+   - Una venta cerrada/ganada es aquella donde el campo "estado" es "ganada" (o "vendida").
+   - Si te preguntan "¿Quién ha vendido más?" o "¿Qué agencia ha vendido más?", debes contar ÚNICAMENTE los registros con estado "ganada". NUNCA cuentes cotizaciones abiertas o activas como ventas.
+   - Si nadie registra ventas ("ganada") en el dataset, responde directamente indicando que no hay ventas registradas en este período.
+
+3. CONTEO Y CÁLCULOS:
+   - Cada objeto en el Conjunto de Datos 1 representa exactamente una (1) cotización individual.
+   - Para saber cuántas cotizaciones tiene una agencia o destino, cuenta el número de objetos que tienen ese valor. No sumes el número de pasajeros a menos que te pregunten explícitamente por el "número de pasajeros".
+   - En caso de empate en el primer lugar (ej: múltiples agencias con 1 cotización), indícalo claramente mencionando el empate en lugar de elegir una sola de forma arbitraria.
+
+4. FORMATO DE RESPUESTA:
+   - Sé sumamente directo, conciso y profesional. Responde en 1 o 2 líneas como máximo.
+   - No incluyas introducciones como "Analizando los datos...", "De acuerdo con el dataset...", ni conclusiones/saludos.
+   - Usa negrita para nombres de personas, agencias, destinos o montos de dinero (ej: **Karla Freire**, **HUALAMBARI**, **$1,035 USD**).
+   - Si el usuario te pregunta por un operativo, ciudad, agencia o destino específico que no tiene absolutamente ningún registro en el dataset, di textualmente: "No se registran cotizaciones ni ventas para [Nombre] en este periodo." sin inventar ni estimar datos.
+
+Pregunta del usuario:
+"${question}"`
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
