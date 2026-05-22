@@ -15,105 +15,146 @@ export async function POST(request) {
       return NextResponse.json({ answer: 'Por favor, escribe una pregunta.' })
     }
 
-    const getVoucherCodigo = (quote) => {
+    // ─── Determinar si una cotización tiene voucher activo ────────────────────
+    const hasActiveVoucher = (quote) => {
       const ventas = Array.isArray(quote.ventas) ? quote.ventas : (quote.ventas ? [quote.ventas] : [])
-      for (const v of ventas) {
-        const voucherArr = Array.isArray(v.vouchers) ? v.vouchers : (v.vouchers ? [v.vouchers] : [])
-        if (voucherArr.length > 0) return voucherArr[0].codigo || voucherArr[0]
-      }
-      return null
+      return ventas.some(v => {
+        const vArr = Array.isArray(v.vouchers) ? v.vouchers : (v.vouchers ? [v.vouchers] : [])
+        return vArr.length > 0
+      })
     }
 
-    // Format the dataset to keep it minimal and save tokens
-    const cleanDataset = dataset?.map(q => {
-      const isSold = q.estado === 'ganada' || !!getVoucherCodigo(q)
-      
+    // ─── Limpiar y normalizar cada cotización ─────────────────────────────────
+    const cleanDataset = (dataset || []).map(q => {
+      const esVenta = q.estado === 'ganada' || hasActiveVoucher(q)
       return {
-        ref: q.codigo,
-        agencia: q.agencia || 'Directo',
-        destino: q.destino || 'Desconocido',
-        estado: isSold ? 'ganada' : q.estado, // ganada (vendida), perdida (cancelada), anulada (cancelada), abierta (activa/caducada)
-        es_venta: isSold, // true si es una venta confirmada/efectiva, false en caso contrario
-        valor_venta: isSold ? Number(q.valor_total || 0) : 0, // Solo tiene valor de venta si es una venta confirmada/efectiva
+        ref:              q.codigo,
+        agencia:          q.agencia || 'Directo',
+        destino:          q.destino || 'Desconocido',
+        operativo:        q.profiles?.nombre || 'Desconocido',
+        ciudad:           q.profiles?.ciudad || 'Desconocido',
+        comercial:        q.comercial || '',
+        es_venta:         esVenta,   // TRUE = venta confirmada. FALSE = cotización sin cerrar
+        valor_venta:      esVenta ? Number(q.valor_total || 0) : 0,
         valor_cotizacion: Number(q.valor_total || 0),
-        comision: Number(q.valor_comision || 0),
-        utilidad: Number(q.valor_utilidad || 0),
-        aporte_ctb: Number(q.valor_utilidad || 0) + Number(q.valor_comision || 0),
-        operativo: q.profiles?.nombre || 'Desconocido',
-        ciudad: q.profiles?.ciudad || 'Desconocido',
-        comercial: q.comercial || '---',
-        pasajeros: q.numero_pasajeros || (Array.isArray(q.nombres_pasajeros) ? q.nombres_pasajeros.length : 0),
-        motivo_perdida: q.motivo_perdida || '',
-        fecha: q.created_at ? q.created_at.split('T')[0] : ''
+        comision:         Number(q.valor_comision || 0),
+        utilidad:         Number(q.valor_utilidad || 0),
+        aporte_ctb:       Number(q.valor_utilidad || 0) + Number(q.valor_comision || 0),
+        pasajeros:        q.numero_pasajeros || (Array.isArray(q.nombres_pasajeros) ? q.nombres_pasajeros.length : 0),
+        motivo_perdida:   q.motivo_perdida || '',
+        estado_original:  q.estado,
+        fecha:            q.created_at ? q.created_at.split('T')[0] : ''
       }
-    }) || []
+    })
 
-    // Format leaderboard to track goals and quotas accurately mapped from the real database results
-    const cleanLeaderboard = leaderboard?.map(op => {
-      const nombreLargo = op.nombreCompleto || op.nombre || 'Desconocido'
-      const nombreCorto = op.nombre || ''
-      
-      // Match and count from the cleanDataset to align metrics perfectly
-      const matchingQuotes = cleanDataset.filter(q => 
-        q.operativo.toLowerCase().includes(nombreLargo.toLowerCase()) || 
-        q.operativo.toLowerCase().includes(nombreCorto.toLowerCase())
-      )
-      const numCotizaciones = matchingQuotes.length
-      const numVentas = matchingQuotes.filter(q => q.es_venta).length
+    // ─── Pre-computar resúmenes para el prompt (ahorrar tokens y mejorar precisión) ─
+    const ventas      = cleanDataset.filter(q => q.es_venta)
+    const cotizaciones = cleanDataset.filter(q => !q.es_venta)
 
+    // Agencias que vendieron
+    const agenciasVentas = {}
+    ventas.forEach(q => {
+      if (!agenciasVentas[q.agencia]) agenciasVentas[q.agencia] = { ventas: 0, monto: 0 }
+      agenciasVentas[q.agencia].ventas++
+      agenciasVentas[q.agencia].monto += q.valor_venta
+    })
+
+    // Agencias que solo cotizaron (sin vender)
+    const agenciasQueCotizaron = {}
+    cotizaciones.forEach(q => {
+      if (!agenciasQueCotizaron[q.agencia]) agenciasQueCotizaron[q.agencia] = 0
+      agenciasQueCotizaron[q.agencia]++
+    })
+    const agenciasSoloCotizan = Object.keys(agenciasQueCotizaron).filter(a => !agenciasVentas[a])
+
+    // Destinos vendidos
+    const destinosVentas = {}
+    ventas.forEach(q => {
+      if (!destinosVentas[q.destino]) destinosVentas[q.destino] = { ventas: 0, monto: 0 }
+      destinosVentas[q.destino].ventas++
+      destinosVentas[q.destino].monto += q.valor_venta
+    })
+
+    // Operativos resumen
+    const operativosMap = {}
+    cleanDataset.forEach(q => {
+      if (!operativosMap[q.operativo]) operativosMap[q.operativo] = { cotizaciones: 0, ventas: 0, monto: 0 }
+      operativosMap[q.operativo].cotizaciones++
+      if (q.es_venta) {
+        operativosMap[q.operativo].ventas++
+        operativosMap[q.operativo].monto += q.valor_venta
+      }
+    })
+
+    // Comerciales resumen
+    const comercialesMap = {}
+    cleanDataset.filter(q => q.comercial).forEach(q => {
+      if (!comercialesMap[q.comercial]) comercialesMap[q.comercial] = { cotizaciones: 0, ventas: 0, monto: 0 }
+      comercialesMap[q.comercial].cotizaciones++
+      if (q.es_venta) {
+        comercialesMap[q.comercial].ventas++
+        comercialesMap[q.comercial].monto += q.valor_venta
+      }
+    })
+
+    // Leaderboard limpio con métricas verificadas
+    const cleanLeaderboard = (leaderboard || []).map(op => {
+      const nombre = op.nombreCompleto || op.nombre || 'Desconocido'
+      const opData = operativosMap[nombre] || { cotizaciones: 0, ventas: 0, monto: 0 }
       return {
-        nombre: nombreLargo,
+        nombre,
         ciudad: op.ciudad || 'Desconocido',
         meta: Number(op.meta || 0),
         aporte_ganado: Number(op.total || 0),
         porcentaje_meta: Number(op.cumplimiento || 0),
-        ventas: numVentas,
-        cotizaciones: numCotizaciones
+        ventas_confirmadas: opData.ventas,
+        cotizaciones_total: opData.cotizaciones
       }
-    }) || []
+    })
 
-    console.log('AI Chat Question:', question)
-    console.log('cleanDataset count:', cleanDataset.length)
-    const ganadasDataset = cleanDataset.filter(q => q.estado === 'ganada')
-    console.log('cleanDataset ganadas count:', ganadasDataset.length)
-    console.log('cleanDataset ganadas:', JSON.stringify(ganadasDataset, null, 2))
-    console.log('cleanLeaderboard:', JSON.stringify(cleanLeaderboard, null, 2))
+    const prompt = `Eres un analista de datos comerciales experto para la empresa "CTB Viajando". Responde la pregunta del usuario usando ÚNICAMENTE los datos pre-calculados que se muestran a continuación. Razona paso a paso internamente, pero entrega solo la respuesta final.
 
-    const prompt = `Eres un asistente de datos comercial y estadístico analítico de nivel experto para "CTB Viajando".
-Analiza con precisión matemática absoluta los siguientes dos conjuntos de datos correspondientes al período seleccionado en pantalla:
+=== DEFINICIONES ===
+- "agencia": Cliente externo / agencia de viajes (ej: HUALAMBARI, DREAMS).
+- "operativo": Asesor interno de CTB Viajando (ej: Karla Freire, Eva Freire).
+- "comercial": Canal o ejecutivo comercial que trajo el negocio.
+- "destino": Lugar turístico del viaje.
+- "es_venta: true": La cotización se convirtió en venta real confirmada.
+- "es_venta: false": Solo es una cotización, no se concretó la venta.
 
-=== CONJUNTO DE DATOS 1: COTIZACIONES Y EXPEDIENTES ===
-${JSON.stringify(cleanDataset, null, 2)}
+=== TOTALES DEL PERÍODO ===
+- Total cotizaciones: ${cleanDataset.length}
+- Total ventas confirmadas: ${ventas.length}
+- Total sin vender: ${cotizaciones.length}
 
-=== CONJUNTO DE DATOS 2: RENDIMIENTO Y METAS DE OPERATIVOS ===
+=== AGENCIAS QUE VENDIERON ===
+${JSON.stringify(agenciasVentas, null, 2)}
+
+=== AGENCIAS QUE SOLO COTIZARON (SIN VENDER) ===
+${JSON.stringify(agenciasSoloCotizan)}
+
+=== DESTINOS VENDIDOS ===
+${JSON.stringify(destinosVentas, null, 2)}
+
+=== RESUMEN POR OPERATIVO ===
+${JSON.stringify(operativosMap, null, 2)}
+
+=== RESUMEN POR COMERCIAL ===
+${JSON.stringify(Object.keys(comercialesMap).length > 0 ? comercialesMap : { 'sin_datos': 'No hay comerciales registrados' }, null, 2)}
+
+=== LEADERBOARD DE ASESORES ===
 ${JSON.stringify(cleanLeaderboard, null, 2)}
 
-=== REGLAS DE ANÁLISIS E INFERENCIA COMERCIAL ===
-1. DIFERENCIACIÓN CLAVE DE CAMPOS:
-   - "agencia": Representa la agencia de viajes externa/cliente (ej: "HUALAMBARI", "PAWANA", "DREAMS").
-   - "operativo" / "asesor": Representa al personal/operativo interno de CTB Viajando (ej: "Karla Freire", "Eva Freire").
-   - "destino": El lugar turístico del viaje (ej: "Galapagos", "Panama").
-   - NUNCA confundas ni mezcles estos conceptos. Si te preguntan por una "agencia", tu respuesta debe referirse únicamente al campo "agencia", NUNCA al campo "operativo".
+=== REGLAS DE RESPUESTA ===
+1. Responde en MÁXIMO 2 líneas. Sin introducciones ni saludos.
+2. Usa negrita para nombres, destinos y montos: **DREAMS**, **Karla Freire**, **$1,035 USD**.
+3. Si preguntan por "quién vendió más" → usa el campo "ventas" y "monto" de los resúmenes de VENTAS.
+4. Si preguntan por "quién solo cotizó sin vender" → usa la lista "AGENCIAS QUE SOLO COTIZARON".
+5. Si algo no tiene datos en los resúmenes, responde: "No se registran datos para [Nombre] en este período."
+6. Nunca mezcles: agencia ≠ operativo ≠ comercial ≠ destino.
+7. Si hubiera empate, menciona a todos los empatados.
 
-2. ANÁLISIS DE VENTAS vs COTIZACIONES:
-   - Una venta confirmada/efectiva tiene "es_venta": true (su estado es "ganada" y tiene un "valor_venta" mayor a 0).
-   - Una cotización es cualquier objeto del dataset (independientemente de si es_venta es true o false).
-   - Si te preguntan "¿Quién ha vendido más?" o "¿Qué agencia ha vendido más?" o consultas sobre facturación/montos de venta, debes filtrar y basarte ÚNICAMENTE en los registros donde "es_venta" sea true. Suma el campo "valor_venta" para obtener el total vendido por entidad.
-   - Si no hay ningún registro en el dataset donde "es_venta" sea true, debes responder exactamente: "No hay ventas registradas en este período."
-
-3. CONTEO Y CÁLCULOS:
-   - Cada objeto en el Conjunto de Datos 1 representa exactamente una (1) cotización individual.
-   - Para saber cuántas cotizaciones tiene una agencia o destino, cuenta el número de objetos que tienen ese valor en el dataset.
-   - En caso de empate en el primer lugar (ej: múltiples agencias con la misma cantidad de ventas o cotizaciones), indícalo claramente mencionando a todas las partes empatadas.
-
-4. FORMATO DE RESPUESTA:
-   - Sé sumamente directo, conciso y profesional. Responde en 1 o 2 líneas como máximo.
-   - No incluyas introducciones como "Analizando los datos...", "De acuerdo con el dataset...", ni conclusiones/saludos.
-   - Usa negrita para nombres de personas, agencias, destinos o montos de dinero (ej: **Karla Freire**, **HUALAMBARI**, **$1,035 USD**).
-   - Si el usuario te pregunta por un operativo, ciudad, agencia o destino específico que no tiene absolutamente ningún registro en el dataset, di textualmente: "No se registran cotizaciones ni ventas para [Nombre] en este periodo." sin inventar ni estimar datos.
-
-Pregunta del usuario:
-"${question}"`
+Pregunta del usuario: "${question}"`
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -124,8 +165,8 @@ Pregunta del usuario:
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 150,
-        temperature: 0.2
+        max_tokens: 200,
+        temperature: 0.1
       })
     })
 
