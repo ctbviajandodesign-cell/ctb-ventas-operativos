@@ -162,7 +162,7 @@ export default function DashboardPage() {
 
       const totalMetaComp = ventasData?.reduce((acc, v) => acc + (Number(v.comision) || 0) + (Number(v.utilidad) || 0), 0) || 0
       const totalV = cotGanadas?.reduce((acc, q) => acc + (Number(q.valor_total) || 0), 0) || 0
-      const totalPipeline = pipelineData?.reduce((acc, q) => acc + (Number(q.valor_total) || 0), 0) || 0
+      const totalPipeline = pipelineData?.length || 0
 
       setQuotes(quotesData || [])
       setLostQuotes(lostData || [])
@@ -606,7 +606,7 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-3 gap-2">
                   {[
                     { label: 'Ganadas', val: operativePanel.ganadas, color: 'text-success bg-success/10 border-success/20' },
-                    { label: 'En Proceso', val: operativePanel.abiertas, color: 'text-primary bg-primary/10 border-primary/20' },
+                    { label: 'En Espera', val: operativePanel.abiertas, color: 'text-primary bg-primary/10 border-primary/20' },
                     { label: 'Perdidas', val: operativePanel.perdidas, color: 'text-amber-600 bg-amber-50 border-amber-100' },
                   ].map(item => (
                     <div key={item.label} className={`p-3 rounded-2xl text-center border ${item.color}`}>
@@ -731,7 +731,7 @@ export default function DashboardPage() {
         />
         <StatsCard 
           title="Cotizaciones Emitidas" 
-          value={`$${metrics.pipeline.toLocaleString()}`} 
+          value={metrics.pipeline.toLocaleString()} 
           icon={Target}
           color="accent"
         />
@@ -742,7 +742,7 @@ export default function DashboardPage() {
           color="success"
         />
         <StatsCard 
-          title={selectedOperative === 'global' && isAdmin ? "Cotizaciones en Proceso" : "Vouchers Emitidos"} 
+          title={selectedOperative === 'global' && isAdmin ? "Cotizaciones en Espera" : "Vouchers Emitidos"} 
           value={selectedOperative === 'global' && isAdmin ? metrics.cotizacionesAbiertas : metrics.vouchersEmitidos} 
           icon={selectedOperative === 'global' && isAdmin ? FileText : Trophy}
           color="danger"

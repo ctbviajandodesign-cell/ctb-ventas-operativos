@@ -171,7 +171,7 @@ export default function CotizacionesPage() {
   }, [quotes])
 
   const chartData = [
-    { name: 'En Proceso', value: stats.abiertas, color: '#0066CC' },
+    { name: 'En Espera', value: stats.abiertas, color: '#0066CC' },
     { name: 'Cerradas ✓', value: stats.ganadas, color: '#16A34A' },
     { name: 'No Concretadas', value: stats.perdidas, color: '#F5A623' },
     { name: 'Canceladas', value: stats.anuladas, color: '#EF4444' },
@@ -201,7 +201,7 @@ export default function CotizacionesPage() {
 
   const filterTabs = [
     { key: 'todas', label: 'Todas', icon: FileText, color: 'gray' },
-    { key: 'abierta', label: 'En Proceso', icon: Clock, color: 'blue' },
+    { key: 'abierta', label: 'En Espera', icon: Clock, color: 'blue' },
     { key: 'ganada', label: 'Cerradas', icon: CheckCircle2, color: 'green' },
     { key: 'perdida', label: 'No Concretadas', icon: XCircle, color: 'amber' },
     { key: 'anulada', label: 'Canceladas', icon: AlertTriangle, color: 'red' },
@@ -249,7 +249,7 @@ export default function CotizacionesPage() {
           <p className="text-xs text-gray-400 mt-2 font-bold">Este historial completo</p>
         </div>
         <div className="bg-primary/5 border border-primary/10 p-6 rounded-[2rem] flex flex-col justify-between">
-          <p className="text-xs font-black text-primary/80 uppercase tracking-widest">En Proceso</p>
+          <p className="text-xs font-black text-primary/80 uppercase tracking-widest">En Espera</p>
           <p className="text-4xl font-black text-primary mt-2">{stats.abiertas}</p>
           <p className="text-xs text-primary/60 mt-2 font-bold">Esperando cierre</p>
         </div>

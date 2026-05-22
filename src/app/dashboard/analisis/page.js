@@ -187,14 +187,14 @@ export default function AnalisisPage() {
 
   const handleExportVendidos = () => {
     if (rankingVendidos.length === 0) return
-    const headers = 'Ranking,Destino,Proformas Ganadas,Valor Total ($)'
+    const headers = 'Ranking,Destino,Cotizaciones Vendidas,Valor Total ($)'
     const rows = rankingVendidos.map((item, i) => `${i+1},${item.destino},${item.count},${item.valor}`)
     exportCSV('Ranking_Destinos_Vendidos_CTB', headers, rows)
   }
 
   const handleExportObjeciones = () => {
     if (rankingObjeciones.length === 0) return
-    const headers = 'Ranking,Destino,Proformas Perdidas,Objecion Principal'
+    const headers = 'Ranking,Destino,Cotizaciones Perdidas,Objecion Principal'
     const rows = rankingObjeciones.map((item, i) => `${i+1},${item.destino},${item.count},"${item.mainObjection}"`)
     exportCSV('Ranking_Objeciones_Destinos_CTB', headers, rows)
   }
@@ -265,7 +265,7 @@ export default function AnalisisPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-between">
               <div>
-                <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Proformas Totales</p>
+                <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Total Cotizaciones</p>
                 <p className="text-3xl font-black text-gray-900">{metrics.total}</p>
               </div>
               <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
@@ -274,7 +274,7 @@ export default function AnalisisPage() {
             </div>
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-between">
               <div>
-                <p className="text-xs font-black text-amber-500 uppercase tracking-widest mb-1">En Proceso</p>
+                <p className="text-xs font-black text-amber-500 uppercase tracking-widest mb-1">En Espera</p>
                 <p className="text-3xl font-black text-amber-500">{metrics.abiertas}</p>
               </div>
               <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500">
@@ -371,7 +371,7 @@ export default function AnalisisPage() {
                         <span className="text-xs font-black text-gray-400 w-5">#{idx + 1}</span>
                         <div>
                           <p className="text-sm font-black text-gray-800 uppercase tracking-tight">{item.destino}</p>
-                          <p className="text-xs text-gray-400 font-bold uppercase">{item.count} {item.count === 1 ? 'proforma ganada' : 'proformas ganadas'}</p>
+                          <p className="text-xs text-gray-400 font-bold uppercase">{item.count} {item.count === 1 ? 'cotización vendida' : 'cotizaciones vendidas'}</p>
                         </div>
                       </div>
                       <div className="text-right">
@@ -404,7 +404,7 @@ export default function AnalisisPage() {
                         <span className="text-xs font-black text-gray-400 w-5">#{idx + 1}</span>
                         <div>
                           <p className="text-sm font-black text-gray-800 uppercase tracking-tight">{item.destino}</p>
-                          <p className="text-xs text-gray-400 font-bold uppercase">{item.count} {item.count === 1 ? 'proforma perdida' : 'proformas perdidas'}</p>
+                          <p className="text-xs text-gray-400 font-bold uppercase">{item.count} {item.count === 1 ? 'cotización perdida' : 'cotizaciones perdidas'}</p>
                         </div>
                       </div>
                       <div className="text-right bg-amber-50 px-3 py-1 rounded-xl border border-amber-100 max-w-[200px] truncate">
