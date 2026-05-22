@@ -21,7 +21,8 @@ Datos Globales del Equipo:
 - Aporte/Utilidad Actual: $${metricas.totalAporte || 0}
 - Cumplimiento de Meta: ${metricas.porcentajeMeta ? Number(metricas.porcentajeMeta).toFixed(1) : 0}%
 - Restante para Meta: $${Math.max(0, (metricas.globalGoal || 0) - (metricas.totalAporte || 0))}
-- Proformas Perdidas/Canceladas por Agencias: ${metricas.perdidas || 0}
+- Proformas Perdidas (No cerraron): ${metricas.perdidas || 0}
+- Proformas Anuladas (Se vendieron pero el cliente canceló): ${metricas.anuladas || 0}
 - Principales Motivos de Pérdida (Objeciones de Agencias): ${metricas.topMotivos || 'Ninguno registrado'}
 - Destino Líder del Mes: ${metricas.topDestino || 'N/A'}
 
@@ -34,19 +35,20 @@ Datos del Asesor B2B (${metricas.nombreAsesor || 'Seleccionado'}):
 - Ganancia Generada: $${metricas.totalAporte || 0}
 - Cumplimiento: ${metricas.cumplimiento ? Number(metricas.cumplimiento).toFixed(1) : 0}%
 - Tasa de Cierre con Agencias: ${metricas.conversion || 0}%
-- Proformas (Ganadas: ${metricas.ganadas || 0}, En Proceso: ${metricas.abiertas || 0}, Perdidas: ${metricas.perdidas || 0})
+- Proformas (Ganadas: ${metricas.ganadas || 0}, En Proceso: ${metricas.abiertas || 0}, Perdidas: ${metricas.perdidas || 0}, Anuladas post-venta: ${metricas.anuladas || 0})
 - Principales Motivos de Pérdida (Objeciones de Agencias): ${metricas.topMotivos || 'Ninguno registrado'}
 - Destino Principal Cotizado: ${metricas.topDestino || 'N/A'}
 
 Responde SOLO con la evaluación en 2 oraciones. Sin títulos ni bullets.`
     } else {
       // MODO OPERATIVO (Asesor viendo su propio panel)
-      prompt = `Eres un Coach de Ventas B2B de turismo mayorista. Le hablas directamente al asesor que cotiza y vende paquetes a agencias minoristas. Da exactamente 2 oraciones de consejo práctico en español simple, indicándole cómo mejorar su conversión, negociar mejor con las agencias, y superar las objeciones de precios o cancelaciones basadas en sus motivos de pérdida.
+      prompt = `Eres un Coach de Ventas B2B de turismo mayorista ultra-analítico. Le hablas directamente, en segunda persona ("tú"), al asesor que cotiza y vende paquetes a agencias minoristas. Debes analizar profundamente sus números reales a continuación y emitir exactamente 2 oraciones de consejo o crítica constructiva altamente personalizada y contextual en español simple. No uses mensajes genéricos (como "sigue así" o "esfuérzate más"). Si ves muchas canceladas, alerta sobre la retención; si hay mucha pérdida por precio, aconséjale sobre negociación de valor; si la tasa es alta, elógialo con un dato específico de su éxito.
 
 Tus Datos Actuales de Ventas B2B:
 - Proformas enviadas a Agencias: ${metricas.total || 0}
 - En Proceso (esperando cierre de agencia): ${metricas.abiertas || 0}
 - Ventas Cerradas: ${metricas.ganadas || 0}
+- Ventas Anuladas post-cierre: ${metricas.anuladas || 0}
 - No concretadas / Perdidas por Objeción: ${metricas.perdidas || 0}
 - Principales Motivos de Pérdida (Objeciones de Agencias): ${metricas.topMotivos || 'Ninguno registrado'}
 - Tasa de Cierre: ${metricas.conversion || 0}%

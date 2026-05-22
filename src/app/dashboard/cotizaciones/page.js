@@ -313,7 +313,7 @@ export default function CotizacionesPage() {
               </ResponsiveContainer>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-4 md:w-64">
+          <div className="grid grid-cols-2 gap-4 w-full md:w-auto">
             {chartData.map((item) => (
               <div key={item.name} className="text-center p-4 rounded-2xl bg-gray-50 border border-gray-100">
                 <div className="w-3 h-3 rounded-full mx-auto mb-2" style={{ background: item.color }}></div>
@@ -329,7 +329,7 @@ export default function CotizacionesPage() {
       {/* BARRA DE FILTROS REAL */}
       <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4 items-center justify-between">
         {/* Filtros por estado */}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex overflow-x-auto pb-2 md:pb-0 hide-scrollbar gap-2 w-full md:w-auto">
           {filterTabs.map(tab => {
             const Icon = tab.icon
             const isActive = statusFilter === tab.key

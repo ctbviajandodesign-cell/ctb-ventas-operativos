@@ -111,7 +111,7 @@ export default function DashboardPage() {
       let quotesQuery = supabase.from('cotizaciones').select('*, profiles!left(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10)
       let pipelineQuery = supabase.from('cotizaciones').select('valor_total, destino, estado').eq('estado', 'abierta').gte('created_at', startIso)
       let openCountQuery = supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'abierta').gte('created_at', startIso)
-      let lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, created_at, comercial, profiles!left(nombre, ciudad)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).order('created_at', { ascending: false })
+      let lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, created_at, comercial, estado, profiles!left(nombre, ciudad)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).order('created_at', { ascending: false })
 
       if (targetIdForIndividual) {
         // MODO INDIVIDUAL: Filtrar exclusivamente por ID del operativo, sin joins complejos para evitar errores de RLS
@@ -128,11 +128,11 @@ export default function DashboardPage() {
         quotesQuery = supabase.from('cotizaciones').select('*, profiles!inner(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10).eq('profiles.ciudad', activeCityFilter)
         pipelineQuery = supabase.from('cotizaciones').select('valor_total, destino, estado, profiles!inner(ciudad)').eq('estado', 'abierta').gte('created_at', startIso).eq('profiles.ciudad', activeCityFilter)
         openCountQuery = supabase.from('cotizaciones').select('id, profiles!inner(ciudad)', { count: 'exact', head: true }).eq('estado', 'abierta').gte('created_at', startIso).eq('profiles.ciudad', activeCityFilter)
-        lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, created_at, comercial, profiles!inner(nombre, ciudad)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).order('created_at', { ascending: false }).eq('profiles.ciudad', activeCityFilter)
+        lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, created_at, comercial, estado, profiles!inner(nombre, ciudad)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).order('created_at', { ascending: false }).eq('profiles.ciudad', activeCityFilter)
       } else {
         // MODO GLOBAL TOTAL
         quotesQuery = supabase.from('cotizaciones').select('*, profiles!left(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10)
-        lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, created_at, comercial, profiles!left(nombre, ciudad)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).order('created_at', { ascending: false })
+        lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, created_at, comercial, estado, profiles!left(nombre, ciudad)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).order('created_at', { ascending: false })
       }
 
       // EJECUTAR PROMISE.ALL PARA MAXIMA VELOCIDAD
@@ -293,17 +293,19 @@ export default function DashboardPage() {
 
   // Función de Exportación a CSV / Excel de Ventas No Concretadas
   const handleExportLostQuotes = () => {
-    const filtered = lostFilter === 'ALL' 
+    const filteredForExport = lostFilter === 'ALL'
       ? lostQuotes 
-      : lostQuotes.filter(q => (q.motivo_perdida || '').toLowerCase().includes(lostFilter.toLowerCase()))
+      : lostFilter === 'ANULADAS' 
+        ? lostQuotes.filter(q => (q.estado || '').trim() === 'anulada')
+        : lostQuotes.filter(q => (q.motivo_perdida || '').toLowerCase().includes(lostFilter.toLowerCase()) && q.estado !== 'anulada')
     
-    if (filtered.length === 0) {
+    if (filteredForExport.length === 0) {
       showToast('No hay datos para exportar con el filtro actual.', 'error')
       return
     }
 
     const headers = ['Codigo,Agencia,Destino,Motivo,Notas,Asesor,Fecha']
-    const rows = filtered.map(q => {
+    const rows = filteredForExport.map(q => {
       const fecha = new Date(q.created_at).toLocaleDateString()
       const asesor = q.profiles?.nombre || 'N/A'
       const notas = (q.notas_seguimiento || '').replace(/,/g, ';').replace(/\n/g, ' ')
@@ -843,7 +845,8 @@ export default function DashboardPage() {
                   <option value="Precio">Precio</option>
                   <option value="No cerró Agencia">No cerró Agencia</option>
                   <option value="No contestó Operador">No contestó Operador</option>
-                  <option value="Otro">Otros</option>
+                  <option value="Otro">Otros Motivos</option>
+                  <option value="ANULADAS">Canceladas (Anuladas)</option>
                 </select>
 
                 <button 
@@ -858,15 +861,15 @@ export default function DashboardPage() {
 
             {/* Listado de Pérdidas Filtradas */}
             <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2">
-              {lostQuotes.filter(q => lostFilter === 'ALL' || (q.motivo_perdida || '').toLowerCase().includes(lostFilter.toLowerCase())).length === 0 ? (
+              {lostQuotes.filter(q => lostFilter === 'ALL' || (lostFilter === 'ANULADAS' ? q.estado === 'anulada' : ((q.motivo_perdida || '').toLowerCase().includes(lostFilter.toLowerCase()) && q.estado !== 'anulada'))).length === 0 ? (
                 <div className="text-center py-10 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
                   <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">No se encontraron proformas perdidas con este filtro</p>
                 </div>
               ) : (
                 lostQuotes
-                  .filter(q => lostFilter === 'ALL' || (q.motivo_perdida || '').toLowerCase().includes(lostFilter.toLowerCase()))
-                  .map((q, i) => (
-                    <div key={i} className="bg-gray-50 p-5 rounded-2xl border border-gray-100 hover:border-amber-200 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 group">
+                  .filter(q => lostFilter === 'ALL' || (lostFilter === 'ANULADAS' ? q.estado === 'anulada' : ((q.motivo_perdida || '').toLowerCase().includes(lostFilter.toLowerCase()) && q.estado !== 'anulada')))
+                  .map((q, idx) => (
+                    <div key={idx} className="bg-gray-50 p-5 rounded-2xl border border-gray-100 hover:border-amber-200 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 group">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-black text-amber-600 bg-amber-100 px-2.5 py-1 rounded-lg uppercase tracking-wider">
@@ -996,6 +999,7 @@ export default function DashboardPage() {
                     abiertas: metrics.abiertas,
                     ganadas: metrics.ganadas,
                     perdidas: metrics.perdidas,
+                    anuladas: metrics.anuladas || 0,
                     conversion: metrics.conversion,
                     totalAporte: metrics.totalAporte,
                     topDestino: metrics.topDestino,
