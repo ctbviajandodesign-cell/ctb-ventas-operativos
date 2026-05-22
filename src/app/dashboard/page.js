@@ -342,9 +342,14 @@ export default function DashboardPage() {
       // Las queries anteriores usan solo estado='ganada' pero hay ventas
       // confirmadas que tienen estado='activa' con voucher activo.
       // El pipeline ya tiene _esVenta calculado correctamente.
+      // IMPORTANTE: totalVendido = comision + utilidad (aporte CTB), NO valor_total del cliente
       const ganadasReal    = pipelineEnriched.filter(q => q._esVenta)
       const ganadasCount   = ganadasReal.length
-      const totalVendidoReal = ganadasReal.reduce((a, q) => a + (Number(q.valor_total) || 0), 0)
+      const totalVendidoReal = ganadasReal.reduce((a, q) => {
+        const com = Number(q.valor_comision || 0)
+        const uti = Number(q.valor_utilidad || 0)
+        return a + com + uti
+      }, 0)
       const abiertasReal   = pipelineEnriched.filter(q => !q._esVenta && q.estado !== 'perdida' && q.estado !== 'anulada').length
       const perdidasReal   = pipelineEnriched.filter(q => q.estado === 'perdida').length
       const totalReal      = pipelineEnriched.length
@@ -442,8 +447,12 @@ export default function DashboardPage() {
       supabase.from('cotizaciones').select('estado,valor_total,destino,motivo_perdida').eq('operativo_id', op.id),
       supabase.from('vouchers').select('id', { count:'exact', head:true }).eq('operativo_id', op.id)
     ])
+    // IMPORTANTE: ganancia = comision + utilidad (aporte CTB), totalVendido = valor cliente
     const ganancia = ventas?.reduce((a,v)=>a+(Number(v.comision)||0)+(Number(v.utilidad)||0),0)||0
-    const totalVendido = cots?.filter(c=>c.estado==='ganada').reduce((a,c)=>a+(Number(c.valor_total)||0),0)||0
+    // Aporte a meta = comision + utilidad de cotizaciones ganadas
+    const aporteVentasCots = cots?.filter(c=>c.estado==='ganada').reduce((a,c)=>a+(Number(c.valor_comision||0))+(Number(c.valor_utilidad||0)),0)||0
+    const totalVendido = aporteVentasCots  // Aporte CTB (comision+utilidad), para info
+    const valorTotalCliente = cots?.filter(c=>c.estado==='ganada').reduce((a,c)=>a+(Number(c.valor_total)||0),0)||0
     const ganadas = cots?.filter(c=>c.estado==='ganada').length||0
     const abiertas = cots?.filter(c=>c.estado==='abierta').length||0
     const perdidas = cots?.filter(c=>['perdida','anulada'].includes(c.estado)).length||0
@@ -471,6 +480,7 @@ export default function DashboardPage() {
       ...op,
       ganancia,
       totalVendido,
+      valorTotalCliente,
       ganadas,
       abiertas,
       perdidas,
@@ -554,8 +564,8 @@ export default function DashboardPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100">
-                  <p className="text-xs font-black text-gray-400 uppercase">Total Vendido (Mes)</p>
-                  <p className="text-2xl font-black text-gray-900 mt-1">${operativePanel.totalVendido?.toLocaleString()}</p>
+                  <p className="text-xs font-black text-gray-400 uppercase">Valor al Cliente (Mes)</p>
+                  <p className="text-2xl font-black text-gray-900 mt-1">${(operativePanel.valorTotalCliente || operativePanel.totalVendido)?.toLocaleString()}</p>
                 </div>
                 <div className="bg-success/5 p-5 rounded-2xl border border-success/10">
                   <p className="text-xs font-black text-success/80 uppercase">Ganancia (Mes)</p>
@@ -852,7 +862,7 @@ export default function DashboardPage() {
       {/* KPI GRID */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <StatsCard 
-          title="Total Vendido"
+          title="Aporte CTB"
           value={`$${metrics.totalVendido.toLocaleString()}`} 
           icon={DollarSign}
           color="success"
