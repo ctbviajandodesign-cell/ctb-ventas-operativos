@@ -393,12 +393,12 @@ export default function CotizacionesPage() {
           })}
         </div>
 
-        <div className="flex flex-col md:flex-row gap-2 items-center w-full xl:w-auto">
+        <div className="flex flex-wrap gap-2 items-center w-full xl:w-auto">
           {/* Filtro por fecha */}
-          <div className="relative w-full md:w-44 flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2.5 hover:bg-gray-100/50 transition-colors">
+          <div className="relative w-full md:w-auto md:min-w-[13.5rem] flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2 hover:bg-gray-100/50 transition-colors">
             <Calendar size={14} className="text-primary shrink-0" />
             <select
-              className="w-full bg-transparent border-none p-1 text-xs font-black text-gray-800 outline-none focus:ring-0 cursor-pointer uppercase tracking-wider"
+              className="w-full appearance-none bg-transparent border-none pr-8 pl-1 py-1 text-xs font-black text-gray-800 outline-none focus:ring-0 cursor-pointer uppercase tracking-wider bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%230066CC%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_2px_center] bg-[size:16px_16px]"
               value={dateFilter}
               onChange={e => setDateFilter(e.target.value)}
             >
@@ -412,9 +412,10 @@ export default function CotizacionesPage() {
 
           {/* Filtro por ciudad (solo admin) */}
           {isAdmin && (
-            <div className="relative w-full md:w-44">
+            <div className="relative w-full md:w-auto md:min-w-[13.5rem] flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2 hover:bg-gray-100/50 transition-colors">
+              <Filter size={14} className="text-primary shrink-0" />
               <select
-                className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3.5 text-xs font-black text-gray-800 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer uppercase tracking-wider"
+                className="w-full appearance-none bg-transparent border-none pr-8 pl-1 py-1 text-xs font-black text-gray-800 outline-none focus:ring-0 cursor-pointer uppercase tracking-wider bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%230066CC%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_2px_center] bg-[size:16px_16px]"
                 value={selectedCity}
                 onChange={e => setSelectedCity(e.target.value)}
               >

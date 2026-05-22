@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { QRCodeSVG } from 'qrcode.react'
 import { 
@@ -19,8 +19,14 @@ import {
   Building2,
   DollarSign,
   FileDown,
-  Share2
+  Share2,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  Filter
 } from 'lucide-react'
+import { format, parseISO } from 'date-fns'
+import { es } from 'date-fns/locale'
 import { generateVoucherPDF } from '@/lib/pdf-generator'
 import { logActivity } from '@/utils/audit'
 import { showToast } from '@/utils/toast'
@@ -32,8 +38,15 @@ export default function VouchersPage() {
   const [viewingVoucher, setViewingVoucher] = useState(null)
   const [search, setSearch] = useState('')
   const [selectedCity, setSelectedCity] = useState('todas')
+  const [dateFilter, setDateFilter] = useState('todas')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(15)
   const [baseUrl, setBaseUrl] = useState('')
   const [profile, setProfile] = useState(null)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, selectedCity, dateFilter])
 
   const copyVoucherLink = (e, codigo) => {
     if (e) e.stopPropagation()
@@ -147,16 +160,57 @@ export default function VouchersPage() {
     })
   }
 
-  const filtered = vouchers.filter(v => {
-    const matchSearch = v.codigo?.toLowerCase().includes(search.toLowerCase()) ||
-                        v.agencia?.toLowerCase().includes(search.toLowerCase()) ||
-                        v.profiles?.nombre?.toLowerCase().includes(search.toLowerCase()) ||
-                        (v.ventas?.cotizaciones?.comercial || '').toLowerCase().includes(search.toLowerCase())
-    const matchCity = (profile?.rol === 'admin' || profile?.rol === 'superadmin') && selectedCity !== 'todas'
-      ? v.profiles?.ciudad === selectedCity
-      : true
-    return matchSearch && matchCity
-  })
+  const filtered = useMemo(() => {
+    let result = vouchers
+    
+    // 1. Búsqueda por texto
+    if (search.trim()) {
+      const s = search.toLowerCase()
+      result = result.filter(v =>
+        v.codigo?.toLowerCase().includes(s) ||
+        v.agencia?.toLowerCase().includes(s) ||
+        v.profiles?.nombre?.toLowerCase().includes(s) ||
+        (v.ventas?.cotizaciones?.comercial || '').toLowerCase().includes(s)
+      )
+    }
+
+    // 2. Filtro por ciudad
+    if ((profile?.rol === 'admin' || profile?.rol === 'superadmin') && selectedCity !== 'todas') {
+      result = result.filter(v => v.profiles?.ciudad === selectedCity)
+    }
+
+    // 3. Filtro por fecha de creación
+    if (dateFilter !== 'todas') {
+      const now = new Date()
+      result = result.filter(v => {
+        if (!v.created_at) return false
+        const date = new Date(v.created_at)
+        const diffTime = Math.abs(now - date)
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        
+        if (dateFilter === 'hoy') {
+          return date.toDateString() === now.toDateString()
+        }
+        if (dateFilter === 'semana') {
+          return diffDays <= 7
+        }
+        if (dateFilter === 'mes') {
+          return diffDays <= 30
+        }
+        if (dateFilter === 'año') {
+          return date.getFullYear() === now.getFullYear()
+        }
+        return true
+      })
+    }
+
+    return result
+  }, [vouchers, search, selectedCity, dateFilter, profile])
+
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    return filtered.slice(startIndex, startIndex + itemsPerPage)
+  }, [filtered, currentPage, itemsPerPage])
 
   // Calcular Recordatorios Activos
   const getActiveReminders = () => {
@@ -212,32 +266,51 @@ export default function VouchersPage() {
 
   return (
     <div className="space-y-6 pb-20">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-gray-900 tracking-tight">Archivo de Vouchers</h1>
           <p className="text-gray-500 text-sm font-medium italic underline decoration-success/30">Gestión de certificados y validación QR.</p>
         </div>
         
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          {(profile?.rol === 'admin' || profile?.rol === 'superadmin') && (
+        <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto justify-end">
+          {/* Filtro por fecha */}
+          <div className="relative w-full sm:w-auto sm:min-w-[13.5rem] flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-2 hover:bg-gray-100/50 transition-colors">
+            <Calendar size={14} className="text-primary shrink-0" />
             <select
-              className="bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-black text-gray-800 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
-              value={selectedCity}
-              onChange={e => setSelectedCity(e.target.value)}
+              className="w-full appearance-none bg-transparent border-none pr-8 pl-1 py-1 text-xs font-black text-gray-800 outline-none focus:ring-0 cursor-pointer uppercase tracking-wider bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%230066CC%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_2px_center] bg-[size:16px_16px]"
+              value={dateFilter}
+              onChange={e => setDateFilter(e.target.value)}
             >
-              <option value="todas">Todas las Ciudades</option>
-              <option value="Quito">Quito</option>
-              <option value="Guayaquil">Guayaquil</option>
-              <option value="Cuenca">Cuenca</option>
-              <option value="Manta">Manta</option>
-              <option value="Loja">Loja</option>
+              <option value="todas">Todas las Fechas</option>
+              <option value="hoy">Hoy</option>
+              <option value="semana">Esta Semana</option>
+              <option value="mes">Este Mes</option>
+              <option value="año">Este Año</option>
             </select>
+          </div>
+
+          {(profile?.rol === 'admin' || profile?.rol === 'superadmin') && (
+            <div className="relative w-full sm:w-auto sm:min-w-[13.5rem] flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-2 hover:bg-gray-100/50 transition-colors">
+              <Filter size={14} className="text-primary shrink-0" />
+              <select
+                className="w-full appearance-none bg-transparent border-none pr-8 pl-1 py-1 text-xs font-black text-gray-800 outline-none focus:ring-0 cursor-pointer uppercase tracking-wider bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%230066CC%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_2px_center] bg-[size:16px_16px]"
+                value={selectedCity}
+                onChange={e => setSelectedCity(e.target.value)}
+              >
+                <option value="todas">Todas las Ciudades</option>
+                <option value="Quito">Quito</option>
+                <option value="Guayaquil">Guayaquil</option>
+                <option value="Cuenca">Cuenca</option>
+                <option value="Manta">Manta</option>
+                <option value="Loja">Loja</option>
+              </select>
+            </div>
           )}
 
-          <div className="relative w-full md:w-64">
-            <Search className="absolute left-3 top-3 text-gray-400" size={18} />
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3.5 top-3.5 text-gray-400" size={14} />
             <input 
-              className="input pl-10" 
+              className="w-full bg-white border border-gray-200 rounded-2xl pl-10 pr-4 py-2.5 text-xs font-bold text-gray-800 outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-gray-400 transition-all" 
               placeholder="Buscar..." 
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -246,7 +319,7 @@ export default function VouchersPage() {
 
           <button
             onClick={handleExportVouchers}
-            className="bg-gray-900 hover:bg-gray-800 text-white text-xs font-black uppercase tracking-widest px-5 py-3 rounded-2xl flex items-center gap-2 hover:scale-102 transition-all shadow-md shrink-0"
+            className="w-full sm:w-auto bg-gray-900 hover:bg-gray-800 text-white text-xs font-black uppercase tracking-widest px-5 py-3.5 rounded-2xl flex items-center justify-center gap-2 hover:scale-102 transition-all shadow-md shrink-0"
           >
             <Download size={14} /> Exportar XLS
           </button>
@@ -290,6 +363,7 @@ export default function VouchersPage() {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-gray-100 text-gray-400 text-xs font-black uppercase tracking-widest">
+                <th className="py-4 px-6">Creado</th>
                 <th className="py-4 px-6">Código</th>
                 <th className="py-4 px-6">Agencia / Destino</th>
                 <th className="py-4 px-6 text-right">Valor</th>
@@ -300,12 +374,15 @@ export default function VouchersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {filtered.map((voucher) => (
+              {paginatedData.map((voucher) => (
                 <tr 
                   key={voucher.id} 
                   className="group hover:bg-gray-50 transition-colors cursor-pointer"
                   onClick={() => setViewingVoucher(voucher)}
                 >
+                  <td className="py-4 px-6 text-xs text-gray-500 font-bold">
+                    {voucher.created_at ? format(parseISO(voucher.created_at), 'dd MMM yyyy', { locale: es }) : '---'}
+                  </td>
                   <td className="py-4 px-6 font-mono text-xs font-bold text-success">{voucher.codigo}</td>
                   <td className="py-4 px-6">
                     <div className="font-bold text-gray-800 text-sm">{voucher.agencia || 'CTB Directo'}</div>
@@ -399,6 +476,34 @@ export default function VouchersPage() {
           </table>
         </div>
       </div>
+
+      {/* PAGINACIÓN */}
+      {filtered.length > itemsPerPage && (
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 mt-6">
+          <p className="text-xs font-black uppercase text-gray-400 tracking-wider">
+            Mostrando {Math.min(filtered.length, (currentPage - 1) * itemsPerPage + 1)}-{Math.min(filtered.length, currentPage * itemsPerPage)} de {filtered.length} Vouchers
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="p-2.5 rounded-xl border border-gray-100 bg-gray-50 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-gray-600"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span className="text-xs font-black uppercase tracking-widest text-gray-700 px-4">
+              Pág. {currentPage} de {Math.ceil(filtered.length / itemsPerPage)}
+            </span>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filtered.length / itemsPerPage), prev + 1))}
+              disabled={currentPage === Math.ceil(filtered.length / itemsPerPage)}
+              className="p-2.5 rounded-xl border border-gray-100 bg-gray-50 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-gray-600"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modal Visualizador de Voucher COMPLETO */}
       {viewingVoucher && (

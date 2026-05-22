@@ -737,9 +737,9 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 w-full xl:w-auto">
+        <div className="flex flex-wrap items-center gap-4 w-full xl:w-auto justify-end">
           {/* Filters Card */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-white p-2.5 rounded-[2.2rem] shadow-xl border border-gray-100/80 flex-1 md:flex-initial">
+          <div className="flex flex-wrap items-center gap-3 bg-white p-2.5 rounded-[2.2rem] shadow-xl border border-gray-100/80 w-full sm:w-auto">
             {isAdmin && (
               <>
                 {/* Ciudad Capsule */}
