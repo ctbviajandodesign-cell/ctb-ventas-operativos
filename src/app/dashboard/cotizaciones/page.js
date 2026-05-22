@@ -161,32 +161,47 @@ export default function CotizacionesPage() {
     document.body.removeChild(link)
   }
 
+  // Enriquecer cotizaciones con estado real basado en si tienen ventas asociadas (ganada/vendida)
+  const enrichedQuotes = useMemo(() => {
+    return quotes.map(q => {
+      const hasVenta = Array.isArray(q.ventas) && q.ventas.length > 0
+      let computedEstado = (q.estado || '').trim()
+      if (hasVenta) {
+        computedEstado = 'ganada'
+      }
+      return {
+        ...q,
+        estado: computedEstado
+      }
+    })
+  }, [quotes])
+
   // Métricas para el mini-dashboard
   const stats = useMemo(() => {
-    const total = quotes.length
-    const abiertas = quotes.filter(q => (q.estado || '').trim() === 'abierta').length
-    const ganadas = quotes.filter(q => (q.estado || '').trim() === 'ganada').length
-    const perdidas = quotes.filter(q => (q.estado || '').trim() === 'perdida').length
-    const anuladas = quotes.filter(q => (q.estado || '').trim() === 'anulada').length
-    const totalVenta = quotes.filter(q => (q.estado || '').trim() === 'ganada')
+    const total = enrichedQuotes.length
+    const abiertas = enrichedQuotes.filter(q => (q.estado || '').trim() === 'abierta').length
+    const ganadas = enrichedQuotes.filter(q => (q.estado || '').trim() === 'ganada').length
+    const perdidas = enrichedQuotes.filter(q => (q.estado || '').trim() === 'perdida').length
+    const anuladas = enrichedQuotes.filter(q => (q.estado || '').trim() === 'anulada').length
+    const totalVenta = enrichedQuotes.filter(q => (q.estado || '').trim() === 'ganada')
       .reduce((acc, q) => acc + (Number(q.valor_total) || 0), 0)
-    const totalAporte = quotes.filter(q => (q.estado || '').trim() === 'ganada')
+    const totalAporte = enrichedQuotes.filter(q => (q.estado || '').trim() === 'ganada')
       .reduce((acc, q) => acc + (Number(q.valor_comision) || 0) + (Number(q.valor_utilidad) || 0), 0)
     const conversion = total > 0 ? ((ganadas / total) * 100).toFixed(1) : 0
 
     return { total, abiertas, ganadas, perdidas, anuladas, totalVenta, totalAporte, conversion }
-  }, [quotes])
+  }, [enrichedQuotes])
 
   const chartData = [
     { name: 'En Espera', value: stats.abiertas, color: '#0066CC' },
-    { name: 'Cerradas ✓', value: stats.ganadas, color: '#16A34A' },
+    { name: 'Vendidas ✓', value: stats.ganadas, color: '#16A34A' },
     { name: 'No Concretadas', value: stats.perdidas, color: '#F5A623' },
     { name: 'Canceladas', value: stats.anuladas, color: '#EF4444' },
   ]
 
   // Filtros combinados: estado + búsqueda de texto + ciudad (para admin) + fecha
   const filtered = useMemo(() => {
-    let result = quotes
+    let result = enrichedQuotes
     if (statusFilter !== 'todas') {
       result = result.filter(q => (q.estado || '').trim() === statusFilter)
     }
@@ -228,7 +243,7 @@ export default function CotizacionesPage() {
       )
     }
     return result
-  }, [quotes, statusFilter, selectedCity, dateFilter, search, isAdmin])
+  }, [enrichedQuotes, statusFilter, selectedCity, dateFilter, search, isAdmin])
 
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage
@@ -238,7 +253,7 @@ export default function CotizacionesPage() {
   const filterTabs = [
     { key: 'todas', label: 'Todas', icon: FileText, color: 'gray' },
     { key: 'abierta', label: 'En Espera', icon: Clock, color: 'blue' },
-    { key: 'ganada', label: 'Cerradas', icon: CheckCircle2, color: 'green' },
+    { key: 'ganada', label: 'Vendidas', icon: CheckCircle2, color: 'green' },
     { key: 'perdida', label: 'No Concretadas', icon: XCircle, color: 'amber' },
     { key: 'anulada', label: 'Canceladas', icon: AlertTriangle, color: 'red' },
   ]
@@ -290,7 +305,7 @@ export default function CotizacionesPage() {
           <p className="text-xs text-primary/60 mt-2 font-bold">Esperando cierre</p>
         </div>
         <div className="bg-success/5 border border-success/10 p-6 rounded-[2rem] flex flex-col justify-between">
-          <p className="text-xs font-black text-success/80 uppercase tracking-widest">Ventas Cerradas</p>
+          <p className="text-xs font-black text-success/80 uppercase tracking-widest">Vendidas</p>
           <p className="text-4xl font-black text-success mt-2">{stats.ganadas}</p>
           <p className="text-xs text-success/60 mt-2 font-bold">{stats.conversion}% de conversión</p>
         </div>
