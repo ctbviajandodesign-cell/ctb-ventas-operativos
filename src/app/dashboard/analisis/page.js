@@ -173,7 +173,7 @@ export default function AnalisisPage() {
     }
   }, [selectedOp, sessionLoading, timeframe])
 
-  const modoIA = profile?.rol === 'admin' ? (selectedOp === 'global' ? 'GLOBAL_ADMIN' : 'INDIVIDUAL_ADMIN') : 'OPERATIVE'
+  const modoIA = (profile?.rol === 'admin' || profile?.rol === 'superadmin') ? (selectedOp === 'global' ? 'GLOBAL_ADMIN' : 'INDIVIDUAL_ADMIN') : 'OPERATIVE'
 
   const exportCSV = (filename, headers, rows) => {
     const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join("\n")
@@ -234,7 +234,7 @@ export default function AnalisisPage() {
             </button>
           </div>
 
-          {profile?.rol === 'admin' && (
+          {(profile?.rol === 'admin' || profile?.rol === 'superadmin') && (
             <div className="bg-gray-50 p-1.5 rounded-2xl border border-gray-100 flex items-center gap-2">
               <span className="text-xs font-black text-gray-400 uppercase tracking-widest pl-2">Asesor:</span>
               <select

@@ -21,6 +21,7 @@ import {
   FileDown
 } from 'lucide-react'
 import { generateVoucherPDF } from '@/lib/pdf-generator'
+import { logActivity } from '@/utils/audit'
 
 export default function VouchersPage() {
   const [vouchers, setVouchers] = useState([])
@@ -49,7 +50,7 @@ export default function VouchersPage() {
       .select('*, profiles!inner(nombre, ciudad), ventas(id, cotizaciones(comercial))')
       .order('created_at', { ascending: false })
 
-    if (p?.rol !== 'admin') {
+    if (p?.rol !== 'admin' && p?.rol !== 'superadmin') {
       query = query.eq('profiles.ciudad', p.ciudad)
     }
 
@@ -60,8 +61,12 @@ export default function VouchersPage() {
 
   const handleDeleteVoucher = async (id) => {
     if (!confirm('¿Seguro que quieres eliminar este voucher permanentemente?')) return
+    const targetVoucher = vouchers.find(v => v.id === id)
     const { error } = await supabase.from('vouchers').delete().eq('id', id)
-    if (!error) fetchVouchers()
+    if (!error) {
+      logActivity('eliminar_voucher', `Se eliminó el voucher ${targetVoucher?.codigo || id} (Agencia: ${targetVoucher?.agencia || 'CTB'}, Destino: ${targetVoucher?.destino || ''}).`)
+      fetchVouchers()
+    }
   }
 
   const handleUpdateVoucher = async (e) => {
@@ -84,6 +89,7 @@ export default function VouchersPage() {
       })
       .eq('id', editingVoucher.id)
     if (!error) {
+      logActivity('editar_voucher', `Se editó el voucher ${editingVoucher.codigo} (Agencia: ${editingVoucher.agencia}, Destino: ${editingVoucher.destino}).`)
       setEditingVoucher(null)
       fetchVouchers()
     }
@@ -137,7 +143,7 @@ export default function VouchersPage() {
                         v.agencia?.toLowerCase().includes(search.toLowerCase()) ||
                         v.profiles?.nombre?.toLowerCase().includes(search.toLowerCase()) ||
                         (v.ventas?.cotizaciones?.comercial || '').toLowerCase().includes(search.toLowerCase())
-    const matchCity = profile?.rol === 'admin' && selectedCity !== 'todas'
+    const matchCity = (profile?.rol === 'admin' || profile?.rol === 'superadmin') && selectedCity !== 'todas'
       ? v.profiles?.ciudad === selectedCity
       : true
     return matchSearch && matchCity
@@ -204,7 +210,7 @@ export default function VouchersPage() {
         </div>
         
         <div className="flex items-center gap-3 w-full md:w-auto">
-          {profile?.rol === 'admin' && (
+          {(profile?.rol === 'admin' || profile?.rol === 'superadmin') && (
             <select
               className="bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-black text-gray-800 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
               value={selectedCity}
@@ -320,13 +326,15 @@ export default function VouchersPage() {
                       >
                         <QrIcon size={18} />
                       </button>
-                      <button 
-                        onClick={() => setEditingVoucher(voucher)}
-                        className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
-                        title="Editar Voucher"
-                      >
-                        <Edit size={18} />
-                      </button>
+                      {profile?.rol === 'superadmin' && (
+                        <button 
+                          onClick={() => setEditingVoucher(voucher)}
+                          className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
+                          title="Editar Voucher"
+                        >
+                          <Edit size={18} />
+                        </button>
+                      )}
                       <button 
                         onClick={async (e) => {
                           e.stopPropagation()
@@ -348,7 +356,7 @@ export default function VouchersPage() {
                       >
                         <Download size={18} />
                       </button>
-                      {profile?.rol === 'admin' && (
+                      {profile?.rol === 'superadmin' && (
                         <button 
                           onClick={() => handleDeleteVoucher(voucher.id)}
                           className="p-2 text-danger hover:bg-red-50 rounded-lg transition-colors"

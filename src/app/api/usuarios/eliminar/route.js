@@ -23,9 +23,9 @@ export async function POST(request) {
     const { data: { user }, error: verifyError } = await supabaseAdmin.auth.getUser(token)
     if (verifyError || !user) return NextResponse.json({ error: 'Sesión inválida' }, { status: 401 })
     
-    // Verificar que quien hace la petición sea admin
-    const { data: adminProfile } = await supabaseAdmin.from('profiles').select('rol').eq('id', user.id).single()
-    if (adminProfile?.rol !== 'admin') return NextResponse.json({ error: 'Permisos insuficientes' }, { status: 403 })
+    // Verificar que quien hace la petición sea superadmin
+    const { data: adminProfile } = await supabaseAdmin.from('profiles').select('rol, nombre, email').eq('id', user.id).single()
+    if (adminProfile?.rol !== 'superadmin') return NextResponse.json({ error: 'Permisos insuficientes. Solo el Super Admin puede realizar esta acción.' }, { status: 403 })
     // ============================================
 
     const { id } = await request.json()
@@ -33,6 +33,9 @@ export async function POST(request) {
     if (!id) {
       return NextResponse.json({ error: 'ID de usuario requerido.' }, { status: 400 })
     }
+
+    // Obtener datos del usuario a eliminar para el registro de auditoría
+    const { data: targetUser } = await supabaseAdmin.from('profiles').select('nombre, email').eq('id', id).single()
 
     // 1. Eliminar de la tabla 'profiles'
     const { error: profileErr } = await supabaseAdmin
@@ -45,6 +48,15 @@ export async function POST(request) {
     // 2. Eliminar de Supabase Auth
     const { error: authErr } = await supabaseAdmin.auth.admin.deleteUser(id)
     if (authErr) throw authErr
+
+    // Insert activity log
+    await supabaseAdmin.from('logs_actividad').insert([{
+      usuario_id: user.id,
+      usuario_nombre: adminProfile?.nombre || 'Desconocido',
+      usuario_email: user.email || adminProfile?.email || '',
+      accion: 'eliminar_usuario',
+      detalles: `Se eliminó al usuario/operativo ${targetUser?.nombre || 'Desconocido'} (${targetUser?.email || 'N/A'}).`
+    }])
 
     return NextResponse.json({ success: true })
 

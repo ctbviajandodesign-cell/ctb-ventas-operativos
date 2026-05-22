@@ -25,9 +25,9 @@ export async function POST(request) {
     const { data: { user }, error: verifyError } = await supabaseAdmin.auth.getUser(token)
     if (verifyError || !user) return NextResponse.json({ error: 'Sesión inválida' }, { status: 401 })
     
-    // Verificar que quien hace la petición sea admin
-    const { data: adminProfile } = await supabaseAdmin.from('profiles').select('rol').eq('id', user.id).single()
-    if (adminProfile?.rol !== 'admin') return NextResponse.json({ error: 'Permisos insuficientes' }, { status: 403 })
+    // Verificar que quien hace la petición sea superadmin
+    const { data: adminProfile } = await supabaseAdmin.from('profiles').select('rol, nombre, email').eq('id', user.id).single()
+    if (adminProfile?.rol !== 'superadmin') return NextResponse.json({ error: 'Permisos insuficientes. Solo el Super Admin puede realizar esta acción.' }, { status: 403 })
     // ============================================
 
     const { email, password, nombre, meta_mensual, rol, ciudad, celular } = await request.json()
@@ -84,6 +84,15 @@ export async function POST(request) {
       await supabaseAdmin.auth.admin.deleteUser(userId)
       throw profileError
     }
+
+    // Insert activity log
+    await supabaseAdmin.from('logs_actividad').insert([{
+      usuario_id: user.id,
+      usuario_nombre: adminProfile?.nombre || 'Desconocido',
+      usuario_email: user.email || adminProfile?.email || '',
+      accion: 'crear_usuario',
+      detalles: `Se creó al usuario/operativo ${nombre} (${email}) con rol ${rol || 'operativo'} y meta mensual de $${meta_mensual || 0}.`
+    }])
 
     return NextResponse.json({ success: true, user: authData.user })
 

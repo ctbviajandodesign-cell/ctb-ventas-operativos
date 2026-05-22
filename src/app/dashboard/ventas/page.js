@@ -98,10 +98,16 @@ export default function VentasPage() {
 
     const { venta, motivo } = annulVentaModal
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+
       const targetCotizacionId = venta.cotizacion_id || venta.cotizaciones?.id
       const res = await fetch('/api/admin/anular-venta', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           ventaId: venta.id,
           cotizacionId: targetCotizacionId,
@@ -123,10 +129,16 @@ export default function VentasPage() {
     if (!confirm('¿Seguro que quieres desactivar esta venta y devolverla al estado de cotización en espera? Se eliminará el voucher generado de forma permanente.')) return
     
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+
       const targetCotizacionId = venta.cotizacion_id || venta.cotizaciones?.id
       const res = await fetch('/api/admin/desactivar-venta', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           ventaId: venta.id,
           cotizacionId: targetCotizacionId
@@ -449,7 +461,7 @@ export default function VentasPage() {
                   </td>
                   <td className="py-4 px-6 text-right" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-2">
-                      {venta.estado === 'activa' && (
+                      {venta.estado === 'activa' && profile?.rol === 'superadmin' && (
                         <>
                           <button
                             onClick={() => window.dispatchEvent(new CustomEvent('open-sales-modal', {

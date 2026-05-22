@@ -15,9 +15,13 @@ import {
   Phone
 } from 'lucide-react'
 import { showToast } from '@/utils/toast'
+import { useUserSession } from '@/hooks/useUserSession'
 
 export default function UsuariosPage() {
   const router = useRouter()
+  const { profile } = useUserSession()
+  const isSuperAdmin = profile?.rol === 'superadmin'
+
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -36,6 +40,13 @@ export default function UsuariosPage() {
   useEffect(() => {
     fetchUsers()
   }, [])
+
+  useEffect(() => {
+    if (profile && profile.rol !== 'admin' && profile.rol !== 'superadmin') {
+      showToast('Acceso restringido a administradores.', 'error')
+      router.push('/dashboard')
+    }
+  }, [profile])
 
   async function fetchUsers() {
     const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
@@ -124,26 +135,28 @@ export default function UsuariosPage() {
           </button>
           <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Gestión de Usuarios</h1>
         </div>
-        <button 
-          onClick={() => { 
-            setEditingUser(null);
-            setFormData({
-              nombre: '',
-              email: '',
-              password: '',
-              rol: 'operativo',
-              meta_mensual: 1000,
-              ciudad: 'Quito',
-              celular: ''
-            });
-            setShowModal(true); 
-            setFormError(null); 
-          }}
-          className="btn-primary flex items-center gap-2"
-        >
-          <UserPlus size={20} />
-          Nuevo Usuario
-        </button>
+        {isSuperAdmin && (
+          <button 
+            onClick={() => { 
+              setEditingUser(null);
+              setFormData({
+                nombre: '',
+                email: '',
+                password: '',
+                rol: 'operativo',
+                meta_mensual: 1000,
+                ciudad: 'Quito',
+                celular: ''
+              });
+              setShowModal(true); 
+              setFormError(null); 
+            }}
+            className="btn-primary flex items-center gap-2"
+          >
+            <UserPlus size={20} />
+            Nuevo Usuario
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -192,34 +205,36 @@ export default function UsuariosPage() {
               </div>
             </div>
 
-            <div className="flex gap-3 mt-8 opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0">
-              <button 
-                onClick={() => {
-                  setEditingUser(user);
-                  setFormData({
-                    nombre: user.nombre || '',
-                    email: user.email || '',
-                    password: '',
-                    rol: user.rol || 'operativo',
-                    meta_mensual: user.meta_mensual || 1000,
-                    ciudad: user.ciudad || 'Quito',
-                    celular: user.celular || ''
-                  });
-                  setShowModal(true);
-                  setFormError(null);
-                }}
-                className="flex-1 py-4 bg-gray-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:scale-[1.02] transition-transform"
-              >
-                Editar
-              </button>
+            {isSuperAdmin && (
+              <div className="flex gap-3 mt-8 opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0">
+                <button 
+                  onClick={() => {
+                    setEditingUser(user);
+                    setFormData({
+                      nombre: user.nombre || '',
+                      email: user.email || '',
+                      password: '',
+                      rol: user.rol || 'operativo',
+                      meta_mensual: user.meta_mensual || 1000,
+                      ciudad: user.ciudad || 'Quito',
+                      celular: user.celular || ''
+                    });
+                    setShowModal(true);
+                    setFormError(null);
+                  }}
+                  className="flex-1 py-4 bg-gray-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:scale-[1.02] transition-transform"
+                >
+                  Editar
+                </button>
 
-              <button 
-                onClick={() => handleDeleteUser(user)}
-                className="w-12 h-12 bg-red-50 text-danger rounded-2xl flex items-center justify-center hover:bg-danger hover:text-white transition-all"
-              >
-                <Trash2 size={20} />
-              </button>
-            </div>
+                <button 
+                  onClick={() => handleDeleteUser(user)}
+                  className="w-12 h-12 bg-red-50 text-danger rounded-2xl flex items-center justify-center hover:bg-danger hover:text-white transition-all"
+                >
+                  <Trash2 size={20} />
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>

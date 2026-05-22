@@ -13,6 +13,7 @@ import {
   DollarSign
 } from 'lucide-react'
 import { showToast } from '@/utils/toast'
+import { logActivity } from '@/utils/audit'
 
 export default function EditarCotizacionPage() {
   const router = useRouter()
@@ -34,8 +35,37 @@ export default function EditarCotizacionPage() {
     comercial: ''
   })
 
+  const [profile, setProfile] = useState(null)
+
   useEffect(() => {
-    fetchQuote()
+    async function checkAuthAndFetch() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          router.push('/')
+          return
+        }
+
+        const { data: p } = await supabase
+          .from('profiles')
+          .select('rol')
+          .eq('id', user.id)
+          .single()
+
+        if (p?.rol !== 'superadmin') {
+          showToast('Acceso restringido. Solo el Super Admin puede editar cotizaciones.', 'error')
+          router.push('/dashboard/cotizaciones')
+          return
+        }
+
+        setProfile(p)
+        await fetchQuote()
+      } catch (err) {
+        console.error('Error de autenticación:', err)
+        router.push('/dashboard/cotizaciones')
+      }
+    }
+    checkAuthAndFetch()
   }, [id])
 
   async function fetchQuote() {
@@ -97,6 +127,10 @@ export default function EditarCotizacionPage() {
         .eq('id', id)
       
       if (error) throw error
+      
+      // Log edit activity
+      await logActivity('editar_cotizacion', `Se editó la cotización ID ${id.slice(0, 8)}... (Agencia: ${payload.agencia}, Destino: ${payload.destino}, Total: $${payload.valor_total}).`)
+
       router.push('/dashboard/cotizaciones')
     } catch (error) {
       showToast(error.message, 'error')

@@ -125,7 +125,7 @@ export default function DashboardPage() {
         .single()
       
       setProfile(profileData)
-      const isAdmin = profileData?.rol === 'admin'
+      const isAdmin = profileData?.rol === 'admin' || profileData?.rol === 'superadmin'
       const activeOpId = isAdmin && selectedOperative !== 'global' ? selectedOperative : user.id
 
       // Si es admin, cargar lista de operativos
@@ -396,7 +396,7 @@ export default function DashboardPage() {
     )
   }
 
-  const isAdmin = profile?.rol === 'admin'
+  const isAdmin = profile?.rol === 'admin' || profile?.rol === 'superadmin'
   const handleOpenOperativePanel = async (op) => {
     if (!isAdmin) return
     // Carga detallada de ese operativo

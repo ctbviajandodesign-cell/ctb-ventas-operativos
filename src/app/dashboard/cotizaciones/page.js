@@ -406,7 +406,8 @@ export default function CotizacionesPage() {
         <div className="overflow-x-auto">
           <QuotesTable
             quotes={filtered}
-            isAdmin={profile?.rol === 'admin'}
+            isAdmin={profile?.rol === 'admin' || profile?.rol === 'superadmin'}
+            isSuperAdmin={profile?.rol === 'superadmin'}
             onUpdate={fetchQuotes}
           />
         </div>

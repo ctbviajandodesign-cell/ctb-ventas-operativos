@@ -24,7 +24,7 @@ import {
   QrCode
 } from 'lucide-react'
 
-export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
+export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, onUpdate }) {
   const [viewingQuote, setViewingQuote] = useState(null)
   const [closingQuote, setClosingQuote] = useState(null)
   const [motivoPerdida, setMotivoPerdida] = useState('')
@@ -76,9 +76,15 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
     const isGanada = (quote.estado || '').trim().toLowerCase() === 'ganada'
 
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+
       const res = await fetch('/api/admin/anular-cotizacion', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           cotizacionId: quote.id,
           anularVentas: isGanada
@@ -243,11 +249,13 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
                       ) : null
                     })()}
 
-                    <Link href={`/dashboard/cotizaciones/editar/${quote.id}`} className="p-1.5 text-gray-400 hover:text-primary rounded-lg" title="Editar"><Edit size={16} /></Link>
-                    {isAdmin && (
-                      <button onClick={() => handleDelete(quote)} className="p-1.5 text-gray-300 hover:text-danger rounded-lg transition-colors">
-                        <Trash2 size={16} />
-                      </button>
+                    {isSuperAdmin && (
+                      <>
+                        <Link href={`/dashboard/cotizaciones/editar/${quote.id}`} className="p-1.5 text-gray-400 hover:text-primary rounded-lg" title="Editar"><Edit size={16}/></Link>
+                        <button onClick={() => handleDelete(quote)} className="p-1.5 text-gray-300 hover:text-danger rounded-lg transition-colors">
+                          <Trash2 size={16} />
+                        </button>
+                      </>
                     )}
                   </div>
                 </td>

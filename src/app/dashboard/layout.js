@@ -146,7 +146,7 @@ export default function DashboardLayout({ children }) {
             )
           })}
 
-          {profile?.rol === 'admin' && (
+          {(profile?.rol === 'admin' || profile?.rol === 'superadmin') && (
             <>
               <div className="pt-3 pb-1">
                 <p className="text-xs font-black text-gray-300 uppercase tracking-[0.2em] px-4">Administración</p>
@@ -165,6 +165,22 @@ export default function DashboardLayout({ children }) {
                 Equipo
                 {isActive('/dashboard/usuarios') && <ChevronRight size={12} className="ml-auto text-white/60" />}
               </Link>
+
+              {profile?.rol === 'superadmin' && (
+                <Link
+                  href="/dashboard/auditoria"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-black text-xs uppercase tracking-widest group relative ${
+                    isActive('/dashboard/auditoria')
+                      ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                      : 'text-gray-400 hover:bg-gray-50 hover:text-gray-700'
+                  }`}
+                >
+                  <FileText size={17} className={isActive('/dashboard/auditoria') ? 'text-white' : 'text-gray-300 group-hover:text-gray-500 transition-colors'} />
+                  Auditoría
+                  {isActive('/dashboard/auditoria') && <ChevronRight size={12} className="ml-auto text-white/60" />}
+                </Link>
+              )}
             </>
           )}
         </nav>
