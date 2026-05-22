@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useUserSession } from '@/hooks/useUserSession'
 import { 
   TrendingUp, Search, XCircle, Trash2, Edit, DollarSign,
-  CheckCircle2, BarChart3, QrCode, ExternalLink, AlertCircle, Download, AlertTriangle, RotateCcw
+  CheckCircle2, BarChart3, QrCode, ExternalLink, AlertCircle, Download, AlertTriangle, RotateCcw, Share2
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -567,9 +567,21 @@ export default function VentasPage() {
                         <p className={`text-xs font-black uppercase ${selectedVoucher.estado === 'activo' ? 'text-success' : 'text-danger'}`}>{selectedVoucher.estado}</p>
                       </div>
                     </div>
-                    <Link href="/dashboard/vouchers" onClick={() => setSelectedVenta(null)} className="flex items-center gap-1.5 text-xs font-black text-primary bg-primary/10 px-3 py-2 rounded-xl hover:bg-primary/20 transition-colors">
-                      Ver Voucher <ExternalLink size={12} />
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      <Link href="/dashboard/vouchers" onClick={() => setSelectedVenta(null)} className="flex items-center gap-1.5 text-xs font-black text-primary bg-primary/10 px-3 py-2 rounded-xl hover:bg-primary/20 transition-colors">
+                        Ver Voucher <ExternalLink size={12} />
+                      </Link>
+                      <button 
+                        onClick={() => {
+                          const url = `${window.location.origin}/v/${selectedVoucher.codigo}`
+                          navigator.clipboard.writeText(url)
+                          showToast('Enlace de voucher copiado al portapapeles!')
+                        }}
+                        className="flex items-center gap-1.5 text-xs font-black text-success bg-success/10 px-3 py-2 rounded-xl hover:bg-success/20 transition-colors"
+                      >
+                        <Share2 size={12} /> Copiar Link
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex items-center gap-3 bg-amber-50 border border-amber-100 p-4 rounded-2xl">

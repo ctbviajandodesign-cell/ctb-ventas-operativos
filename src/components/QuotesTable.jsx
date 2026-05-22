@@ -34,8 +34,9 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, onUpdate })
   const [observacionPerdida, setObservacionPerdida] = useState('')
   
   const getStatusBadge = (quote) => {
+    const hasVch = !!getVoucherCodigo(quote)
     const status = (quote.estado || '').toString().trim().toLowerCase()
-    if (status === 'ganada') return <span className="bg-success/15 text-success px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider">VENDIDA</span>
+    if (status === 'ganada' || hasVch) return <span className="bg-success/15 text-success px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider">VENDIDA</span>
     if (status === 'perdida' || status === 'anulada') {
       return (
         <div className="flex flex-col items-start gap-0.5">
@@ -76,6 +77,8 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, onUpdate })
     if (!confirm('¿Seguro que quieres anular y archivar esta cotización?')) return
     
     const isGanada = (quote.estado || '').trim().toLowerCase() === 'ganada'
+    const hasVch = !!getVoucherCodigo(quote)
+    const isSold = isGanada || hasVch
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -89,7 +92,7 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, onUpdate })
         },
         body: JSON.stringify({
           cotizacionId: quote.id,
-          anularVentas: isGanada
+          anularVentas: isSold
         })
       })
       const result = await res.json()
@@ -161,12 +164,14 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, onUpdate })
           ) : quotes.map((quote) => {
             const rawStatus = (quote.estado || '').toString().trim().toLowerCase()
             const isGanada = rawStatus === 'ganada'
+            const hasVch = !!getVoucherCodigo(quote)
+            const isSold = isGanada || hasVch
             const isPerdida = rawStatus === 'perdida' || rawStatus === 'anulada'
             const aporte = (Number(quote.valor_utilidad || 0) + Number(quote.valor_comision || 0))
             return (
               <tr 
                 key={quote.id} 
-                className={`group hover:bg-gray-50 transition-colors cursor-pointer ${isGanada ? 'bg-success/5' : ''}`}
+                className={`group hover:bg-gray-50 transition-colors cursor-pointer ${isSold ? 'bg-success/5' : ''}`}
                 onClick={() => setViewingQuote(quote)}
               >
                 <td className="py-2.5 px-4 font-mono text-xs font-black text-primary">#{quote.codigo}</td>
@@ -217,7 +222,7 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, onUpdate })
                   <div className="flex items-center justify-end gap-1">
                     <button onClick={() => setViewingQuote(quote)} className="p-1.5 text-gray-400 hover:text-success hover:bg-white rounded-lg shadow-sm shadow-transparent hover:shadow-gray-200 transition-all" title="Ver Detalle"><Eye size={16} /></button>
                     
-                    {!isGanada && !isPerdida && (
+                    {!isSold && !isPerdida && (
                       <>
                         <button 
                           onClick={() => window.dispatchEvent(new CustomEvent('open-sales-modal', { detail: quote }))}
@@ -236,7 +241,7 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, onUpdate })
                       </>
                     )}
 
-                    {isGanada && (() => {
+                    {isSold && (() => {
                       const vCodigo = getVoucherCodigo(quote)
                       return vCodigo ? (
                         <div className="flex items-center gap-1">
@@ -343,47 +348,52 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, onUpdate })
 
             </div>
 
-            <div className="p-4 sm:p-8 bg-gray-50 flex gap-2 sm:gap-3 shrink-0 border-t border-gray-100">
-              {(viewingQuote.estado || '').trim().toLowerCase() !== 'ganada' ? (
-                <button 
-                  onClick={() => {
-                    const q = {...viewingQuote}
-                    setViewingQuote(null)
-                    setTimeout(() => {
-                      window.dispatchEvent(new CustomEvent('open-sales-modal', { detail: q }))
-                    }, 100)
-                  }}
-                  className="flex-1 bg-success text-white py-3 sm:py-4 rounded-2xl font-black text-xs sm:text-sm shadow-lg shadow-success/20 flex items-center justify-center gap-1.5 sm:gap-2"
-                >
-                  <CheckCircle2 size={18} className="shrink-0" /> <span className="truncate">Aprobar Venta</span>
-                </button>
-              ) : (() => {
-                const vCodigo = getVoucherCodigo(viewingQuote)
-                return vCodigo ? (
-                  <>
-                    <a
-                      href={`/v/${vCodigo}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 bg-primary text-white py-3 sm:py-4 rounded-2xl font-black text-xs sm:text-sm shadow-lg shadow-primary/20 flex items-center justify-center gap-1.5 sm:gap-2"
-                    >
-                      <QrCode size={18} className="shrink-0" /> <span className="truncate">Abrir Voucher</span>
-                    </a>
-                    <button
+            {(() => {
+              const isSoldModal = (viewingQuote.estado || '').trim().toLowerCase() === 'ganada' || !!getVoucherCodigo(viewingQuote)
+              const vCodigo = getVoucherCodigo(viewingQuote)
+              return (
+                <div className="p-4 sm:p-8 bg-gray-50 flex gap-2 sm:gap-3 shrink-0 border-t border-gray-100">
+                  {!isSoldModal ? (
+                    <button 
                       onClick={() => {
-                        const url = `${window.location.origin}/v/${vCodigo}`
-                        navigator.clipboard.writeText(url)
-                        showToast('Enlace del voucher copiado al portapapeles!')
+                        const q = {...viewingQuote}
+                        setViewingQuote(null)
+                        setTimeout(() => {
+                          window.dispatchEvent(new CustomEvent('open-sales-modal', { detail: q }))
+                        }, 100)
                       }}
                       className="flex-1 bg-success text-white py-3 sm:py-4 rounded-2xl font-black text-xs sm:text-sm shadow-lg shadow-success/20 flex items-center justify-center gap-1.5 sm:gap-2"
                     >
-                      <Share2 size={18} className="shrink-0" /> <span className="truncate">Copiar Link</span>
+                      <CheckCircle2 size={18} className="shrink-0" /> <span className="truncate">Aprobar Venta</span>
                     </button>
-                  </>
-                ) : null
-              })()}
-              <button onClick={() => setViewingQuote(null)} className="flex-1 py-3 sm:py-4 text-xs sm:text-sm font-bold text-gray-400 hover:text-gray-600 transition-colors text-center truncate">Cerrar Expediente</button>
-            </div>
+                  ) : (
+                    vCodigo ? (
+                      <>
+                        <a
+                          href={`/v/${vCodigo}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 bg-primary text-white py-3 sm:py-4 rounded-2xl font-black text-xs sm:text-sm shadow-lg shadow-primary/20 flex items-center justify-center gap-1.5 sm:gap-2"
+                        >
+                          <QrCode size={18} className="shrink-0" /> <span className="truncate">Abrir Voucher</span>
+                        </a>
+                        <button
+                          onClick={() => {
+                            const url = `${window.location.origin}/v/${vCodigo}`
+                            navigator.clipboard.writeText(url)
+                            showToast('Enlace del voucher copiado al portapapeles!')
+                          }}
+                          className="flex-1 bg-success text-white py-3 sm:py-4 rounded-2xl font-black text-xs sm:text-sm shadow-lg shadow-success/20 flex items-center justify-center gap-1.5 sm:gap-2"
+                        >
+                          <Share2 size={18} className="shrink-0" /> <span className="truncate">Copiar Link</span>
+                        </button>
+                      </>
+                    ) : null
+                  )}
+                  <button onClick={() => setViewingQuote(null)} className="flex-1 py-3 sm:py-4 text-xs sm:text-sm font-bold text-gray-400 hover:text-gray-600 transition-colors text-center truncate">Cerrar Expediente</button>
+                </div>
+              )
+            })()}
           </div>
         </div>
       )}
