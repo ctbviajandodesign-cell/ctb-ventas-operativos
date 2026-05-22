@@ -541,6 +541,40 @@ export default function DashboardPage() {
     }
   }
 
+  const renderFormattedAnswer = (text) => {
+    if (!text) return null
+    return text.split('\n').map((line, idx) => {
+      let isBullet = false
+      let content = line
+      if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
+        isBullet = true
+        content = line.trim().substring(2)
+      }
+
+      const parts = content.split('**')
+      const parsedElements = parts.map((part, i) => {
+        if (i % 2 === 1) {
+          return <strong key={i} className="font-extrabold text-gray-950">{part}</strong>
+        }
+        return part
+      })
+
+      if (isBullet) {
+        return (
+          <li key={idx} className="ml-4 list-disc text-gray-700 mt-1">
+            {parsedElements}
+          </li>
+        )
+      }
+
+      return (
+        <p key={idx} className="text-gray-750 mt-1">
+          {parsedElements}
+        </p>
+      )
+    })
+  }
+
   return (
     <div className="space-y-10 animate-in fade-in duration-700 pb-20">
 
@@ -880,10 +914,8 @@ export default function DashboardPage() {
                 <div className="bg-primary/10 p-2 rounded-2xl text-primary shrink-0 mt-0.5">
                   <Sparkles size={16} />
                 </div>
-                <div className="space-y-2 text-sm text-gray-750 leading-relaxed font-semibold">
-                  {aiAnswer.split('\n').map((line, i) => (
-                    <p key={i}>{line}</p>
-                  ))}
+                <div className="space-y-1.5 text-sm text-gray-750 leading-relaxed font-semibold w-full">
+                  {renderFormattedAnswer(aiAnswer)}
                 </div>
               </div>
             </div>
