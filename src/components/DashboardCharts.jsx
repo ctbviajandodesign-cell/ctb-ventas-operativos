@@ -107,6 +107,20 @@ export default function DashboardCharts({
     }
   }, [filteredData])
 
+  // Calcular la meta del asesor seleccionado localmente
+  const selectedOpMeta = useMemo(() => {
+    const op = operatives.find(o => o.id === localOperativeId)
+    if (!op) return 5000
+    const baseMeta = Number(op.meta_mensual) || 5000
+    return localPeriod === 'año' ? baseMeta * 12 : baseMeta
+  }, [operatives, localOperativeId, localPeriod])
+
+  // Calcular porcentaje de cumplimiento de la meta
+  const selectedOpCompletion = useMemo(() => {
+    if (selectedOpMeta === 0) return 0
+    return (advisorStats.totalAporte / selectedOpMeta) * 100
+  }, [advisorStats.totalAporte, selectedOpMeta])
+
   return (
     <>
       {/* GRÁFICO DE RENDIMIENTO GLOBAL */}
@@ -236,9 +250,15 @@ export default function DashboardCharts({
                       <span className="text-[10px] font-black text-gray-400 uppercase">Total Vendido</span>
                       <span className="text-sm font-black text-gray-900">${advisorStats.totalVendido.toLocaleString()}</span>
                     </div>
-                    <div className="bg-gray-900 text-white p-3 rounded-2xl flex justify-between items-center">
-                      <span className="text-[10px] font-black text-primary uppercase">Ganancia CTB</span>
-                      <span className="text-sm font-black text-white">${advisorStats.totalAporte.toLocaleString()}</span>
+                    <div className="bg-gray-900 text-white p-4 rounded-2xl flex flex-col gap-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-black text-primary uppercase">Ganancia CTB</span>
+                        <span className="text-sm font-black text-white">${advisorStats.totalAporte.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between items-center border-t border-white/10 pt-2 mt-1 text-[10px]">
+                        <span className="text-gray-400 font-bold uppercase tracking-wider">Meta: ${selectedOpMeta.toLocaleString()}</span>
+                        <span className="text-success font-black">{selectedOpCompletion.toFixed(1)}%</span>
+                      </div>
                     </div>
                   </div>
                 </div>

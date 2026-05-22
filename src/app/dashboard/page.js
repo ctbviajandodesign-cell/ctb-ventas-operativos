@@ -131,7 +131,7 @@ export default function DashboardPage() {
 
       // Si es admin, cargar lista de operativos
       if (isAdmin && operatives.length === 0) {
-        const { data: ops } = await supabase.from('profiles').select('id, nombre, ciudad').eq('rol', 'operativo')
+        const { data: ops } = await supabase.from('profiles').select('id, nombre, ciudad, meta_mensual').eq('rol', 'operativo')
         setOperatives(ops || [])
       }
 
