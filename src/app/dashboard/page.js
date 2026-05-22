@@ -29,7 +29,8 @@ import {
   Sparkles,
   MapPin,
   Calendar,
-  Building2
+  Building2,
+  X
 } from 'lucide-react'
 
 import { 
@@ -870,15 +871,16 @@ export default function DashboardPage() {
             <div className="p-6 bg-gradient-to-r from-primary/[0.02] to-indigo-500/[0.02] border border-primary/10 rounded-3xl relative animate-in slide-in-from-top-4 duration-300">
               <button 
                 onClick={() => { setAiAnswer(null); setAiQuestion(''); }}
-                className="absolute top-4 right-4 text-[10px] font-black text-gray-400 hover:text-gray-600 bg-gray-100 px-2.5 py-1 rounded-full uppercase tracking-wider transition-colors"
+                className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-all duration-300 active:scale-95"
+                title="Cerrar respuesta"
               >
-                Cerrar
+                <X size={14} className="stroke-[2.5]" />
               </button>
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-3 pr-10">
                 <div className="bg-primary/10 p-2 rounded-2xl text-primary shrink-0 mt-0.5">
                   <Sparkles size={16} />
                 </div>
-                <div className="space-y-2 text-sm text-gray-700 leading-relaxed font-semibold">
+                <div className="space-y-2 text-sm text-gray-750 leading-relaxed font-semibold">
                   {aiAnswer.split('\n').map((line, i) => (
                     <p key={i}>{line}</p>
                   ))}
