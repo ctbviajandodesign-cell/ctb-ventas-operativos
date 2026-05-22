@@ -50,7 +50,7 @@ export default function GlobalSearch() {
   }
 
   return (
-    <div className="relative w-full max-w-xl">
+    <div className="relative w-full max-w-full">
       <div className="relative group">
         <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary transition-colors">
           {loading ? <Loader2 size={18} className="animate-spin" /> : <Search size={18} />}

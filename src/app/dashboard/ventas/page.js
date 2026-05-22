@@ -5,7 +5,8 @@ import { supabase } from '@/lib/supabase'
 import { useUserSession } from '@/hooks/useUserSession'
 import { 
   TrendingUp, Search, XCircle, Trash2, Edit, DollarSign,
-  CheckCircle2, BarChart3, QrCode, ExternalLink, AlertCircle, Download, AlertTriangle, RotateCcw, Share2
+  CheckCircle2, BarChart3, QrCode, ExternalLink, AlertCircle, Download, AlertTriangle, RotateCcw, Share2,
+  ChevronLeft, ChevronRight, Calendar
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -19,12 +20,19 @@ export default function VentasPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('activa')
   const [selectedCity, setSelectedCity] = useState('todas')
+  const [dateFilter, setDateFilter] = useState('todas')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(15)
   const { user, profile, isAdmin, loading: sessionLoading } = useUserSession()
   const [errorState, setErrorState] = useState(null)
   const [selectedVenta, setSelectedVenta] = useState(null)
   const [selectedVoucher, setSelectedVoucher] = useState(null)
   const [voucherLoading, setVoucherLoading] = useState(false)
   const [annulVentaModal, setAnnulVentaModal] = useState(null) // { venta, motivo }
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, statusFilter, selectedCity, dateFilter])
 
   useEffect(() => {
     if (!sessionLoading && user) {
@@ -205,6 +213,30 @@ export default function VentasPage() {
     if (isAdmin && selectedCity !== 'todas') {
       result = result.filter(v => v.profiles?.ciudad === selectedCity)
     }
+    // Date Filtering
+    if (dateFilter !== 'todas') {
+      const now = new Date()
+      result = result.filter(v => {
+        if (!v.created_at) return false
+        const date = new Date(v.created_at)
+        const diffTime = Math.abs(now - date)
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        
+        if (dateFilter === 'hoy') {
+          return date.toDateString() === now.toDateString()
+        }
+        if (dateFilter === 'semana') {
+          return diffDays <= 7
+        }
+        if (dateFilter === 'mes') {
+          return diffDays <= 30
+        }
+        if (dateFilter === 'año') {
+          return date.getFullYear() === now.getFullYear()
+        }
+        return true
+      })
+    }
     if (search.trim()) {
       const s = search.toLowerCase()
       result = result.filter(v =>
@@ -216,7 +248,12 @@ export default function VentasPage() {
       )
     }
     return result
-  }, [ventas, statusFilter, selectedCity, search, isAdmin])
+  }, [ventas, statusFilter, selectedCity, dateFilter, search, isAdmin])
+
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    return filtered.slice(startIndex, startIndex + itemsPerPage)
+  }, [filtered, currentPage, itemsPerPage])
 
   if (loading) return (
     <div className="flex items-center justify-center py-32">
@@ -325,7 +362,7 @@ export default function VentasPage() {
       )}
 
       {/* FILTROS */}
-      <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4 items-center justify-between">
+      <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col xl:flex-row gap-4 items-center justify-between">
         <div className="flex gap-2">
           {[
             { key: 'todas', label: 'Todas' },
@@ -343,12 +380,28 @@ export default function VentasPage() {
             </button>
           ))}
         </div>
-        <div className="flex flex-col md:flex-row gap-2 items-center w-full md:w-auto">
+        <div className="flex flex-col md:flex-row gap-2 items-center w-full xl:w-auto">
+          {/* Filtro por fecha */}
+          <div className="relative w-full md:w-44 flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2.5 hover:bg-gray-100/50 transition-colors">
+            <Calendar size={14} className="text-primary shrink-0" />
+            <select
+              className="w-full bg-transparent border-none p-1 text-xs font-black text-gray-800 outline-none focus:ring-0 cursor-pointer uppercase tracking-wider"
+              value={dateFilter}
+              onChange={e => setDateFilter(e.target.value)}
+            >
+              <option value="todas">Todas las Fechas</option>
+              <option value="hoy">Hoy</option>
+              <option value="semana">Esta Semana</option>
+              <option value="mes">Este Mes</option>
+              <option value="año">Este Año</option>
+            </select>
+          </div>
+
           {/* Filtro por ciudad (solo admin) */}
           {isAdmin && (
             <div className="relative w-full md:w-44">
               <select
-                className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 text-xs font-black text-gray-800 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer uppercase tracking-wider"
+                className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3.5 text-xs font-black text-gray-800 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer uppercase tracking-wider"
                 value={selectedCity}
                 onChange={e => setSelectedCity(e.target.value)}
               >
@@ -400,7 +453,7 @@ export default function VentasPage() {
             </thead>
 
             <tbody className="divide-y divide-gray-50">
-              {filtered.length === 0 ? (
+              {paginatedData.length === 0 ? (
                 <tr>
                   <td colSpan="10" className="py-20 text-center">
                     <div className="flex flex-col items-center gap-2 opacity-30">
@@ -409,7 +462,7 @@ export default function VentasPage() {
                     </div>
                   </td>
                 </tr>
-              ) : filtered.map((venta) => (
+              ) : paginatedData.map((venta) => (
                 <tr
                   key={venta.id}
                   className={`group hover:bg-gray-50 transition-colors cursor-pointer ${venta.estado === 'anulada' ? 'opacity-40 grayscale' : ''}`}
@@ -484,11 +537,11 @@ export default function VentasPage() {
                             </a>
                             <button
                               onClick={(e) => {
-                                e.stopPropagation()
-                                const url = `${window.location.origin}/v/${vCodigo}`
-                                navigator.clipboard.writeText(url)
-                                showToast('Enlace de voucher copiado al portapapeles!')
-                              }}
+                                  e.stopPropagation()
+                                  const url = `${window.location.origin}/v/${vCodigo}`
+                                  navigator.clipboard.writeText(url)
+                                  showToast('Enlace de voucher copiado al portapapeles!')
+                                }}
                               className="p-2 text-success hover:bg-success/5 rounded-xl transition-colors"
                               title="Copiar Enlace del Voucher"
                             >
@@ -540,6 +593,34 @@ export default function VentasPage() {
           </table>
         </div>
       </div>
+
+      {/* PAGINACIÓN */}
+      {filtered.length > itemsPerPage && (
+        <div className="bg-white px-8 py-4 rounded-[2rem] border border-gray-100 flex items-center justify-between shadow-sm">
+          <div className="text-xs font-black text-gray-400 uppercase tracking-widest">
+            Mostrando {Math.min(filtered.length, (currentPage - 1) * itemsPerPage + 1)} - {Math.min(filtered.length, currentPage * itemsPerPage)} de {filtered.length}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="p-2.5 bg-gray-50 hover:bg-gray-100 text-gray-800 disabled:opacity-30 disabled:hover:bg-gray-50 rounded-xl transition-colors shrink-0"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span className="text-xs font-black text-gray-800 uppercase tracking-widest px-3">
+              Pág. {currentPage} de {Math.ceil(filtered.length / itemsPerPage)}
+            </span>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(filtered.length / itemsPerPage)))}
+              disabled={currentPage === Math.ceil(filtered.length / itemsPerPage)}
+              className="p-2.5 bg-gray-50 hover:bg-gray-100 text-gray-800 disabled:opacity-30 disabled:hover:bg-gray-50 rounded-xl transition-colors shrink-0"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* MODAL DETALLE */}
       {selectedVenta && (

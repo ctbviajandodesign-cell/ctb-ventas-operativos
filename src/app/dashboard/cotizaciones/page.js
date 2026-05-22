@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useUserSession } from '@/hooks/useUserSession'
 import QuotesTable from '@/components/QuotesTable'
 import AIInsightCard from '@/components/AIInsightCard'
-import { Search, Plus, Filter, CheckCircle2, Clock, XCircle, AlertCircle, AlertTriangle, TrendingUp, DollarSign, FileText, Download } from 'lucide-react'
+import { Search, Plus, Filter, CheckCircle2, Clock, XCircle, AlertCircle, AlertTriangle, TrendingUp, DollarSign, FileText, Download, ChevronLeft, ChevronRight, Calendar } from 'lucide-react'
 import Link from 'next/link'
 import { showToast } from '@/utils/toast'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, CartesianGrid } from 'recharts'
@@ -16,8 +16,15 @@ export default function CotizacionesPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('todas')
   const [selectedCity, setSelectedCity] = useState('todas')
+  const [dateFilter, setDateFilter] = useState('todas')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(15)
   const { user, profile, isAdmin, loading: sessionLoading } = useUserSession()
   const [errorState, setErrorState] = useState(null)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, statusFilter, selectedCity, dateFilter])
 
   useEffect(() => {
     if (!sessionLoading && user) {
@@ -177,7 +184,7 @@ export default function CotizacionesPage() {
     { name: 'Canceladas', value: stats.anuladas, color: '#EF4444' },
   ]
 
-  // Filtros combinados: estado + búsqueda de texto + ciudad (para admin)
+  // Filtros combinados: estado + búsqueda de texto + ciudad (para admin) + fecha
   const filtered = useMemo(() => {
     let result = quotes
     if (statusFilter !== 'todas') {
@@ -185,6 +192,30 @@ export default function CotizacionesPage() {
     }
     if (isAdmin && selectedCity !== 'todas') {
       result = result.filter(q => q.profiles?.ciudad === selectedCity)
+    }
+    // Date Filtering
+    if (dateFilter !== 'todas') {
+      const now = new Date()
+      result = result.filter(q => {
+        if (!q.created_at) return false
+        const date = new Date(q.created_at)
+        const diffTime = Math.abs(now - date)
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        
+        if (dateFilter === 'hoy') {
+          return date.toDateString() === now.toDateString()
+        }
+        if (dateFilter === 'semana') {
+          return diffDays <= 7
+        }
+        if (dateFilter === 'mes') {
+          return diffDays <= 30
+        }
+        if (dateFilter === 'año') {
+          return date.getFullYear() === now.getFullYear()
+        }
+        return true
+      })
     }
     if (search.trim()) {
       const s = search.toLowerCase()
@@ -197,7 +228,12 @@ export default function CotizacionesPage() {
       )
     }
     return result
-  }, [quotes, statusFilter, selectedCity, search, isAdmin])
+  }, [quotes, statusFilter, selectedCity, dateFilter, search, isAdmin])
+
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    return filtered.slice(startIndex, startIndex + itemsPerPage)
+  }, [filtered, currentPage, itemsPerPage])
 
   const filterTabs = [
     { key: 'todas', label: 'Todas', icon: FileText, color: 'gray' },
@@ -327,9 +363,9 @@ export default function CotizacionesPage() {
 
 
       {/* BARRA DE FILTROS REAL */}
-      <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4 items-center justify-between">
+      <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col xl:flex-row gap-4 items-center justify-between">
         {/* Filtros por estado */}
-        <div className="flex overflow-x-auto pb-2 md:pb-0 hide-scrollbar gap-2 w-full md:w-auto">
+        <div className="flex overflow-x-auto pb-2 md:pb-0 hide-scrollbar gap-2 w-full xl:w-auto">
           {filterTabs.map(tab => {
             const Icon = tab.icon
             const isActive = statusFilter === tab.key
@@ -353,38 +389,55 @@ export default function CotizacionesPage() {
                     : stats.anuladas}
                 </span>
               </button>
-
             )
           })}
         </div>
 
-        {/* Filtro por ciudad (solo admin) */}
-        {isAdmin && (
-          <div className="relative w-full md:w-48">
+        <div className="flex flex-col md:flex-row gap-2 items-center w-full xl:w-auto">
+          {/* Filtro por fecha */}
+          <div className="relative w-full md:w-44 flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2.5 hover:bg-gray-100/50 transition-colors">
+            <Calendar size={14} className="text-primary shrink-0" />
             <select
-              className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 text-sm font-black text-gray-800 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
-              value={selectedCity}
-              onChange={e => setSelectedCity(e.target.value)}
+              className="w-full bg-transparent border-none p-1 text-xs font-black text-gray-800 outline-none focus:ring-0 cursor-pointer uppercase tracking-wider"
+              value={dateFilter}
+              onChange={e => setDateFilter(e.target.value)}
             >
-              <option value="todas">Todas las Ciudades</option>
-              <option value="Quito">Quito</option>
-              <option value="Guayaquil">Guayaquil</option>
-              <option value="Cuenca">Cuenca</option>
-              <option value="Manta">Manta</option>
-              <option value="Loja">Loja</option>
+              <option value="todas">Todas las Fechas</option>
+              <option value="hoy">Hoy</option>
+              <option value="semana">Esta Semana</option>
+              <option value="mes">Este Mes</option>
+              <option value="año">Este Año</option>
             </select>
           </div>
-        )}
 
-        {/* Búsqueda de texto */}
-        <div className="relative w-full md:w-80">
-          <Search className="absolute left-4 top-3 text-gray-300" size={16} />
-          <input
-            className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-10 pr-4 py-3 text-sm font-bold text-gray-800 outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-gray-300 transition-all"
-            placeholder="Buscar por código, agencia o destino..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+          {/* Filtro por ciudad (solo admin) */}
+          {isAdmin && (
+            <div className="relative w-full md:w-44">
+              <select
+                className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3.5 text-xs font-black text-gray-800 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer uppercase tracking-wider"
+                value={selectedCity}
+                onChange={e => setSelectedCity(e.target.value)}
+              >
+                <option value="todas">Todas las Ciudades</option>
+                <option value="Quito">Quito</option>
+                <option value="Guayaquil">Guayaquil</option>
+                <option value="Cuenca">Cuenca</option>
+                <option value="Manta">Manta</option>
+                <option value="Loja">Loja</option>
+              </select>
+            </div>
+          )}
+
+          {/* Búsqueda de texto */}
+          <div className="relative w-full md:w-64">
+            <Search className="absolute left-4 top-3.5 text-gray-300" size={14} />
+            <input
+              className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-10 pr-4 py-3 text-xs font-bold text-gray-800 outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-gray-300 transition-all"
+              placeholder="Buscar..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
@@ -405,13 +458,41 @@ export default function CotizacionesPage() {
         </div>
         <div className="overflow-x-auto">
           <QuotesTable
-            quotes={filtered}
+            quotes={paginatedData}
             isAdmin={profile?.rol === 'admin' || profile?.rol === 'superadmin'}
             isSuperAdmin={profile?.rol === 'superadmin'}
             onUpdate={fetchQuotes}
           />
         </div>
       </div>
+
+      {/* PAGINACIÓN */}
+      {filtered.length > itemsPerPage && (
+        <div className="bg-white px-8 py-4 rounded-[2rem] border border-gray-100 flex items-center justify-between shadow-sm">
+          <div className="text-xs font-black text-gray-400 uppercase tracking-widest">
+            Mostrando {Math.min(filtered.length, (currentPage - 1) * itemsPerPage + 1)} - {Math.min(filtered.length, currentPage * itemsPerPage)} de {filtered.length}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="p-2.5 bg-gray-50 hover:bg-gray-100 text-gray-800 disabled:opacity-30 disabled:hover:bg-gray-50 rounded-xl transition-colors shrink-0"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span className="text-xs font-black text-gray-800 uppercase tracking-widest px-3">
+              Pág. {currentPage} de {Math.ceil(filtered.length / itemsPerPage)}
+            </span>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(filtered.length / itemsPerPage)))}
+              disabled={currentPage === Math.ceil(filtered.length / itemsPerPage)}
+              className="p-2.5 bg-gray-50 hover:bg-gray-100 text-gray-800 disabled:opacity-30 disabled:hover:bg-gray-50 rounded-xl transition-colors shrink-0"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

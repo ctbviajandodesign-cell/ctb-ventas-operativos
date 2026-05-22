@@ -723,21 +723,18 @@ export default function DashboardPage() {
 
       {/* HEADER & FILTROS */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
-        <div className="space-y-6 flex-1">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="bg-primary p-2 rounded-xl text-white">
-                <BarChart3 size={20} />
-              </div>
-              <h1 className="text-4xl font-black text-gray-900 tracking-tighter uppercase italic leading-none">
-                Control Center
-              </h1>
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="bg-primary p-2 rounded-xl text-white">
+              <BarChart3 size={20} />
             </div>
-            <p className="text-gray-400 font-bold text-xs uppercase tracking-[0.2em] ml-1">
-              {isAdmin ? 'Panel de Control de Operaciones Globales' : 'Tu Resumen de Inteligencia Comercial'}
-            </p>
+            <h1 className="text-4xl font-black text-gray-900 tracking-tighter uppercase italic leading-none">
+              Control Center
+            </h1>
           </div>
-          <GlobalSearch />
+          <p className="text-gray-400 font-bold text-xs uppercase tracking-[0.2em] ml-1">
+            {isAdmin ? 'Panel de Control de Operaciones Globales' : 'Tu Resumen de Inteligencia Comercial'}
+          </p>
         </div>
 
         <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 w-full xl:w-auto">
@@ -815,59 +812,77 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* GOOGLE-STYLE AI SEARCH BAR */}
-      <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-50 space-y-4 animate-in fade-in duration-500">
-        <form onSubmit={handleAiQuestionSubmit} className="relative flex items-center">
-          <div className="absolute left-5 text-primary shrink-0">
-            <Sparkles size={20} className={aiLoading ? "animate-pulse text-indigo-500" : ""} />
+      {/* SECCIÓN DE BÚSQUEDA Y CONSULTAS IA */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+        {/* BUSCADOR GLOBAL */}
+        <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col justify-between h-full">
+          <div className="mb-4">
+            <h4 className="text-sm font-black text-gray-905 uppercase tracking-tighter italic">Buscador CTB</h4>
+            <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mt-1">Busca cotizaciones, proformas o vouchers por código o pasajero</p>
           </div>
-          <input
-            type="text"
-            placeholder="Pregunta a la IA sobre tus datos (ej. ¿Qué agencia cotizó más? ¿Cuál es la conversión de Galápagos?)"
-            value={aiQuestion}
-            onChange={(e) => setAiQuestion(e.target.value)}
-            disabled={aiLoading}
-            className="w-full pl-14 pr-36 py-4 bg-gray-50 border border-gray-100 rounded-full text-sm font-semibold text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-          />
-          <button
-            type="submit"
-            disabled={aiLoading || !aiQuestion.trim()}
-            className="absolute right-3 bg-primary text-white px-5 py-2.5 rounded-full font-black text-xs uppercase tracking-wider shadow-md shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 disabled:shadow-none"
-          >
-            {aiLoading ? 'Pensando...' : 'Preguntar'}
-          </button>
-        </form>
-
-        {/* AI Answer Reveal Panel */}
-        {aiLoading && (
-          <div className="p-4 bg-gray-50/50 rounded-2xl border border-gray-100/50 flex items-center gap-3 animate-pulse">
-            <div className="w-2.5 h-2.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-            <div className="w-2.5 h-2.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-            <div className="w-2.5 h-2.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-            <span className="text-xs font-black text-gray-400 uppercase tracking-widest ml-2">Analizando datos en tiempo real...</span>
+          <div className="w-full flex-1 flex items-center">
+            <GlobalSearch />
           </div>
-        )}
+        </div>
 
-        {aiAnswer && (
-          <div className="p-6 bg-gradient-to-r from-primary/[0.02] to-indigo-500/[0.02] border border-primary/10 rounded-3xl relative animate-in slide-in-from-top-4 duration-300">
-            <button 
-              onClick={() => { setAiAnswer(null); setAiQuestion(''); }}
-              className="absolute top-4 right-4 text-[10px] font-black text-gray-400 hover:text-gray-600 bg-gray-100 px-2.5 py-1 rounded-full uppercase tracking-wider transition-colors"
+        {/* GOOGLE-STYLE AI SEARCH BAR */}
+        <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col justify-between space-y-4 animate-in fade-in duration-500">
+          <div>
+            <h4 className="text-sm font-black text-gray-905 uppercase tracking-tighter italic">Asistente IA Comercial</h4>
+            <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mt-1">Realiza consultas inteligentes en lenguaje natural sobre tus datos</p>
+          </div>
+          <form onSubmit={handleAiQuestionSubmit} className="relative flex items-center">
+            <div className="absolute left-5 text-primary shrink-0">
+              <Sparkles size={20} className={aiLoading ? "animate-pulse text-indigo-500" : ""} />
+            </div>
+            <input
+              type="text"
+              placeholder="Pregunta a la IA (ej. ¿Qué agencia cotizó más?)"
+              value={aiQuestion}
+              onChange={(e) => setAiQuestion(e.target.value)}
+              disabled={aiLoading}
+              className="w-full pl-14 pr-36 py-4 bg-gray-50 border border-gray-100 rounded-full text-sm font-semibold text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            />
+            <button
+              type="submit"
+              disabled={aiLoading || !aiQuestion.trim()}
+              className="absolute right-3 bg-primary text-white px-5 py-2.5 rounded-full font-black text-xs uppercase tracking-wider shadow-md shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 disabled:shadow-none"
             >
-              Cerrar
+              {aiLoading ? 'Pensando...' : 'Preguntar'}
             </button>
-            <div className="flex items-start gap-3">
-              <div className="bg-primary/10 p-2 rounded-2xl text-primary shrink-0 mt-0.5">
-                <Sparkles size={16} />
-              </div>
-              <div className="space-y-2 text-sm text-gray-700 leading-relaxed font-semibold">
-                {aiAnswer.split('\n').map((line, i) => (
-                  <p key={i}>{line}</p>
-                ))}
+          </form>
+
+          {/* AI Answer Reveal Panel / Loading */}
+          {aiLoading && (
+            <div className="p-4 bg-gray-50/50 rounded-2xl border border-gray-100/50 flex items-center gap-3 animate-pulse">
+              <div className="w-2.5 h-2.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <div className="w-2.5 h-2.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <div className="w-2.5 h-2.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              <span className="text-xs font-black text-gray-400 uppercase tracking-widest ml-2">Analizando datos en tiempo real...</span>
+            </div>
+          )}
+
+          {aiAnswer && (
+            <div className="p-6 bg-gradient-to-r from-primary/[0.02] to-indigo-500/[0.02] border border-primary/10 rounded-3xl relative animate-in slide-in-from-top-4 duration-300">
+              <button 
+                onClick={() => { setAiAnswer(null); setAiQuestion(''); }}
+                className="absolute top-4 right-4 text-[10px] font-black text-gray-400 hover:text-gray-600 bg-gray-100 px-2.5 py-1 rounded-full uppercase tracking-wider transition-colors"
+              >
+                Cerrar
+              </button>
+              <div className="flex items-start gap-3">
+                <div className="bg-primary/10 p-2 rounded-2xl text-primary shrink-0 mt-0.5">
+                  <Sparkles size={16} />
+                </div>
+                <div className="space-y-2 text-sm text-gray-700 leading-relaxed font-semibold">
+                  {aiAnswer.split('\n').map((line, i) => (
+                    <p key={i}>{line}</p>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* KPI GRID */}
