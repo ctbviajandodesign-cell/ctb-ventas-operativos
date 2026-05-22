@@ -105,10 +105,13 @@ export default function VentasPage() {
       await supabase.from('vouchers').update({ estado: 'inactivo' }).eq('venta_id', venta.id)
       
       // 3. Actualizar la Cotización base a 'anulada' con el motivo
-      await supabase.from('cotizaciones').update({ 
-        estado: 'anulada',
-        motivo_perdida: motivo.trim()
-      }).eq('id', venta.cotizacion_id)
+      const targetCotizacionId = venta.cotizacion_id || venta.cotizaciones?.id
+      if (targetCotizacionId) {
+        await supabase.from('cotizaciones').update({ 
+          estado: 'anulada',
+          motivo_perdida: motivo.trim()
+        }).eq('id', targetCotizacionId)
+      }
       
       showToast('Venta anulada con éxito')
       setAnnulVentaModal(null)
