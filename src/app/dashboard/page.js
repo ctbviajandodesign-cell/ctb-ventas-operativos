@@ -896,18 +896,21 @@ export default function DashboardPage() {
           value={`$${metrics.totalVendido.toLocaleString()}`} 
           icon={DollarSign}
           color="success"
+          description="Volumen bruto cliente"
         />
         <StatsCard 
           title="Proformas Vendidas"
           value={(metrics.ganadas || 0).toLocaleString()} 
           icon={Trophy}
           color="accent"
+          description="Ventas concretadas"
         />
         <StatsCard 
           title={isAdmin && selectedOperative === 'global' ? 'Ganancia CTB (Equipo)' : 'Mi Ganancia CTB'} 
           value={`$${metrics.metaComputable.toLocaleString()}`} 
           icon={TrendingUp}
           color="primary"
+          description="Comisión + Utilidad (Meta)"
         />
         <StatsCard 
           title="Cotizaciones Emitidas" 

@@ -1,4 +1,4 @@
-export default function StatsCard({ title, value, icon: Icon, color = 'primary' }) {
+export default function StatsCard({ title, value, icon: Icon, color = 'primary', description }) {
   const colorSchemes = {
     primary: {
       bg: 'bg-blue-50/60 hover:bg-blue-50/80',
@@ -43,6 +43,11 @@ export default function StatsCard({ title, value, icon: Icon, color = 'primary' 
         <h3 className="text-2xl md:text-3xl font-black text-gray-950 tracking-tighter leading-tight">
           {value}
         </h3>
+        {description && (
+          <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mt-1 leading-none group-hover:text-gray-500 transition-colors">
+            {description}
+          </p>
+        )}
       </div>
       <div className={`p-4 rounded-[1.5rem] ${scheme.iconBg} shrink-0 group-hover:scale-110 transition-all duration-500 ease-out`}>
         <Icon size={24} className="stroke-[2.5]" />
