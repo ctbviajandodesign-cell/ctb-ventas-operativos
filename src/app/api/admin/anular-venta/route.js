@@ -21,7 +21,7 @@ export async function POST(req) {
     // 3. Anular la Cotización
     if (cotizacionId) {
       const { error: errCot } = await supabaseAdmin.from('cotizaciones').update({ 
-        estado: 'anulada',
+        estado: 'perdida',
         motivo_perdida: motivo || 'Anulada por sistema'
       }).eq('id', cotizacionId)
       if (errCot) throw errCot

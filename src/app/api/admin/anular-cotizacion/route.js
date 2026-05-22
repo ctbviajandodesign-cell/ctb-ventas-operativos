@@ -22,7 +22,7 @@ export async function POST(req) {
     }
 
     const { error: errCot } = await supabaseAdmin.from('cotizaciones').update({ 
-      estado: 'anulada',
+      estado: 'perdida',
       motivo_perdida: 'Anulada por Administrador'
     }).eq('id', cotizacionId)
     if (errCot) throw errCot
