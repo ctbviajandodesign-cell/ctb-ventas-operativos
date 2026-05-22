@@ -27,7 +27,8 @@ import {
   AlertTriangle,
   RefreshCw,
   Sparkles,
-  MapPin
+  MapPin,
+  Calendar
 } from 'lucide-react'
 
 import { 
@@ -45,6 +46,7 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState(null)
   const [selectedOperative, setSelectedOperative] = useState('global')
   const [selectedCity, setSelectedCity] = useState('global')
+  const [selectedPeriod, setSelectedPeriod] = useState('mes') // 'mes' o 'año'
   const [operatives, setOperatives] = useState([])
   const [operativePanel, setOperativePanel] = useState(null) // para drill-down de admin
   const [metrics, setMetrics] = useState({
@@ -71,7 +73,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchDashboardData()
-  }, [selectedOperative, selectedCity])
+  }, [selectedOperative, selectedCity, selectedPeriod])
 
   async function fetchDashboardData() {
     try {
@@ -96,10 +98,14 @@ export default function DashboardPage() {
         setOperatives(ops || [])
       }
 
-      const startOfMonth = new Date()
-      startOfMonth.setDate(1)
-      startOfMonth.setHours(0, 0, 0, 0)
-      const startIso = startOfMonth.toISOString()
+      const startDate = new Date()
+      if (selectedPeriod === 'mes') {
+        startDate.setDate(1)
+      } else {
+        startDate.setMonth(0, 1)
+      }
+      startDate.setHours(0, 0, 0, 0)
+      const startIso = startDate.toISOString()
 
       const targetIdForIndividual = (!isAdmin || selectedOperative !== 'global') ? (isAdmin ? selectedOperative : user.id) : null
 
@@ -109,7 +115,7 @@ export default function DashboardPage() {
       let ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id').eq('estado', 'activa').gte('created_at', startIso)
       let cotGanadasQuery = supabase.from('cotizaciones').select('valor_total').eq('estado', 'ganada').gte('created_at', startIso)
       let quotesQuery = supabase.from('cotizaciones').select('*, profiles!left(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10)
-      let pipelineQuery = supabase.from('cotizaciones').select('valor_total, destino, estado').eq('estado', 'abierta').gte('created_at', startIso)
+      let pipelineQuery = supabase.from('cotizaciones').select('valor_total, destino, estado').gte('created_at', startIso)
       let openCountQuery = supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'abierta').gte('created_at', startIso)
       let lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, created_at, comercial, estado, profiles!left(nombre, ciudad)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).order('created_at', { ascending: false })
 
@@ -126,7 +132,7 @@ export default function DashboardPage() {
         ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id, profiles!inner(ciudad)').eq('estado', 'activa').gte('created_at', startIso).eq('profiles.ciudad', activeCityFilter)
         cotGanadasQuery = supabase.from('cotizaciones').select('valor_total, profiles!inner(ciudad)').eq('estado', 'ganada').gte('created_at', startIso).eq('profiles.ciudad', activeCityFilter)
         quotesQuery = supabase.from('cotizaciones').select('*, profiles!inner(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10).eq('profiles.ciudad', activeCityFilter)
-        pipelineQuery = supabase.from('cotizaciones').select('valor_total, destino, estado, profiles!inner(ciudad)').eq('estado', 'abierta').gte('created_at', startIso).eq('profiles.ciudad', activeCityFilter)
+        pipelineQuery = supabase.from('cotizaciones').select('valor_total, destino, estado, profiles!inner(ciudad)').gte('created_at', startIso).eq('profiles.ciudad', activeCityFilter)
         openCountQuery = supabase.from('cotizaciones').select('id, profiles!inner(ciudad)', { count: 'exact', head: true }).eq('estado', 'abierta').gte('created_at', startIso).eq('profiles.ciudad', activeCityFilter)
         lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, created_at, comercial, estado, profiles!inner(nombre, ciudad)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).order('created_at', { ascending: false }).eq('profiles.ciudad', activeCityFilter)
       } else {
@@ -151,7 +157,7 @@ export default function DashboardPage() {
         pipelineQuery,
         openCountQuery,
         lostQuery,
-        fetch('/api/leaderboard').then(r => r.json())
+        fetch(`/api/leaderboard?period=${selectedPeriod}`).then(r => r.json())
       ])
 
       const totalMetaComp = ventasData?.reduce((acc, v) => acc + (Number(v.comision) || 0) + (Number(v.utilidad) || 0), 0) || 0
@@ -262,12 +268,13 @@ export default function DashboardPage() {
       pipelineData?.forEach(q => { if(q.destino) destMap[q.destino] = (destMap[q.destino] || 0) + 1 })
       const popular = Object.keys(destMap).sort((a,b) => destMap[b] - destMap[a])[0] || 'N/A'
 
-      const globalM = board?.reduce((acc, op) => acc + (Number(op.meta) || 0), 0) || 50000
+      const multiplier = selectedPeriod === 'año' ? 12 : 1
+      const globalM = board?.reduce((acc, op) => acc + (Number(op.meta) || 0), 0) || (50000 * multiplier)
       const myMeta = !isAdmin
-        ? (Number(profileData?.meta_mensual) || 5000)
+        ? ((Number(profileData?.meta_mensual) || 5000) * multiplier)
         : selectedOperative === 'global'
         ? globalM
-        : (Number(board?.find(o => o.id === selectedOperative)?.meta) || 5000)
+        : (Number(board?.find(o => o.id === selectedOperative)?.meta) || (5000 * multiplier))
 
       const metaBase = isAdmin && selectedOperative === 'global' ? globalM : myMeta
 
@@ -595,7 +602,7 @@ export default function DashboardPage() {
               </div>
 
               <div>
-                <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Proformas (histórico total)</p>
+                <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Cotizaciones (histórico total)</p>
                 <div className="grid grid-cols-3 gap-2">
                   {[
                     { label: 'Ganadas', val: operativePanel.ganadas, color: 'text-success bg-success/10 border-success/20' },
@@ -642,50 +649,68 @@ export default function DashboardPage() {
           <GlobalSearch />
         </div>
         
-        {isAdmin && (
-          <div className="flex flex-wrap items-center gap-4 bg-white p-2 rounded-[2rem] shadow-xl border border-gray-100">
-            <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-2xl border border-gray-100">
-              <Filter size={16} className="text-primary" />
-              <span className="text-xs font-black uppercase text-gray-400">Ciudad:</span>
-            </div>
+        <div className="flex flex-wrap items-center gap-4 bg-white p-2 rounded-[2rem] shadow-xl border border-gray-100">
+          {isAdmin && (
+            <>
+              <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-2xl border border-gray-100">
+                <Filter size={16} className="text-primary" />
+                <span className="text-xs font-black uppercase text-gray-400">Ciudad:</span>
+              </div>
 
-            <select 
-              value={selectedCity}
-              onChange={(e) => {
-                setSelectedCity(e.target.value)
-                setSelectedOperative('global')
-              }}
-              className="bg-transparent border-none font-black text-sm text-gray-800 outline-none pr-8 cursor-pointer focus:ring-0"
-            >
-              <option value="global">Todas las Ciudades</option>
-              <option value="Quito">Quito</option>
-              <option value="Guayaquil">Guayaquil</option>
-              <option value="Cuenca">Cuenca</option>
-              <option value="Manta">Manta</option>
-              <option value="Loja">Loja</option>
-            </select>
+              <select 
+                value={selectedCity}
+                onChange={(e) => {
+                  setSelectedCity(e.target.value)
+                  setSelectedOperative('global')
+                }}
+                className="bg-transparent border-none font-black text-sm text-gray-800 outline-none pr-8 cursor-pointer focus:ring-0"
+              >
+                <option value="global">Todas las Ciudades</option>
+                <option value="Quito">Quito</option>
+                <option value="Guayaquil">Guayaquil</option>
+                <option value="Cuenca">Cuenca</option>
+                <option value="Manta">Manta</option>
+                <option value="Loja">Loja</option>
+              </select>
 
-            <div className="h-6 w-px bg-gray-200 hidden md:block" />
+              <div className="h-6 w-px bg-gray-200 hidden md:block" />
 
-            <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-2xl border border-gray-100">
-              <Filter size={16} className="text-primary" />
-              <span className="text-xs font-black uppercase text-gray-400">Operativo:</span>
-            </div>
+              <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-2xl border border-gray-100">
+                <Filter size={16} className="text-primary" />
+                <span className="text-xs font-black uppercase text-gray-400">Operativo:</span>
+              </div>
 
-            <select 
-              value={selectedOperative}
-              onChange={(e) => setSelectedOperative(e.target.value)}
-              className="bg-transparent border-none font-black text-sm text-gray-800 outline-none pr-8 cursor-pointer focus:ring-0"
-            >
-              <option value="global">Todos</option>
-              {operatives
-                .filter(op => selectedCity === 'global' || op.ciudad === selectedCity)
-                .map(op => (
-                  <option key={op.id} value={op.id}>{op.nombre}</option>
-                ))}
-            </select>
+              <select 
+                value={selectedOperative}
+                onChange={(e) => setSelectedOperative(e.target.value)}
+                className="bg-transparent border-none font-black text-sm text-gray-800 outline-none pr-8 cursor-pointer focus:ring-0"
+              >
+                <option value="global">Todos</option>
+                {operatives
+                  .filter(op => selectedCity === 'global' || op.ciudad === selectedCity)
+                  .map(op => (
+                    <option key={op.id} value={op.id}>{op.nombre}</option>
+                  ))}
+              </select>
+
+              <div className="h-6 w-px bg-gray-200 hidden md:block" />
+            </>
+          )}
+
+          <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-2xl border border-gray-100">
+            <Calendar size={16} className="text-primary" />
+            <span className="text-xs font-black uppercase text-gray-400">Período:</span>
           </div>
-        )}
+
+          <select 
+            value={selectedPeriod}
+            onChange={(e) => setSelectedPeriod(e.target.value)}
+            className="bg-transparent border-none font-black text-sm text-gray-800 outline-none pr-8 cursor-pointer focus:ring-0"
+          >
+            <option value="mes">Mes Actual</option>
+            <option value="año">Año Actual</option>
+          </select>
+        </div>
 
         {/* QUICK ACTION — Nueva Cotización (visible para todos) */}
         <Link
@@ -705,7 +730,7 @@ export default function DashboardPage() {
           color="primary"
         />
         <StatsCard 
-          title="Proformas en Negociación" 
+          title="Cotizaciones Emitidas" 
           value={`$${metrics.pipeline.toLocaleString()}`} 
           icon={Target}
           color="accent"
@@ -717,7 +742,7 @@ export default function DashboardPage() {
           color="success"
         />
         <StatsCard 
-          title={selectedOperative === 'global' && isAdmin ? "Proformas Activas" : "Vouchers Emitidos"} 
+          title={selectedOperative === 'global' && isAdmin ? "Cotizaciones en Proceso" : "Vouchers Emitidos"} 
           value={selectedOperative === 'global' && isAdmin ? metrics.cotizacionesAbiertas : metrics.vouchersEmitidos} 
           icon={selectedOperative === 'global' && isAdmin ? FileText : Trophy}
           color="danger"
@@ -747,7 +772,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between mb-8">
               <h3 className="font-black text-xl uppercase tracking-tighter flex items-center gap-3 text-gray-800">
                 <FileText size={22} className="text-gray-400" />
-                Últimas Proformas
+                Últimas Cotizaciones
               </h3>
               <Link href="/dashboard/cotizaciones" className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2 hover:translate-x-1 transition-transform">
                 Ver Todo <ChevronRight size={14} />
@@ -863,7 +888,7 @@ export default function DashboardPage() {
             <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2">
               {lostQuotes.filter(q => lostFilter === 'ALL' || (lostFilter === 'ANULADAS' ? q.estado === 'anulada' : ((q.motivo_perdida || '').toLowerCase().includes(lostFilter.toLowerCase()) && q.estado !== 'anulada'))).length === 0 ? (
                 <div className="text-center py-10 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
-                  <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">No se encontraron proformas perdidas con este filtro</p>
+                  <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">No se encontraron cotizaciones perdidas con este filtro</p>
                 </div>
               ) : (
                 lostQuotes

@@ -20,7 +20,7 @@ export async function POST(req) {
   try {
     const {
       operativo, ciudad, destino, agencia,
-      valorTotal, metaPct, meta, aporteVenta, operativoId
+      valorTotal, metaPct, meta, aporteVenta, operativoId, isEdit
     } = await req.json()
 
     const pct         = Number(metaPct || 0)
@@ -31,11 +31,12 @@ export async function POST(req) {
       ? ((pct / 100 * metaAmount) - thisAporte) / metaAmount * 100
       : 0
 
-    const emoji = pct >= 100 ? '🏆' : pct >= 75 ? '🔥' : pct >= 50 ? '📈' : '⚡'
+    const emoji = isEdit ? '✏️' : pct >= 100 ? '🏆' : pct >= 75 ? '🔥' : pct >= 50 ? '📈' : '⚡'
+    const titleText = isEdit ? 'VENTA ACTUALIZADA' : 'NUEVA VENTA'
 
     // ── 1. Notificación estándar de venta ─────────────────────
     const ventaText = [
-      `${emoji} <b>¡NUEVA VENTA CTB — ${(ciudad || '').toUpperCase()}!</b>`,
+      `${emoji} <b>¡${titleText} CTB — ${(ciudad || '').toUpperCase()}!</b>`,
       ``,
       `👤 <b>Asesor:</b> ${operativo}`,
       `✈️ <b>Destino:</b> ${destino || 'N/A'}  |  🏢 <b>Agencia:</b> ${agencia || 'Directo'}`,

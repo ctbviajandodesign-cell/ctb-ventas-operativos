@@ -93,7 +93,7 @@ export default function EditarCotizacionPage() {
     }
   }
 
-  if (loading) return <div className="p-10 text-center animate-pulse">Cargando datos de proforma...</div>
+  if (loading) return <div className="p-10 text-center animate-pulse">Cargando datos de cotización...</div>
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-20">
@@ -101,7 +101,7 @@ export default function EditarCotizacionPage() {
         <button onClick={() => router.back()} className="flex items-center gap-2 text-gray-500 hover:text-primary transition-colors font-bold">
           <ArrowLeft size={20} /> Cancelar Edición
         </button>
-        <h1 className="text-2xl font-bold text-gray-900">Editar Proforma {id.slice(0,8)}</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Editar Cotización {id.slice(0,8)}</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -163,7 +163,7 @@ export default function EditarCotizacionPage() {
               </div>
             </div>
             <button type="submit" disabled={saving} className="btn-primary w-full py-4 shadow-xl">
-              {saving ? 'Guardando...' : 'Actualizar Proforma'}
+              {saving ? 'Guardando...' : 'Actualizar Cotización'}
             </button>
           </div>
         </div>

@@ -141,47 +141,6 @@ export default function SalesModal() {
         if (vError) throw vError
         ventaId = venta.id
 
-        // ── Notificación Telegram ──────────────────────────────
-        try {
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('nombre, ciudad, meta_mensual')
-            .eq('id', user.id)
-            .single()
-
-          // Calcular % de meta del mes actual
-          const startOfMonth = new Date(); startOfMonth.setDate(1); startOfMonth.setHours(0,0,0,0)
-          const { data: ventasMes } = await supabase
-            .from('ventas')
-            .select('comision, utilidad')
-            .eq('operativo_id', user.id)
-            .eq('estado', 'activa')
-            .gte('created_at', startOfMonth.toISOString())
-
-          const aporteTotal = ventasMes?.reduce((a, v) => a + (Number(v.comision)||0) + (Number(v.utilidad)||0), 0) || 0
-          const meta = Number(profileData?.meta_mensual || 5000)
-          const metaPct = meta > 0 ? (aporteTotal / meta) * 100 : 0
-
-          fetch('/api/notify/venta', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              operativo: profileData?.nombre || 'Asesor',
-              ciudad: profileData?.ciudad || '',
-              destino: quote.destino || 'N/A',
-              agencia: quote.agencia || 'Directo',
-              valorTotal: Number(formData.total) || 0,
-              metaPct,
-              meta,
-              aporteVenta: Number(formData.comision || 0) + Number(formData.utilidad || 0),
-              operativoId: user.id
-            })
-          }).catch(err => console.warn('Telegram notify skipped:', err))
-        } catch (notifyErr) {
-          console.warn('Telegram notify error:', notifyErr)
-        }
-        // ──────────────────────────────────────────────────────
-
         await supabase.from('cotizaciones').update({ 
           estado: 'ganada',
           valor_total: Number(formData.total) || 0,
@@ -190,6 +149,48 @@ export default function SalesModal() {
           valor_bono: Number(formData.bono_counter) || 0,
           nombres_pasajeros: formData.pasajeros_voucher ? formData.pasajeros_voucher.split('\n').map(s => s.trim()).filter(Boolean) : []
         }).eq('id', quote.id)
+      }
+
+      // ── Notificación Telegram (tanto para venta nueva como corregida) ──────────────────────────────
+      try {
+        const opId = quote.existingSale?.operativo_id || user.id
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('nombre, ciudad, meta_mensual')
+          .eq('id', opId)
+          .single()
+
+        // Calcular % de meta del mes actual
+        const startOfMonth = new Date(); startOfMonth.setDate(1); startOfMonth.setHours(0,0,0,0)
+        const { data: ventasMes } = await supabase
+          .from('ventas')
+          .select('comision, utilidad')
+          .eq('operativo_id', opId)
+          .eq('estado', 'activa')
+          .gte('created_at', startOfMonth.toISOString())
+
+        const aporteTotal = ventasMes?.reduce((a, v) => a + (Number(v.comision)||0) + (Number(v.utilidad)||0), 0) || 0
+        const meta = Number(profileData?.meta_mensual || 5000)
+        const metaPct = meta > 0 ? (aporteTotal / meta) * 100 : 0
+
+        fetch('/api/notify/venta', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            operativo: profileData?.nombre || 'Asesor',
+            ciudad: profileData?.ciudad || '',
+            destino: quote.destino || 'N/A',
+            agencia: quote.agencia || 'Directo',
+            valorTotal: Number(formData.total) || 0,
+            metaPct,
+            meta,
+            aporteVenta: Number(formData.comision || 0) + Number(formData.utilidad || 0),
+            operativoId: opId,
+            isEdit: isEditing
+          })
+        }).catch(err => console.warn('Telegram notify skipped:', err))
+      } catch (notifyErr) {
+        console.warn('Telegram notify error:', notifyErr)
       }
 
       const pasajerosArr = formData.pasajeros_voucher ? formData.pasajeros_voucher.split('\n').map(s => s.trim()).filter(Boolean) : []

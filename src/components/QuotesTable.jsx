@@ -71,7 +71,7 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
 
 
   const handleDelete = async (quote) => {
-    if (!confirm('¿Seguro que quieres anular y archivar esta proforma?')) return
+    if (!confirm('¿Seguro que quieres anular y archivar esta cotización?')) return
     
     const isGanada = (quote.estado || '').trim().toLowerCase() === 'ganada'
 

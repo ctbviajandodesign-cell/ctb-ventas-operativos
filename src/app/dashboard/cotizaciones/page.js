@@ -68,7 +68,7 @@ export default function CotizacionesPage() {
       'Destino',
       'Pasajeros',
       'Valor Cotizado',
-      'Estado Proforma',
+      'Estado Cotización',
       'Creado En',
       'Operativo Responsable',
       'Venta Total ($)',
@@ -211,7 +211,7 @@ export default function CotizacionesPage() {
     <div className="flex items-center justify-center py-32">
       <div className="space-y-4 text-center">
         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-        <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">Cargando proformas...</p>
+        <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">Cargando cotizaciones...</p>
       </div>
     </div>
   )
@@ -244,7 +244,7 @@ export default function CotizacionesPage() {
       {/* MINI DASHBOARD DE STATS */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col justify-between">
-          <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Total Proformas</p>
+          <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Total Cotizaciones</p>
           <p className="text-4xl font-black text-gray-900 mt-2">{stats.total}</p>
           <p className="text-xs text-gray-400 mt-2 font-bold">Este historial completo</p>
         </div>
@@ -283,7 +283,7 @@ export default function CotizacionesPage() {
           <div className="flex-1">
             <h3 className="font-black text-lg uppercase tracking-tighter text-gray-800 mb-6 flex items-center gap-2">
               <TrendingUp size={20} className="text-primary" />
-              Resumen Visual de Proformas
+              Resumen Visual de Cotizaciones
             </h3>
             <div className="h-[180px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -299,7 +299,7 @@ export default function CotizacionesPage() {
                         return (
                           <div className="bg-gray-900 text-white px-4 py-3 rounded-2xl shadow-xl text-xs font-black">
                             <p className="text-primary uppercase tracking-widest text-xs">{payload[0].payload.name}</p>
-                            <p className="text-xl mt-1">{payload[0].value} proformas</p>
+                            <p className="text-xl mt-1">{payload[0].value} cotizaciones</p>
                           </div>
                         )
                       }

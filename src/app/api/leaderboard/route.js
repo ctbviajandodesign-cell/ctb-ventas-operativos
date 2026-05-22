@@ -13,9 +13,16 @@ export async function GET(request) {
       }
     )
 
-    const startOfMonth = new Date()
-    startOfMonth.setDate(1)
-    startOfMonth.setHours(0, 0, 0, 0)
+    const { searchParams } = new URL(request.url)
+    const period = searchParams.get('period') || 'mes'
+
+    const startDate = new Date()
+    if (period === 'mes') {
+      startDate.setDate(1)
+    } else {
+      startDate.setMonth(0, 1)
+    }
+    startDate.setHours(0, 0, 0, 0)
 
     // Traer todos los operativos
     const { data: allOps, error: opsErr } = await supabaseAdmin
@@ -25,19 +32,19 @@ export async function GET(request) {
     
     if (opsErr) throw opsErr
 
-    // Traer ventas del mes de todos
-    const { data: allVentasMonth, error: ventErr } = await supabaseAdmin
+    // Traer ventas del período de todos
+    const { data: allVentasPeriod, error: ventErr } = await supabaseAdmin
       .from('ventas')
       .select('total, comision, utilidad, operativo_id')
       .eq('estado', 'activa')
-      .gte('created_at', startOfMonth.toISOString())
+      .gte('created_at', startDate.toISOString())
 
     if (ventErr) throw ventErr
 
     const board = allOps?.map(op => {
-      const opVentas = (allVentasMonth || []).filter(v => v.operativo_id === op.id)
+      const opVentas = (allVentasPeriod || []).filter(v => v.operativo_id === op.id)
       const totalOp = opVentas.reduce((acc, v) => acc + (Number(v.comision) || 0) + (Number(v.utilidad) || 0), 0)
-      const meta = Number(op.meta_mensual) || 5000
+      const meta = (Number(op.meta_mensual) || 5000) * (period === 'año' ? 12 : 1)
       return {
         id: op.id,
         nombre: op.nombre?.split(' ')[0] || 'N/A',
