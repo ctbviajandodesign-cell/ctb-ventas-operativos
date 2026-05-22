@@ -543,36 +543,39 @@ export default function DashboardPage() {
 
   const renderFormattedAnswer = (text) => {
     if (!text) return null
-    return text.split('\n').map((line, idx) => {
-      let isBullet = false
-      let content = line
-      if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
-        isBullet = true
-        content = line.trim().substring(2)
-      }
-
-      const parts = content.split('**')
-      const parsedElements = parts.map((part, i) => {
-        if (i % 2 === 1) {
-          return <strong key={i} className="font-extrabold text-gray-950">{part}</strong>
+    return text
+      .split('\n')
+      .filter(line => line.trim().length > 0)
+      .map((line, idx) => {
+        let isBullet = false
+        let content = line.replace(/^[#\s]+/, '')
+        if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
+          isBullet = true
+          content = line.trim().substring(2)
         }
-        return part
-      })
 
-      if (isBullet) {
+        const parts = content.split('**')
+        const parsedElements = parts.map((part, i) => {
+          if (i % 2 === 1) {
+            return <strong key={i} className="font-extrabold text-gray-950">{part}</strong>
+          }
+          return part
+        })
+
+        if (isBullet) {
+          return (
+            <li key={idx} className="ml-4 list-disc text-gray-700 mt-0.5">
+              {parsedElements}
+            </li>
+          )
+        }
+
         return (
-          <li key={idx} className="ml-4 list-disc text-gray-700 mt-1">
+          <p key={idx} className="text-gray-750 mt-0.5">
             {parsedElements}
-          </li>
+          </p>
         )
-      }
-
-      return (
-        <p key={idx} className="text-gray-750 mt-1">
-          {parsedElements}
-        </p>
-      )
-    })
+      })
   }
 
   return (

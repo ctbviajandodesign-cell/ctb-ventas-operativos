@@ -203,15 +203,19 @@ ${JSON.stringify(rankingCiudades, null, 2)}
 ${JSON.stringify(cleanLeaderboard, null, 2)}
 
 === REGLAS DE RESPUESTA ===
-1. Responde de forma muy didáctica, estructurada y directa. Utiliza saltos de línea y listas con viñetas (-) para separar y organizar la información cuando contenga múltiples puntos o datos (ej: ventas del día, cotizaciones por asesor, asesores sin ventas, etc.). Evita bloques compactos de texto corrido. Sin introducciones ni saludos.
-2. Usa negrita para nombres, destinos y montos: **DREAMS**, **Karla Freire**, **Cancún**, **$1,035 USD**.
-3. Si preguntan por ventas o quién vendió hoy/período → describe detalladamente el **Asesor (operativo)** que cerró la venta, la **Agencia** que la compró, el **Destino** y el **Monto**. Ejemplo: "El asesor **Eva Freire** vendió a la agencia **DREAMS** con destino a **Panamá** por **$1,035 USD**."
-4. Si preguntan por "solo cotizó sin vender" → usa la lista "AGENCIAS QUE SOLO COTIZARON".
-5. Si preguntan "qué operativos hay de [ciudad]" → busca en "OPERATIVOS POR CIUDAD/SEDE" esa ciudad y lista sus nombres.
-6. Si preguntan "ranking por ciudad/sede" o "quién va ganando por país" → usa "RANKING DE CIUDADES/SEDES POR VENTAS".
-7. Si algo no tiene datos, responde: "No se registran datos para [Nombre] en este período."
-8. Si la pregunta es abierta o ambigua ("quién vendió", "qué se vendió"), da siempre el desglose completo (Asesor, Agencia, Destino y Monto) para que la respuesta sea totalmente clara e intuitiva.
-9. En caso de empate, menciona a todos los empatados.
+1. Responde de forma muy didáctica, sintetizada y directa. Utiliza saltos de línea y listas con viñetas (-) para organizar la información en un máximo de 3 o 4 puntos clave. Evita bloques compactos de texto corrido y NUNCA repitas datos ni agregues resúmenes redundantes.
+2. NUNCA utilices títulos con almohadillas (evita caracteres como #, ##, ###). Si necesitas rotular una sección, usa texto en negrita al inicio de la línea (ej: "- **Ventas de hoy**:").
+3. Usa negrita para nombres, destinos y montos: **DREAMS**, **Karla Freire**, **Cancún**, **$1,035 USD**.
+4. Si preguntan por ventas o quién vendió hoy/período → describe detalladamente el **Asesor (operativo)** que cerró la venta, la **Agencia** que la compró, el **Destino** y el **Monto**. Ejemplo: "El asesor **Eva Freire** vendió a la agencia **DREAMS** con destino a **Panamá** por **$1,035 USD**."
+5. Si preguntan por "solo cotizó sin vender" → usa la lista "AGENCIAS QUE SOLO COTIZARON".
+6. Si preguntan "qué operativos hay de [ciudad]" → busca en "OPERATIVOS POR CIUDAD/SEDE" esa ciudad y lista sus nombres.
+7. Si preguntan "ranking por ciudad/sede" o "quién va ganando por país" → usa "RANKING DE CIUDADES/SEDES POR VENTAS".
+8. Si algo no tiene datos, responde: "No se registran datos para [Nombre] en este período."
+9. Si la pregunta es abierta o ambigua ("quién vendió", "qué se vendió", "resumen de hoy"), da siempre el desglose sintetizado en un formato de lista muy limpio (ej:
+- **Cotizaciones**: [Total y desglose rápido por asesor]
+- **Ventas**: [Detalle de las ventas confirmadas]
+- **Asesores sin ventas**: [Nombres])
+10. En caso de empate, menciona a todos los empatados.
 
 Pregunta del usuario: "${question}"`
 
