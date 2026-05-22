@@ -14,7 +14,9 @@ import {
   DollarSign,
   ChevronRight,
   Star,
-  Sparkles
+  Sparkles,
+  Menu,
+  X
 } from 'lucide-react'
 import SalesModal from '@/components/SalesModal'
 
@@ -24,6 +26,7 @@ export default function DashboardLayout({ children }) {
 
   const [profile, setProfile] = useState(null)
   const [toast, setToast] = useState(null)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     fetchProfile()
@@ -79,10 +82,18 @@ export default function DashboardLayout({ children }) {
     <div className="flex h-screen bg-[#F5F7FA] selection:bg-primary/20">
       <SalesModal />
 
+      {/* Mobile Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-100 hidden md:flex flex-col shadow-sm">
-        {/* Logo */}
-        <div className="px-6 py-6 border-b border-gray-50">
+      <aside className={`fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-gray-100 flex flex-col shadow-2xl transition-transform duration-300 md:relative md:w-64 md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        {/* Logo and Close Button */}
+        <div className="px-6 py-6 border-b border-gray-50 relative">
           <div className="flex items-center justify-center py-2">
             <Image
               src="/logo.png"
@@ -92,6 +103,13 @@ export default function DashboardLayout({ children }) {
               className="object-contain"
             />
           </div>
+          
+          <button 
+            className="md:hidden absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-800 bg-gray-50 rounded-full"
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <X size={18} />
+          </button>
 
           {profile?.nombre && (
             <div className="mt-4 bg-gray-50 rounded-2xl px-3 py-2 flex items-center gap-2">
@@ -114,6 +132,7 @@ export default function DashboardLayout({ children }) {
               <Link
                 key={href}
                 href={href}
+                onClick={() => setIsMobileMenuOpen(false)}
                 className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-black text-xs uppercase tracking-widest group relative ${
                   active
                     ? 'bg-primary text-white shadow-lg shadow-primary/20'
@@ -135,6 +154,7 @@ export default function DashboardLayout({ children }) {
 
               <Link
                 href="/dashboard/usuarios"
+                onClick={() => setIsMobileMenuOpen(false)}
                 className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-black text-xs uppercase tracking-widest group relative ${
                   isActive('/dashboard/usuarios')
                     ? 'bg-primary text-white shadow-lg shadow-primary/20'
@@ -161,12 +181,18 @@ export default function DashboardLayout({ children }) {
       </aside>
 
       {/* Main */}
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto w-full">
         {/* Top bar */}
-        <header className="h-14 bg-white/80 backdrop-blur-md border-b border-gray-100 flex items-center justify-between px-8 sticky top-0 z-10">
-          <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 bg-success rounded-full animate-pulse"></div>
-            <h2 className="font-black text-gray-400 uppercase text-xs tracking-[0.2em]">
+        <header className="h-14 bg-white/80 backdrop-blur-md border-b border-gray-100 flex items-center justify-between px-4 sm:px-8 sticky top-0 z-30">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button 
+              className="md:hidden p-1.5 -ml-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+              onClick={() => setIsMobileMenuOpen(true)}
+            >
+              <Menu size={20} />
+            </button>
+            <div className="w-1.5 h-1.5 bg-success rounded-full animate-pulse hidden sm:block"></div>
+            <h2 className="font-black text-gray-400 uppercase text-[10px] sm:text-xs tracking-[0.2em] truncate max-w-[140px] sm:max-w-none">
               CTB Intelligence · {profile?.nombre || 'Cargando...'}
             </h2>
           </div>
@@ -178,7 +204,7 @@ export default function DashboardLayout({ children }) {
         </header>
 
         
-        <div className="p-8">
+        <div className="p-4 sm:p-8">
           {children}
         </div>
       </main>
