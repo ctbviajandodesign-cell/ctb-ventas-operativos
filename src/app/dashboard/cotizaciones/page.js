@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useUserSession } from '@/hooks/useUserSession'
 import QuotesTable from '@/components/QuotesTable'
 import AIInsightCard from '@/components/AIInsightCard'
-import { Search, Plus, Filter, CheckCircle2, Clock, XCircle, AlertCircle, TrendingUp, DollarSign, FileText, Download } from 'lucide-react'
+import { Search, Plus, Filter, CheckCircle2, Clock, XCircle, AlertCircle, AlertTriangle, TrendingUp, DollarSign, FileText, Download } from 'lucide-react'
 import Link from 'next/link'
 import { showToast } from '@/utils/toast'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, CartesianGrid } from 'recharts'
@@ -159,31 +159,29 @@ export default function CotizacionesPage() {
     const total = quotes.length
     const abiertas = quotes.filter(q => (q.estado || '').trim() === 'abierta').length
     const ganadas = quotes.filter(q => (q.estado || '').trim() === 'ganada').length
-    const perdidas = quotes.filter(q => ['perdida', 'anulada'].includes((q.estado || '').trim())).length
+    const perdidas = quotes.filter(q => (q.estado || '').trim() === 'perdida').length
+    const anuladas = quotes.filter(q => (q.estado || '').trim() === 'anulada').length
     const totalVenta = quotes.filter(q => (q.estado || '').trim() === 'ganada')
       .reduce((acc, q) => acc + (Number(q.valor_total) || 0), 0)
     const totalAporte = quotes.filter(q => (q.estado || '').trim() === 'ganada')
       .reduce((acc, q) => acc + (Number(q.valor_comision) || 0) + (Number(q.valor_utilidad) || 0), 0)
     const conversion = total > 0 ? ((ganadas / total) * 100).toFixed(1) : 0
 
-    return { total, abiertas, ganadas, perdidas, totalVenta, totalAporte, conversion }
+    return { total, abiertas, ganadas, perdidas, anuladas, totalVenta, totalAporte, conversion }
   }, [quotes])
 
   const chartData = [
     { name: 'En Proceso', value: stats.abiertas, color: '#0066CC' },
     { name: 'Cerradas ✓', value: stats.ganadas, color: '#16A34A' },
     { name: 'No Concretadas', value: stats.perdidas, color: '#F5A623' },
+    { name: 'Canceladas', value: stats.anuladas, color: '#EF4444' },
   ]
 
   // Filtros combinados: estado + búsqueda de texto + ciudad (para admin)
   const filtered = useMemo(() => {
     let result = quotes
     if (statusFilter !== 'todas') {
-      if (statusFilter === 'perdida') {
-        result = result.filter(q => ['perdida', 'anulada'].includes((q.estado || '').trim()))
-      } else {
-        result = result.filter(q => (q.estado || '').trim() === statusFilter)
-      }
+      result = result.filter(q => (q.estado || '').trim() === statusFilter)
     }
     if (isAdmin && selectedCity !== 'todas') {
       result = result.filter(q => q.profiles?.ciudad === selectedCity)
@@ -206,6 +204,7 @@ export default function CotizacionesPage() {
     { key: 'abierta', label: 'En Proceso', icon: Clock, color: 'blue' },
     { key: 'ganada', label: 'Cerradas', icon: CheckCircle2, color: 'green' },
     { key: 'perdida', label: 'No Concretadas', icon: XCircle, color: 'amber' },
+    { key: 'anulada', label: 'Canceladas', icon: AlertTriangle, color: 'red' },
   ]
 
   if (loading) return (
@@ -347,10 +346,11 @@ export default function CotizacionesPage() {
                 <Icon size={14} />
                 {tab.label}
                 <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-black ${isActive ? 'bg-white/20' : 'bg-gray-200 text-gray-500'}`}>
-                  {tab.key === 'todas' ? quotes.length
+                  {tab.key === 'todas' ? stats.total
                     : tab.key === 'abierta' ? stats.abiertas
                     : tab.key === 'ganada' ? stats.ganadas
-                    : stats.perdidas}
+                    : tab.key === 'perdida' ? stats.perdidas
+                    : stats.anuladas}
                 </span>
               </button>
 
