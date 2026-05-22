@@ -28,7 +28,8 @@ import {
   RefreshCw,
   Sparkles,
   MapPin,
-  Calendar
+  Calendar,
+  Building2
 } from 'lucide-react'
 
 import { 
@@ -877,6 +878,123 @@ export default function DashboardPage() {
                           <span className="text-xs font-black text-amber-600">{count} pérdida{count > 1 ? 's' : ''}</span>
                         </div>
                       )) : <p className="text-xs text-gray-400 italic">Sin objeciones registradas</p>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* RADAR DE AGENCIAS Y CANALES */}
+          {(() => {
+            const agencyQuotesMap = {}
+            const agencyWonMap = {}
+            const agencyLostMap = {}
+            const agencySalesVal = {}
+
+            pipelineDataState.forEach(q => {
+              const agency = q.agencia || 'Directo'
+              agencyQuotesMap[agency] = (agencyQuotesMap[agency] || 0) + 1
+              if (q.estado === 'ganada') {
+                agencyWonMap[agency] = (agencyWonMap[agency] || 0) + 1
+                agencySalesVal[agency] = (agencySalesVal[agency] || 0) + (Number(q.valor_total) || 0)
+              } else if (q.estado === 'perdida' || q.estado === 'anulada') {
+                agencyLostMap[agency] = (agencyLostMap[agency] || 0) + 1
+              }
+            })
+
+            const topQuotedAgencies = Object.entries(agencyQuotesMap)
+              .sort((a,b) => b[1] - a[1])
+              .slice(0, 4)
+
+            const topSoldAgencies = Object.entries(agencyWonMap)
+              .sort((a,b) => b[1] - a[1])
+              .slice(0, 4)
+
+            const conversionAgencies = Object.entries(agencyQuotesMap)
+              .filter(([agency, total]) => total >= 2)
+              .map(([agency, total]) => {
+                const won = agencyWonMap[agency] || 0
+                const lost = agencyLostMap[agency] || 0
+                const rate = (won / total) * 100
+                return { agency, total, won, lost, rate }
+              })
+              .sort((a, b) => {
+                if (a.rate !== b.rate) return a.rate - b.rate
+                return b.lost - a.lost
+              })
+              .slice(0, 4)
+
+            if (topQuotedAgencies.length === 0 && topSoldAgencies.length === 0 && conversionAgencies.length === 0) return null
+
+            return (
+              <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-gray-50 animate-in fade-in duration-500">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="font-black text-xl uppercase tracking-tighter flex items-center gap-3 text-gray-800">
+                    <Building2 size={20} className="text-primary" /> Radar de Agencias (Análisis de Canales)
+                  </h3>
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-3 py-1.5 rounded-full">
+                    Métricas de Conversión y Volumen
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Mayor Volumen (Cotizaciones) */}
+                  <div>
+                    <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-3 flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-primary inline-block"></span> Mayor Demanda (Cotizó más)
+                    </p>
+                    <div className="space-y-2">
+                      {topQuotedAgencies.length > 0 ? topQuotedAgencies.map(([agency, count], i) => (
+                        <div key={agency} className="flex items-center justify-between bg-primary/5 px-4 py-2.5 rounded-2xl border border-primary/10">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-[10px] font-black text-gray-400">#{i+1}</span>
+                            <span className="text-xs font-black text-gray-800 truncate uppercase tracking-tight" title={agency}>{agency}</span>
+                          </div>
+                          <span className="text-xs font-black text-primary shrink-0 ml-2">{count} cotiz.</span>
+                        </div>
+                      )) : <p className="text-xs text-gray-400 italic">Sin datos aún</p>}
+                    </div>
+                  </div>
+
+                  {/* Líderes de Venta (Mayor Cierre) */}
+                  <div>
+                    <p className="text-[10px] font-black text-success uppercase tracking-widest mb-3 flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-success inline-block"></span> Mayor Cierre (Compró más)
+                    </p>
+                    <div className="space-y-2">
+                      {topSoldAgencies.length > 0 ? topSoldAgencies.map(([agency, count], i) => (
+                        <div key={agency} className="flex items-center justify-between bg-success/5 px-4 py-2.5 rounded-2xl border border-success/10">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-[10px] font-black text-gray-400">#{i+1}</span>
+                            <span className="text-xs font-black text-gray-800 truncate uppercase tracking-tight" title={agency}>{agency}</span>
+                          </div>
+                          <div className="text-right shrink-0 ml-2">
+                            <div className="text-xs font-black text-success">{count} cierres</div>
+                            <div className="text-[9px] font-bold text-gray-400">${(agencySalesVal[agency] || 0).toLocaleString()} USD</div>
+                          </div>
+                        </div>
+                      )) : <p className="text-xs text-gray-400 italic">Sin cierres aún</p>}
+                    </div>
+                  </div>
+
+                  {/* Mayor Fricción (Cotiza más y compra menos) */}
+                  <div>
+                    <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-3 flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-amber-500 inline-block"></span> Mayor Fricción (Menor Conversión)
+                    </p>
+                    <div className="space-y-2">
+                      {conversionAgencies.length > 0 ? conversionAgencies.map(({ agency, total, won, rate }, i) => (
+                        <div key={agency} className="flex items-center justify-between bg-amber-50 px-4 py-2.5 rounded-2xl border border-amber-100">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-[10px] font-black text-gray-400">#{i+1}</span>
+                            <span className="text-xs font-black text-gray-800 truncate uppercase tracking-tight" title={agency}>{agency}</span>
+                          </div>
+                          <div className="text-right shrink-0 ml-2">
+                            <div className="text-xs font-black text-amber-600">{rate.toFixed(0)}% conv.</div>
+                            <div className="text-[9px] font-bold text-gray-400">{won} de {total} cotiz.</div>
+                          </div>
+                        </div>
+                      )) : <p className="text-xs text-gray-400 italic">Se requiere mín. 2 cotizaciones por canal</p>}
                     </div>
                   </div>
                 </div>
