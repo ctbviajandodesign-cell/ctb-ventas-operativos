@@ -38,7 +38,7 @@ export default function VentasPage() {
     try {
       let query = supabase
         .from('ventas')
-        .select('*, profiles!inner(nombre, ciudad), cotizaciones(id, agencia, destino, codigo, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial)')
+        .select('*, profiles!inner(nombre, ciudad), cotizaciones(id, agencia, destino, codigo, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial), vouchers(codigo)')
         .order('created_at', { ascending: false })
 
       if (!isAdmin) {
@@ -55,6 +55,14 @@ export default function VentasPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const getVoucherCodigo = (venta) => {
+    if (venta.vouchers) {
+      const voucherArr = Array.isArray(venta.vouchers) ? venta.vouchers : [venta.vouchers]
+      if (voucherArr.length > 0) return voucherArr[0].codigo
+    }
+    return null
   }
 
   // Stats calculadas
@@ -461,6 +469,34 @@ export default function VentasPage() {
                   </td>
                   <td className="py-4 px-6 text-right" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-2">
+                      {(() => {
+                        const vCodigo = getVoucherCodigo(venta)
+                        return vCodigo ? (
+                          <>
+                            <a
+                              href={`/v/${vCodigo}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-2 text-primary hover:bg-primary/5 rounded-xl transition-colors"
+                              title="Ver Voucher"
+                            >
+                              <QrCode size={18} />
+                            </a>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                const url = `${window.location.origin}/v/${vCodigo}`
+                                navigator.clipboard.writeText(url)
+                                showToast('Enlace de voucher copiado al portapapeles!')
+                              }}
+                              className="p-2 text-success hover:bg-success/5 rounded-xl transition-colors"
+                              title="Copiar Enlace del Voucher"
+                            >
+                              <Share2 size={18} />
+                            </button>
+                          </>
+                        ) : null
+                      })()}
                       {venta.estado === 'activa' && profile?.rol === 'superadmin' && (
                         <>
                           <button
