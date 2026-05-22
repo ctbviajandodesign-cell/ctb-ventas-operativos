@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useUserSession } from '@/hooks/useUserSession'
 import { 
   TrendingUp, Search, XCircle, Trash2, Edit, DollarSign,
-  CheckCircle2, BarChart3, QrCode, ExternalLink, AlertCircle, Download, AlertTriangle
+  CheckCircle2, BarChart3, QrCode, ExternalLink, AlertCircle, Download, AlertTriangle, RotateCcw
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -113,6 +113,29 @@ export default function VentasPage() {
       
       showToast('Venta anulada con éxito')
       setAnnulVentaModal(null)
+      fetchVentas()
+    } catch (error) {
+      showToast(error.message, 'error')
+    }
+  }
+
+  const handleDesactivar = async (venta) => {
+    if (!confirm('¿Seguro que quieres desactivar esta venta y devolverla al estado de cotización en espera? Se eliminará el voucher generado de forma permanente.')) return
+    
+    try {
+      const targetCotizacionId = venta.cotizacion_id || venta.cotizaciones?.id
+      const res = await fetch('/api/admin/desactivar-venta', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ventaId: venta.id,
+          cotizacionId: targetCotizacionId
+        })
+      })
+      const result = await res.json()
+      if (!result.ok) throw new Error(result.error || 'Error al desactivar la venta')
+      
+      showToast('Venta desactivada y devuelta a cotización con éxito')
       fetchVentas()
     } catch (error) {
       showToast(error.message, 'error')
@@ -444,6 +467,13 @@ export default function VentasPage() {
                             title="Editar Venta"
                           >
                             <Edit size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleDesactivar(venta)}
+                            className="p-2 text-primary hover:bg-primary/5 rounded-xl transition-colors"
+                            title="Desactivar y Revertir a Cotización"
+                          >
+                            <RotateCcw size={18} />
                           </button>
                           <button
                             onClick={() => promptAnular(venta)}

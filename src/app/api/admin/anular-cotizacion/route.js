@@ -16,7 +16,7 @@ export async function POST(req) {
       if (ventasMatch && ventasMatch.length > 0) {
         for (const v of ventasMatch) {
           await supabaseAdmin.from('ventas').update({ estado: 'anulada' }).eq('id', v.id)
-          await supabaseAdmin.from('vouchers').update({ estado: 'inactivo' }).eq('venta_id', v.id)
+          await supabaseAdmin.from('vouchers').delete().eq('venta_id', v.id)
         }
       }
     }
