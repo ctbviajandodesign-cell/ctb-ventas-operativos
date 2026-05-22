@@ -74,14 +74,26 @@ export default function EditarCotizacionPage() {
     e.preventDefault()
     setSaving(true)
     try {
+      const payload = {
+        agencia: formData.agencia,
+        comercial: formData.comercial,
+        destino: formData.destino,
+        numero_pasajeros: formData.numero_pasajeros || 1,
+        fecha_caducidad: formData.fecha_caducidad || null,
+        hora_caducidad: formData.hora_caducidad || null,
+        notas_iniciales: formData.notas_iniciales,
+        valor_total: Number(formData.valor_total) || 0,
+        valor_comision: Number(formData.valor_comision) || 0,
+        valor_utilidad: Number(formData.valor_utilidad) || 0,
+        valor_bono: Number(formData.valor_bono) || 0,
+        nombres_pasajeros: pasajeros.filter(p => p.trim() !== ''),
+        estado: 'abierta',
+        created_at: new Date().toISOString()
+      }
+
       const { error } = await supabase
         .from('cotizaciones')
-        .update({
-          ...formData,
-          nombres_pasajeros: pasajeros.filter(p => p.trim() !== ''),
-          estado: 'abierta',
-          created_at: new Date().toISOString()
-        })
+        .update(payload)
         .eq('id', id)
       
       if (error) throw error
@@ -151,15 +163,15 @@ export default function EditarCotizacionPage() {
             <div className="space-y-4">
               <div>
                 <label className="label">Total Venta ($)</label>
-                <input type="number" step="0.01" className="input font-bold" value={formData.valor_total} onChange={e => setFormData({...formData, valor_total: parseFloat(e.target.value)})} />
+                <input type="number" step="0.01" className="input font-bold" value={formData.valor_total === 0 && formData.valor_total !== '' ? 0 : formData.valor_total || ''} onChange={e => setFormData({...formData, valor_total: e.target.value === '' ? '' : parseFloat(e.target.value)})} />
               </div>
               <div>
                 <label className="label">Utilidad ($)</label>
-                <input type="number" step="0.01" className="input text-success font-bold" value={formData.valor_utilidad} onChange={e => setFormData({...formData, valor_utilidad: parseFloat(e.target.value)})} />
+                <input type="number" step="0.01" className="input text-success font-bold" value={formData.valor_utilidad === 0 && formData.valor_utilidad !== '' ? 0 : formData.valor_utilidad || ''} onChange={e => setFormData({...formData, valor_utilidad: e.target.value === '' ? '' : parseFloat(e.target.value)})} />
               </div>
               <div>
                 <label className="label">Comisión ($)</label>
-                <input type="number" step="0.01" className="input text-success font-bold" value={formData.valor_comision} onChange={e => setFormData({...formData, valor_comision: parseFloat(e.target.value)})} />
+                <input type="number" step="0.01" className="input text-success font-bold" value={formData.valor_comision === 0 && formData.valor_comision !== '' ? 0 : formData.valor_comision || ''} onChange={e => setFormData({...formData, valor_comision: e.target.value === '' ? '' : parseFloat(e.target.value)})} />
               </div>
             </div>
             <button type="submit" disabled={saving} className="btn-primary w-full py-4 shadow-xl">
