@@ -90,7 +90,8 @@ export default function DashboardPage() {
         body: JSON.stringify({
           question: aiQuestion,
           dataset: pipelineDataState,
-          leaderboard: leaderboard
+          leaderboard: leaderboard,
+          operativos: operatives  // Lista completa de operativos con ciudad
         })
       })
       const result = await response.json()
@@ -335,6 +336,31 @@ export default function DashboardPage() {
         porcentajeMeta: metaBase > 0 ? (totalMetaComp / metaBase) * 100 : 0,
         totalAporte: totalMetaComp,
         topMotivos: topMotivosText
+      }))
+
+      // ── OVERRIDE FINAL: métricas correctas desde pipeline enriquecido ──
+      // Las queries anteriores usan solo estado='ganada' pero hay ventas
+      // confirmadas que tienen estado='activa' con voucher activo.
+      // El pipeline ya tiene _esVenta calculado correctamente.
+      const ganadasReal    = pipelineEnriched.filter(q => q._esVenta)
+      const ganadasCount   = ganadasReal.length
+      const totalVendidoReal = ganadasReal.reduce((a, q) => a + (Number(q.valor_total) || 0), 0)
+      const abiertasReal   = pipelineEnriched.filter(q => !q._esVenta && q.estado !== 'perdida' && q.estado !== 'anulada').length
+      const perdidasReal   = pipelineEnriched.filter(q => q.estado === 'perdida').length
+      const totalReal      = pipelineEnriched.length
+      const convReal       = totalReal > 0 ? (ganadasCount / totalReal * 100) : 0
+
+      setMetrics(prev => ({
+        ...prev,
+        totalVendido:    totalVendidoReal,
+        ganadas:         ganadasCount,
+        vouchersEmitidos: ganadasCount,
+        abiertas:        abiertasReal,
+        cotizacionesAbiertas: abiertasReal,
+        perdidas:        perdidasReal,
+        total:           totalReal,
+        conversionRate:  convReal,
+        conversion:      convReal.toFixed(1)
       }))
 
     } catch (error) {

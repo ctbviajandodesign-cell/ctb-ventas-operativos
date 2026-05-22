@@ -9,7 +9,7 @@ export async function POST(request) {
       return NextResponse.json({ answer: 'El sistema de Inteligencia Artificial no está configurado (falta la clave API de OpenAI).', error: 'No API key' })
     }
 
-    const { question, dataset, leaderboard } = await request.json()
+    const { question, dataset, leaderboard, operativos } = await request.json()
 
     if (!question) {
       return NextResponse.json({ answer: 'Por favor, escribe una pregunta.' })
@@ -113,18 +113,48 @@ export async function POST(request) {
     })
 
     // Operativos agrupados por ciudad
+    // Usar operativos[] si está disponible (tiene datos completos de profiles)
+    // Complementar con datos del dataset y del leaderboard como fallback
     const porCiudad = {}
-    cleanLeaderboard.forEach(op => {
-      const ciudad = op.ciudad || 'Desconocido'
-      if (!porCiudad[ciudad]) porCiudad[ciudad] = []
-      porCiudad[ciudad].push({
-        nombre: op.nombre,
-        ventas: op.ventas_confirmadas,
-        meta: op.meta,
-        aporte: op.aporte_ganado,
-        pct_meta: op.porcentaje_meta
+
+    // Primero, usar la lista de operativos de profiles (la más completa y directa)
+    if (operativos && operativos.length > 0) {
+      operativos.forEach(op => {
+        const ciudad = op.ciudad || 'Sin ciudad'
+        if (!porCiudad[ciudad]) porCiudad[ciudad] = []
+        const opData = operativosMap[op.nombre] || { cotizaciones: 0, ventas: 0, monto: 0 }
+        porCiudad[ciudad].push({
+          nombre: op.nombre,
+          cotizaciones: opData.cotizaciones,
+          ventas: opData.ventas,
+          monto: opData.monto
+        })
       })
-    })
+    } else {
+      // Fallback: usar el leaderboard y el dataset (ciudad del perfil del pipeline)
+      cleanLeaderboard.forEach(op => {
+        const ciudad = op.ciudad || 'Sin ciudad'
+        if (!porCiudad[ciudad]) porCiudad[ciudad] = []
+        porCiudad[ciudad].push({
+          nombre: op.nombre,
+          ventas: op.ventas_confirmadas,
+          meta: op.meta,
+          aporte: op.aporte_ganado,
+          pct_meta: op.porcentaje_meta
+        })
+      })
+      // Complementar con ciudades del dataset si el leaderboard no tiene ciudad
+      cleanDataset.forEach(q => {
+        const ciudad = q.ciudad || 'Sin ciudad'
+        if (!Object.values(porCiudad).flat().find(o => o.nombre === q.operativo)) {
+          if (!porCiudad[ciudad]) porCiudad[ciudad] = []
+          if (!porCiudad[ciudad].find(o => o.nombre === q.operativo)) {
+            const opData = operativosMap[q.operativo] || { cotizaciones: 0, ventas: 0, monto: 0 }
+            porCiudad[ciudad].push({ nombre: q.operativo, ...opData })
+          }
+        }
+      })
+    }
     // Ranking de ciudades por ventas
     const rankingCiudades = Object.entries(porCiudad).map(([ciudad, ops]) => ({
       ciudad,
