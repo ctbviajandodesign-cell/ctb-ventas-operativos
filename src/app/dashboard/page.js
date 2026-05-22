@@ -89,7 +89,8 @@ export default function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           question: aiQuestion,
-          dataset: pipelineDataState
+          dataset: pipelineDataState,
+          leaderboard: leaderboard
         })
       })
       const result = await response.json()

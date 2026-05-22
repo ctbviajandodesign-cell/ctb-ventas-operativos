@@ -9,7 +9,7 @@ export async function POST(request) {
       return NextResponse.json({ answer: 'El sistema de Inteligencia Artificial no está configurado (falta la clave API de OpenAI).', error: 'No API key' })
     }
 
-    const { question, dataset } = await request.json()
+    const { question, dataset, leaderboard } = await request.json()
 
     if (!question) {
       return NextResponse.json({ answer: 'Por favor, escribe una pregunta.' })
@@ -33,28 +33,37 @@ export async function POST(request) {
       fecha: q.created_at ? q.created_at.split('T')[0] : ''
     })) || []
 
-    const prompt = `Eres un asistente de datos comercial directo y veloz para la mayorista "CTB Viajando".
-Tienes acceso a las cotizaciones del periodo seleccionado en el panel de control.
-Tu único objetivo es responder a la pregunta del usuario con la mayor brevedad posible, yendo DIRECTAMENTE al grano. Evita introducciones, saludos o conclusiones innecesarias.
+    // Format leaderboard to track goals and quotas
+    const cleanLeaderboard = leaderboard?.map(op => ({
+      nombre: op.nombre || 'Desconocido',
+      ciudad: op.ciudad || 'Desconocido',
+      meta: Number(op.meta || 0),
+      aporte_ganado: Number(op.ganancia || 0),
+      porcentaje_meta: Number(op.porcentaje || 0),
+      ventas: Number(op.num_ventas || 0),
+      cotizaciones: Number(op.num_cotizaciones || 0)
+    })) || []
 
-Contexto del Negocio:
-- "ganada" = Cotizaciones vendidas (Proformas).
-- "abierta" = En espera.
-- "perdida" / "anulada" = Canceladas.
-- "aporte_ctb" = Comisión + Utilidad (nuestro margen).
-- "valor_venta" = Monto bruto.
+    const prompt = `Eres un asistente de datos comercial analítico y ultra-preciso para "CTB Viajando".
+Tienes acceso a dos conjuntos de datos: las cotizaciones y el rendimiento del equipo de asesores/operativos en el periodo filtrado en pantalla.
 
-Datos de cotizaciones:
+DATOS DISPONIBLES:
+1. Cotizaciones del periodo:
 ${JSON.stringify(cleanDataset, null, 2)}
+
+2. Rendimiento y metas de asesores (operativos):
+${JSON.stringify(cleanLeaderboard, null, 2)}
 
 Pregunta del usuario:
 "${question}"
 
-Reglas estrictas de formato:
-1. Responde de forma directa al grano en máximo dos o tres líneas. No agregues preámbulos como "Analizando los registros..." o "En base a los datos...".
-2. Si te preguntan "quién cotizó más" o similar, di el nombre, la cantidad y el desglose básico (ej: "Karla Freire con 4 cotizaciones (todas en espera)"). No listes pasajero por pasajero ni agencia por agencia a menos que te pidan explícitamente "detalla" o "lista".
-3. No des recomendaciones ni consejos comerciales a menos que el usuario te pregunte explícitamente "¿Qué opinas?", "¿Qué me recomiendas?" o "¿Por qué no se vende?".
-4. Usa negrita únicamente para destacar nombres de personas, agencias o montos monetarios.`
+Reglas estrictas de resolución y formato:
+1. Responde de forma directa al grano en máximo dos o tres líneas. Sin saludos, preámbulos ni conclusiones.
+2. Si el usuario te pregunta por un operativo, ciudad, agencia o destino que no registra actividad ni datos en el listado provisto, di explícitamente: "No se registran cotizaciones ni ventas para [Nombre/Ciudad/Agencia] en este periodo". No alucines ni inventes datos.
+3. Mantén "agencia" (nombre de la agencia cliente) y "destino" (el lugar de viaje) estrictamente separados.
+4. Si preguntan sobre metas, cumplimiento de objetivos o ventas de asesores, prioriza usar la lista 2 (metas de asesores).
+5. Si preguntan por fechas específicas o palabras específicas, busca coincidencias parciales en los campos "fecha", "agencia", "destino" o "motivo_perdida" dentro de la lista 1.
+6. Usa negrita únicamente para nombres de personas, agencias, destinos o montos (ej: **Karla Freire**, **$5,000 USD**).`
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
