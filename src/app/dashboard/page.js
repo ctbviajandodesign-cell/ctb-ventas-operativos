@@ -73,6 +73,38 @@ export default function DashboardPage() {
   const [loadingPanelAi, setLoadingPanelAi] = useState(false)
   const [errorState, setErrorState] = useState(null)
 
+  const [aiQuestion, setAiQuestion] = useState('')
+  const [aiAnswer, setAiAnswer] = useState(null)
+  const [aiLoading, setAiLoading] = useState(false)
+
+  const handleAiQuestionSubmit = async (e) => {
+    if (e) e.preventDefault()
+    if (!aiQuestion.trim()) return
+
+    setAiLoading(true)
+    setAiAnswer(null)
+    try {
+      const response = await fetch('/api/ai-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: aiQuestion,
+          dataset: pipelineDataState
+        })
+      })
+      const result = await response.json()
+      if (result.error) {
+        setAiAnswer(`Error: ${result.answer}`)
+      } else {
+        setAiAnswer(result.answer)
+      }
+    } catch (err) {
+      console.error(err)
+      setAiAnswer('Hubo un error de red o de servidor al consultar con la IA.')
+    } finally {
+      setAiLoading(false)
+    }
+  }
 
   useEffect(() => {
     fetchDashboardData()
@@ -723,6 +755,61 @@ export default function DashboardPage() {
         >
           <Plus size={18} /> Nueva Cotización
         </Link>
+      </div>
+
+      {/* GOOGLE-STYLE AI SEARCH BAR */}
+      <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-50 space-y-4 animate-in fade-in duration-500">
+        <form onSubmit={handleAiQuestionSubmit} className="relative flex items-center">
+          <div className="absolute left-5 text-primary shrink-0">
+            <Sparkles size={20} className={aiLoading ? "animate-pulse text-indigo-500" : ""} />
+          </div>
+          <input
+            type="text"
+            placeholder="Pregunta a la IA sobre tus datos (ej. ¿Qué agencia cotizó más? ¿Cuál es la conversión de Galápagos?)"
+            value={aiQuestion}
+            onChange={(e) => setAiQuestion(e.target.value)}
+            disabled={aiLoading}
+            className="w-full pl-14 pr-36 py-4 bg-gray-50 border border-gray-100 rounded-full text-sm font-semibold text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+          />
+          <button
+            type="submit"
+            disabled={aiLoading || !aiQuestion.trim()}
+            className="absolute right-3 bg-primary text-white px-5 py-2.5 rounded-full font-black text-xs uppercase tracking-wider shadow-md shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 disabled:shadow-none"
+          >
+            {aiLoading ? 'Pensando...' : 'Preguntar'}
+          </button>
+        </form>
+
+        {/* AI Answer Reveal Panel */}
+        {aiLoading && (
+          <div className="p-4 bg-gray-50/50 rounded-2xl border border-gray-100/50 flex items-center gap-3 animate-pulse">
+            <div className="w-2.5 h-2.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+            <div className="w-2.5 h-2.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+            <div className="w-2.5 h-2.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            <span className="text-xs font-black text-gray-400 uppercase tracking-widest ml-2">Analizando datos en tiempo real...</span>
+          </div>
+        )}
+
+        {aiAnswer && (
+          <div className="p-6 bg-gradient-to-r from-primary/[0.02] to-indigo-500/[0.02] border border-primary/10 rounded-3xl relative animate-in slide-in-from-top-4 duration-300">
+            <button 
+              onClick={() => { setAiAnswer(null); setAiQuestion(''); }}
+              className="absolute top-4 right-4 text-[10px] font-black text-gray-400 hover:text-gray-600 bg-gray-100 px-2.5 py-1 rounded-full uppercase tracking-wider transition-colors"
+            >
+              Cerrar
+            </button>
+            <div className="flex items-start gap-3">
+              <div className="bg-primary/10 p-2 rounded-2xl text-primary shrink-0 mt-0.5">
+                <Sparkles size={16} />
+              </div>
+              <div className="space-y-2 text-sm text-gray-700 leading-relaxed font-semibold">
+                {aiAnswer.split('\n').map((line, i) => (
+                  <p key={i}>{line}</p>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* KPI GRID */}
