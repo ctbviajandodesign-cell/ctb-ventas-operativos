@@ -33,14 +33,14 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
   
   const getStatusBadge = (quote) => {
     const status = (quote.estado || '').toString().trim().toLowerCase()
-    if (status === 'ganada') return <span className="bg-success text-white px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-widest">VENDIDA</span>
+    if (status === 'ganada') return <span className="bg-success/15 text-success px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider">VENDIDA</span>
     if (status === 'perdida' || status === 'anulada') {
       return (
-        <div className="flex flex-col items-start gap-1">
-          <span className="badge-danger text-xs font-black">CANCELADA</span>
+        <div className="flex flex-col items-start gap-0.5">
+          <span className="bg-rose-500/10 text-rose-600 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider">CANCELADA</span>
           {quote.motivo_perdida && (
-            <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded-lg max-w-[150px] truncate" title={quote.motivo_perdida}>
-              Motivo: {quote.motivo_perdida}
+            <span className="text-[9px] font-bold text-gray-400 bg-gray-50 px-1.5 py-0.2 rounded max-w-[120px] truncate" title={quote.motivo_perdida}>
+              {quote.motivo_perdida}
             </span>
           )}
         </div>
@@ -51,12 +51,12 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
     const hours = (new Date() - new Date(quote.created_at)) / (1000 * 60 * 60)
     if (hours > 24) {
       return (
-        <span className="bg-red-50 text-red-650 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-widest inline-flex items-center gap-1 border border-red-100">
-          <Clock size={12} className="text-red-500" /> CADUCADA
+        <span className="bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1 border border-rose-100">
+          <Clock size={10} className="text-rose-500" /> CADUCADA
         </span>
       )
     }
-    return <span className="bg-primary/10 text-primary px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-widest">ACTIVA</span>
+    return <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider">ACTIVA</span>
   }
 
   const getVoucherCodigo = (quote) => {
@@ -128,15 +128,15 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
       <table className="w-full text-left">
         <thead>
           <tr className="border-b border-gray-100 text-gray-400 text-xs font-black uppercase tracking-widest">
-            <th className="py-4 px-4">Código / Ref</th>
-            <th className="py-4 px-4">Agencia / Destino</th>
-            <th className="py-4 px-4">Pasajeros</th>
-            <th className="py-4 px-4">Valor Venta</th>
-            <th className="py-4 px-4">Aporte CTB</th>
-            <th className="py-4 px-4">Operativo</th>
-            <th className="py-4 px-4">Comercial</th>
-            <th className="py-4 px-4">Estado</th>
-            <th className="py-4 px-4 text-right">Acciones</th>
+            <th className="py-2.5 px-4">Código / Ref</th>
+            <th className="py-2.5 px-4">Agencia / Destino</th>
+            <th className="py-2.5 px-4">Pasajeros</th>
+            <th className="py-2.5 px-4">Valor Venta</th>
+            <th className="py-2.5 px-4">Aporte CTB</th>
+            <th className="py-2.5 px-4">Operativo</th>
+            <th className="py-2.5 px-4">Comercial</th>
+            <th className="py-2.5 px-4">Estado</th>
+            <th className="py-2.5 px-4 text-right">Acciones</th>
           </tr>
 
         </thead>
@@ -155,76 +155,75 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
             const isGanada = rawStatus === 'ganada'
             const isPerdida = rawStatus === 'perdida' || rawStatus === 'anulada'
             const aporte = (Number(quote.valor_utilidad || 0) + Number(quote.valor_comision || 0))
-            
             return (
               <tr 
                 key={quote.id} 
                 className={`group hover:bg-gray-50 transition-colors cursor-pointer ${isGanada ? 'bg-success/5' : ''}`}
                 onClick={() => setViewingQuote(quote)}
               >
-                <td className="py-4 px-4 font-mono text-xs font-black text-primary">#{quote.codigo}</td>
-                <td className="py-4 px-4">
-                  <div className="font-black text-gray-800 text-sm">{quote.agencia || 'Directo'}</div>
-                  <div className="text-xs text-gray-400 font-bold uppercase tracking-[0.1em]">{quote.destino || 'S/D'}</div>
+                <td className="py-2.5 px-4 font-mono text-xs font-black text-primary">#{quote.codigo}</td>
+                <td className="py-2.5 px-4">
+                  <div className="font-black text-gray-800 text-sm leading-snug">{quote.agencia || 'Directo'}</div>
+                  <div className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.1em]">{quote.destino || 'S/D'}</div>
                   {isPerdida && quote.motivo_perdida && (
-                    <div className="text-[10px] font-black text-amber-600 bg-amber-50 border border-amber-200/60 rounded-md px-2 py-0.5 mt-1 inline-block uppercase">
+                    <div className="text-[9px] font-black text-amber-600 bg-amber-50 border border-amber-200/60 rounded px-1.5 py-0.2 mt-0.5 inline-block uppercase">
                       Motivo: {quote.motivo_perdida}
                     </div>
                   )}
                 </td>
 
-                <td className="py-4 px-4">
+                <td className="py-2.5 px-4">
                   <div className="flex items-center gap-1.5 text-gray-500">
-                    <div className="bg-gray-100 w-8 h-8 rounded-full flex items-center justify-center font-black text-xs text-gray-500">
+                    <div className="bg-gray-100 w-7 h-7 rounded-xl flex items-center justify-center font-black text-xs text-gray-500">
                       {quote.numero_pasajeros || (Array.isArray(quote.nombres_pasajeros) ? quote.nombres_pasajeros.length : 0)}
                     </div>
                   </div>
                 </td>
-                <td className="py-4 px-4 font-black text-gray-900 text-sm">
+                <td className="py-2.5 px-4 font-black text-gray-900 text-sm">
                   ${Number(quote.valor_total || 0).toLocaleString()}
                 </td>
-                <td className="py-4 px-4">
+                <td className="py-2.5 px-4">
                   <span className={`text-sm font-black ${aporte > 0 ? 'text-success' : 'text-gray-300'}`}>
                     ${aporte.toLocaleString()}
                   </span>
                 </td>
-                <td className="py-4 px-4 text-xs font-black text-primary uppercase tracking-tighter">
+                <td className="py-2.5 px-4 text-xs font-black text-primary uppercase tracking-tighter">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 bg-primary/10 rounded-full flex items-center justify-center text-xs">
+                    <div className="w-6 h-6 bg-primary/10 rounded-lg flex items-center justify-center text-[10px]">
                       {quote.profiles?.nombre?.charAt(0)}
                     </div>
                     {quote.profiles?.nombre?.split(' ')[0] || '---'}
                   </div>
                 </td>
-                <td className="py-4 px-4 text-xs font-black text-amber-600 uppercase tracking-tighter">
+                <td className="py-2.5 px-4 text-xs font-black text-amber-650 uppercase tracking-tighter">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 bg-amber-500/10 rounded-full flex items-center justify-center text-xs text-amber-600">
+                    <div className="w-6 h-6 bg-amber-500/10 rounded-lg flex items-center justify-center text-[10px] text-amber-600">
                       {quote.comercial?.charAt(0) || 'C'}
                     </div>
                     {quote.comercial || '---'}
                   </div>
                 </td>
 
-                <td className="py-4 px-4">{getStatusBadge(quote)}</td>
-                <td className="py-4 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                <td className="py-2.5 px-4">{getStatusBadge(quote)}</td>
+                <td className="py-2.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-end gap-1">
-                    <button onClick={() => setViewingQuote(quote)} className="p-2 text-gray-400 hover:text-success hover:bg-white rounded-lg shadow-sm shadow-transparent hover:shadow-gray-200 transition-all" title="Ver Detalle"><Eye size={18} /></button>
+                    <button onClick={() => setViewingQuote(quote)} className="p-1.5 text-gray-400 hover:text-success hover:bg-white rounded-lg shadow-sm shadow-transparent hover:shadow-gray-200 transition-all" title="Ver Detalle"><Eye size={16} /></button>
                     
                     {!isGanada && !isPerdida && (
                       <>
                         <button 
                           onClick={() => window.dispatchEvent(new CustomEvent('open-sales-modal', { detail: quote }))}
-                          className="p-2 text-success hover:bg-success/10 rounded-lg border border-success/10"
+                          className="p-1.5 text-success hover:bg-success/10 rounded-lg border border-success/10"
                           title="Aprobar Venta"
                         >
-                          <CheckCircle2 size={18} />
+                          <CheckCircle2 size={16} />
                         </button>
                         <button 
                           onClick={() => setClosingQuote(quote)}
-                          className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg border border-amber-100"
+                          className="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg border border-amber-100"
                           title="Anular"
                         >
-                          <AlertTriangle size={18} />
+                          <AlertTriangle size={16} />
                         </button>
                       </>
                     )}
@@ -236,18 +235,18 @@ export default function QuotesTable({ quotes, isAdmin, onUpdate }) {
                           href={`/v/${vCodigo}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="p-2 text-primary hover:bg-primary/10 rounded-lg border border-primary/10 transition-all"
+                          className="p-1.5 text-primary hover:bg-primary/10 rounded-lg border border-primary/10 transition-all"
                           title="Ver Voucher (QR)"
                         >
-                          <QrCode size={18} />
+                          <QrCode size={16} />
                         </a>
                       ) : null
                     })()}
 
-                    <Link href={`/dashboard/cotizaciones/editar/${quote.id}`} className="p-2 text-gray-400 hover:text-primary rounded-lg" title="Editar"><Edit size={18} /></Link>
+                    <Link href={`/dashboard/cotizaciones/editar/${quote.id}`} className="p-1.5 text-gray-400 hover:text-primary rounded-lg" title="Editar"><Edit size={16} /></Link>
                     {isAdmin && (
-                      <button onClick={() => handleDelete(quote)} className="p-2 text-gray-300 hover:text-danger rounded-lg transition-colors">
-                        <Trash2 size={18} />
+                      <button onClick={() => handleDelete(quote)} className="p-1.5 text-gray-300 hover:text-danger rounded-lg transition-colors">
+                        <Trash2 size={16} />
                       </button>
                     )}
                   </div>
