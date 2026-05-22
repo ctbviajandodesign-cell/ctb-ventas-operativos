@@ -97,6 +97,7 @@ export default function VentasPage() {
     }
 
     const { venta, motivo } = annulVentaModal
+    try {
       const targetCotizacionId = venta.cotizacion_id || venta.cotizaciones?.id
       const res = await fetch('/api/admin/anular-venta', {
         method: 'POST',
