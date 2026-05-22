@@ -15,18 +15,27 @@ export async function POST(request) {
       return NextResponse.json({ answer: 'Por favor, escribe una pregunta.' })
     }
 
+    const getVoucherCodigo = (quote) => {
+      const ventas = Array.isArray(quote.ventas) ? quote.ventas : (quote.ventas ? [quote.ventas] : [])
+      for (const v of ventas) {
+        const voucherArr = Array.isArray(v.vouchers) ? v.vouchers : (v.vouchers ? [v.vouchers] : [])
+        if (voucherArr.length > 0) return voucherArr[0].codigo || voucherArr[0]
+      }
+      return null
+    }
+
     // Format the dataset to keep it minimal and save tokens
     const cleanDataset = dataset?.map(q => {
-      // Treat as ganada (sold) if the record has an active voucher in any of its ventas
-      const hasVoucher = q.ventas ? (Array.isArray(q.ventas) ? q.ventas.some(v => v.vouchers && (Array.isArray(v.vouchers) ? v.vouchers.length > 0 : !!v.vouchers.codigo)) : false) : false
-      const isSold = q.estado === 'ganada' || hasVoucher
+      const isSold = q.estado === 'ganada' || !!getVoucherCodigo(q)
       
       return {
         ref: q.codigo,
         agencia: q.agencia || 'Directo',
         destino: q.destino || 'Desconocido',
         estado: isSold ? 'ganada' : q.estado, // ganada (vendida), perdida (cancelada), anulada (cancelada), abierta (activa/caducada)
-        valor_venta: Number(q.valor_total || 0),
+        es_venta: isSold, // true si es una venta confirmada/efectiva, false en caso contrario
+        valor_venta: isSold ? Number(q.valor_total || 0) : 0, // Solo tiene valor de venta si es una venta confirmada/efectiva
+        valor_cotizacion: Number(q.valor_total || 0),
         comision: Number(q.valor_comision || 0),
         utilidad: Number(q.valor_utilidad || 0),
         aporte_ctb: Number(q.valor_utilidad || 0) + Number(q.valor_comision || 0),
@@ -50,7 +59,7 @@ export async function POST(request) {
         q.operativo.toLowerCase().includes(nombreCorto.toLowerCase())
       )
       const numCotizaciones = matchingQuotes.length
-      const numVentas = matchingQuotes.filter(q => q.estado === 'ganada').length
+      const numVentas = matchingQuotes.filter(q => q.es_venta).length
 
       return {
         nombre: nombreLargo,
@@ -62,6 +71,13 @@ export async function POST(request) {
         cotizaciones: numCotizaciones
       }
     }) || []
+
+    console.log('AI Chat Question:', question)
+    console.log('cleanDataset count:', cleanDataset.length)
+    const ganadasDataset = cleanDataset.filter(q => q.estado === 'ganada')
+    console.log('cleanDataset ganadas count:', ganadasDataset.length)
+    console.log('cleanDataset ganadas:', JSON.stringify(ganadasDataset, null, 2))
+    console.log('cleanLeaderboard:', JSON.stringify(cleanLeaderboard, null, 2))
 
     const prompt = `Eres un asistente de datos comercial y estadístico analítico de nivel experto para "CTB Viajando".
 Analiza con precisión matemática absoluta los siguientes dos conjuntos de datos correspondientes al período seleccionado en pantalla:
@@ -80,14 +96,15 @@ ${JSON.stringify(cleanLeaderboard, null, 2)}
    - NUNCA confundas ni mezcles estos conceptos. Si te preguntan por una "agencia", tu respuesta debe referirse únicamente al campo "agencia", NUNCA al campo "operativo".
 
 2. ANÁLISIS DE VENTAS vs COTIZACIONES:
-   - Una venta cerrada/ganada es aquella donde el campo "estado" es "ganada" (o "vendida").
-   - Si te preguntan "¿Quién ha vendido más?" o "¿Qué agencia ha vendido más?", debes contar ÚNICAMENTE los registros con estado "ganada". NUNCA cuentes cotizaciones abiertas o activas como ventas.
-   - Si nadie registra ventas ("ganada") en el dataset, responde directamente indicando que no hay ventas registradas en este período.
+   - Una venta confirmada/efectiva tiene "es_venta": true (su estado es "ganada" y tiene un "valor_venta" mayor a 0).
+   - Una cotización es cualquier objeto del dataset (independientemente de si es_venta es true o false).
+   - Si te preguntan "¿Quién ha vendido más?" o "¿Qué agencia ha vendido más?" o consultas sobre facturación/montos de venta, debes filtrar y basarte ÚNICAMENTE en los registros donde "es_venta" sea true. Suma el campo "valor_venta" para obtener el total vendido por entidad.
+   - Si no hay ningún registro en el dataset donde "es_venta" sea true, debes responder exactamente: "No hay ventas registradas en este período."
 
 3. CONTEO Y CÁLCULOS:
    - Cada objeto en el Conjunto de Datos 1 representa exactamente una (1) cotización individual.
-   - Para saber cuántas cotizaciones tiene una agencia o destino, cuenta el número de objetos que tienen ese valor. No sumes el número de pasajeros a menos que te pregunten explícitamente por el "número de pasajeros".
-   - En caso de empate en el primer lugar (ej: múltiples agencias con 1 cotización), indícalo claramente mencionando el empate en lugar de elegir una sola de forma arbitraria.
+   - Para saber cuántas cotizaciones tiene una agencia o destino, cuenta el número de objetos que tienen ese valor en el dataset.
+   - En caso de empate en el primer lugar (ej: múltiples agencias con la misma cantidad de ventas o cotizaciones), indícalo claramente mencionando a todas las partes empatadas.
 
 4. FORMATO DE RESPUESTA:
    - Sé sumamente directo, conciso y profesional. Responde en 1 o 2 líneas como máximo.
