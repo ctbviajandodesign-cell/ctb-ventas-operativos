@@ -362,8 +362,8 @@ export default function VentasPage() {
       )}
 
       {/* FILTROS */}
-      <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col xl:flex-row gap-4 items-center justify-between">
-        <div className="flex gap-2">
+      <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-gray-100 flex flex-wrap gap-4 items-center justify-between">
+        <div className="flex flex-wrap gap-2">
           {[
             { key: 'todas', label: 'Todas' },
             { key: 'activa', label: '✓ Activas' },

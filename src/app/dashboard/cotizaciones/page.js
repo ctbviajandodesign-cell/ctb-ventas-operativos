@@ -363,9 +363,9 @@ export default function CotizacionesPage() {
 
 
       {/* BARRA DE FILTROS REAL */}
-      <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col xl:flex-row gap-4 items-center justify-between">
+      <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-gray-100 flex flex-wrap gap-4 items-center justify-between">
         {/* Filtros por estado */}
-        <div className="flex overflow-x-auto pb-2 md:pb-0 hide-scrollbar gap-2 w-full xl:w-auto">
+        <div className="flex flex-wrap gap-2">
           {filterTabs.map(tab => {
             const Icon = tab.icon
             const isActive = statusFilter === tab.key
