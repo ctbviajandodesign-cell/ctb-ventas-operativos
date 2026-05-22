@@ -1278,12 +1278,15 @@ export default function DashboardPage() {
 
           {/* RANKING DEL EQUIPO — visible para todos, con contexto motivacional */}
           <div className="bg-white p-8 rounded-[3.5rem] shadow-xl border border-gray-100">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-2">
               <h3 className="font-black text-xl uppercase tracking-tighter flex items-center gap-3">
                 <Trophy size={22} className="text-amber-500" />Ranking del Equipo
               </h3>
               <span className="text-xs font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-3 py-1.5 rounded-full">Mes Actual</span>
             </div>
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-6">
+              Posiciones calculadas según el aporte a la meta (comisión + utilidad)
+            </p>
             <div className="space-y-4">
               {leaderboard.length === 0 && (
                 <p className="text-sm text-gray-400 text-center py-4">Sin datos este mes aún</p>
@@ -1314,7 +1317,8 @@ export default function DashboardPage() {
                       </div>
                       <div className="text-right">
                         <p className="text-lg font-black text-gray-900">${op.total.toLocaleString()}</p>
-                        <p className={`text-xs font-black uppercase ${ op.cumplimiento >= 100 ? 'text-success' : op.cumplimiento >= 60 ? 'text-primary' : 'text-amber-600'}`}>{op.cumplimiento.toFixed(0)}%</p>
+                        <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider -mt-0.5">Aporte CTB</p>
+                        <p className={`text-xs font-black uppercase mt-0.5 ${ op.cumplimiento >= 100 ? 'text-success' : op.cumplimiento >= 60 ? 'text-primary' : 'text-amber-600'}`}>{op.cumplimiento.toFixed(0)}% de meta</p>
                       </div>
                     </div>
                     <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">

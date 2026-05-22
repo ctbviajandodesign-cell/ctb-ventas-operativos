@@ -149,7 +149,7 @@ export default function DashboardCharts({
               <div className="flex justify-end gap-4 mb-4">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 bg-primary rounded-full"></div>
-                  <span className="text-xs font-black text-gray-400 uppercase">Ventas ($)</span>
+                  <span className="text-xs font-black text-gray-400 uppercase">Ganancia CTB ($)</span>
                 </div>
               </div>
               <div className="h-[300px] w-full">
@@ -165,6 +165,7 @@ export default function DashboardCharts({
                           <div className="bg-gray-900 text-white p-4 rounded-2xl shadow-2xl border border-white/10">
                             <p className="text-xs font-black uppercase tracking-widest text-primary mb-1">{payload[0].payload.nombre}</p>
                             <p className="text-xl font-black">${payload[0].value.toLocaleString()}</p>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block -mt-1 mb-2">Aporte CTB (Comisión + Utilidad)</p>
                             <p className="text-xs font-bold text-gray-400 mt-1 uppercase italic">{payload[0].payload.cumplimiento.toFixed(1)}% de meta cumplida</p>
                           </div>
                         )
