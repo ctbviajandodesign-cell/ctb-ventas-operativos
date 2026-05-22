@@ -112,15 +112,36 @@ export async function POST(request) {
       }
     })
 
-    const prompt = `Eres un analista de datos comerciales experto para la empresa "CTB Viajando". Responde la pregunta del usuario usando ÚNICAMENTE los datos pre-calculados que se muestran a continuación. Razona paso a paso internamente, pero entrega solo la respuesta final.
+    // Operativos agrupados por ciudad
+    const porCiudad = {}
+    cleanLeaderboard.forEach(op => {
+      const ciudad = op.ciudad || 'Desconocido'
+      if (!porCiudad[ciudad]) porCiudad[ciudad] = []
+      porCiudad[ciudad].push({
+        nombre: op.nombre,
+        ventas: op.ventas_confirmadas,
+        meta: op.meta,
+        aporte: op.aporte_ganado,
+        pct_meta: op.porcentaje_meta
+      })
+    })
+    // Ranking de ciudades por ventas
+    const rankingCiudades = Object.entries(porCiudad).map(([ciudad, ops]) => ({
+      ciudad,
+      operativos: ops.map(o => o.nombre),
+      total_ventas: ops.reduce((a, o) => a + (o.ventas || 0), 0),
+      total_aporte: ops.reduce((a, o) => a + (o.aporte || 0), 0)
+    })).sort((a, b) => b.total_aporte - a.total_aporte)
+
+    const prompt = `Eres un analista de datos comerciales experto para la empresa "CTB Viajando". Responde la pregunta del usuario usando ÚNICAMENTE los datos pre-calculados que se muestran a continuación. Razona internamente paso a paso, pero entrega solo la respuesta final.
 
 === DEFINICIONES ===
 - "agencia": Cliente externo / agencia de viajes (ej: HUALAMBARI, DREAMS).
-- "operativo": Asesor interno de CTB Viajando (ej: Karla Freire, Eva Freire).
+- "operativo" o "asesor": Asesor interno de CTB Viajando (ej: Karla Freire, Eva Freire).
 - "comercial": Canal o ejecutivo comercial que trajo el negocio.
 - "destino": Lugar turístico del viaje.
-- "es_venta: true": La cotización se convirtió en venta real confirmada.
-- "es_venta: false": Solo es una cotización, no se concretó la venta.
+- "ciudad" o "país" en contexto CTB = sede del operativo (Quito, Guayaquil, Cuenca, etc.).
+- Venta confirmada = "es_venta: true" en el dataset.
 
 === TOTALES DEL PERÍODO ===
 - Total cotizaciones: ${cleanDataset.length}
@@ -142,17 +163,25 @@ ${JSON.stringify(operativosMap, null, 2)}
 === RESUMEN POR COMERCIAL ===
 ${JSON.stringify(Object.keys(comercialesMap).length > 0 ? comercialesMap : { 'sin_datos': 'No hay comerciales registrados' }, null, 2)}
 
-=== LEADERBOARD DE ASESORES ===
+=== OPERATIVOS POR CIUDAD/SEDE ===
+${JSON.stringify(porCiudad, null, 2)}
+
+=== RANKING DE CIUDADES/SEDES POR VENTAS ===
+${JSON.stringify(rankingCiudades, null, 2)}
+
+=== LEADERBOARD DE ASESORES (con metas) ===
 ${JSON.stringify(cleanLeaderboard, null, 2)}
 
 === REGLAS DE RESPUESTA ===
 1. Responde en MÁXIMO 2 líneas. Sin introducciones ni saludos.
 2. Usa negrita para nombres, destinos y montos: **DREAMS**, **Karla Freire**, **$1,035 USD**.
-3. Si preguntan por "quién vendió más" → usa el campo "ventas" y "monto" de los resúmenes de VENTAS.
-4. Si preguntan por "quién solo cotizó sin vender" → usa la lista "AGENCIAS QUE SOLO COTIZARON".
-5. Si algo no tiene datos en los resúmenes, responde: "No se registran datos para [Nombre] en este período."
-6. Nunca mezcles: agencia ≠ operativo ≠ comercial ≠ destino.
-7. Si hubiera empate, menciona a todos los empatados.
+3. Si preguntan por ventas → usa "ventas" y "monto" de los resúmenes de VENTAS.
+4. Si preguntan por "solo cotizó sin vender" → usa la lista "AGENCIAS QUE SOLO COTIZARON".
+5. Si preguntan "qué operativos hay de [ciudad]" → busca en "OPERATIVOS POR CIUDAD/SEDE" esa ciudad y lista sus nombres.
+6. Si preguntan "ranking por ciudad/sede" o "quién va ganando por país" → usa "RANKING DE CIUDADES/SEDES POR VENTAS".
+7. Si algo no tiene datos, responde: "No se registran datos para [Nombre] en este período."
+8. Nunca mezcles: agencia ≠ operativo ≠ comercial ≠ destino ≠ ciudad.
+9. En caso de empate, menciona a todos los empatados.
 
 Pregunta del usuario: "${question}"`
 

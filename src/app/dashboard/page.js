@@ -202,7 +202,17 @@ export default function DashboardPage() {
 
       setQuotes(quotesData || [])
       setLostQuotes(lostData || [])
-      setPipelineDataState(pipelineData || [])
+      // Enriquecer pipeline con bandera isVenta antes de guardar en estado
+      const pipelineEnriched = (pipelineData || []).map(q => ({
+        ...q,
+        _esVenta: q.estado === 'ganada' || (
+          Array.isArray(q.ventas) && q.ventas.some(v =>
+            Array.isArray(v.vouchers) ? v.vouchers.length > 0
+            : (v.vouchers && (v.vouchers.codigo || Object.keys(v.vouchers).length > 0))
+          )
+        )
+      }))
+      setPipelineDataState(pipelineEnriched)
 
       const rawBoard = resBoard?.success ? resBoard.leaderboard : []
       const userCity = profileData?.ciudad
@@ -888,9 +898,9 @@ export default function DashboardPage() {
             })
             const topQuoted = Object.entries(quotedMap).sort((a,b) => b[1]-a[1]).slice(0,4)
 
-            // Destinos más vendidos (de pipeline ganadas)
+            // Destinos más vendidos (cotizaciones confirmadas: estado ganada O con voucher activo)
             const soldMap = {}
-            pipelineDataState.filter(q => q.estado === 'ganada').forEach(q => {
+            pipelineDataState.filter(q => q._esVenta).forEach(q => {
               if (q.destino) soldMap[q.destino] = (soldMap[q.destino] || 0) + 1
             })
             const topSold = Object.entries(soldMap).sort((a,b) => b[1]-a[1]).slice(0,4)
@@ -983,7 +993,8 @@ export default function DashboardPage() {
             pipelineDataState.forEach(q => {
               const agency = q.agencia || 'Directo'
               agencyQuotesMap[agency] = (agencyQuotesMap[agency] || 0) + 1
-              if (q.estado === 'ganada') {
+              // Detectar venta: estado ganada O tiene voucher activo
+              if (q._esVenta) {
                 agencyWonMap[agency] = (agencyWonMap[agency] || 0) + 1
                 agencySalesVal[agency] = (agencySalesVal[agency] || 0) + (Number(q.valor_total) || 0)
               } else if (q.estado === 'perdida' || q.estado === 'anulada') {
