@@ -69,19 +69,7 @@ export async function GET(req) {
     const dayStr = now.toLocaleDateString('es-EC', { day: 'numeric', month: 'short' })
 
     if (!ventasHoy || ventasHoy.length === 0) {
-      // Sin ventas en ninguna ciudad → mensaje a cada grupo + aviso admin
-      const allCities = [...new Set((allOps || []).map(op => (op.ciudad || 'otra').toLowerCase()))]
-      for (const ciudad of allCities) {
-        const opsInCity = (allOps || []).filter(op => (op.ciudad || 'otra').toLowerCase() === ciudad)
-        const cityAporte = opsInCity.reduce((a, op) => a + (aporteMap[op.id] || 0), 0)
-        const cityMeta = opsInCity.reduce((a, op) => a + Number(op.meta_mensual || 5000), 0)
-        const cityPct = cityMeta > 0 ? (cityAporte / cityMeta) * 100 : 0
-        await notifyCity(ciudad, [
-          `🌙 <b>${ciudad.toUpperCase()} — ${dayStr}</b>`,
-          `Sin ventas hoy. Mañana es otra oportunidad. 💪`,
-          `Meta del mes: <code>${progressBar(cityPct)}</code> ${cityPct.toFixed(1)}%`
-        ].join('\n'))
-      }
+      // Sin ventas en ninguna ciudad → aviso silencioso solo a admin
       await notifyAdmin(`🌙 <b>Resumen Diario CTB</b>\n<i>${diaHoy}</i>\n\n❌ Sin ventas registradas hoy en ninguna ciudad.\n\n💪 ¡Mañana será mejor!`)
       return Response.json({ ok: true, ventas: 0 })
     }
@@ -112,22 +100,6 @@ export async function GET(req) {
       globalHoyUtilidad += utilidad
     }
 
-    // Ciudades SIN ventas hoy → mensaje motivacional a esos grupos
-    const allCities = [...new Set((allOps || []).map(op => (op.ciudad || 'otra').toLowerCase()))]
-    const citiesWithSales = new Set(Object.keys(porCiudad))
-    const citiesWithoutSales = allCities.filter(c => !citiesWithSales.has(c))
-
-    for (const ciudad of citiesWithoutSales) {
-      const opsInCity = (allOps || []).filter(op => (op.ciudad || 'otra').toLowerCase() === ciudad)
-      const cityAporte = opsInCity.reduce((a, op) => a + (aporteMap[op.id] || 0), 0)
-      const cityMeta = opsInCity.reduce((a, op) => a + Number(op.meta_mensual || 5000), 0)
-      const cityPct = cityMeta > 0 ? (cityAporte / cityMeta) * 100 : 0
-      await notifyCity(ciudad, [
-        `🌙 <b>${ciudad.toUpperCase()} — ${dayStr}</b>`,
-        `Sin ventas hoy. Mañana es otra oportunidad. 💪`,
-        `Meta del mes: <code>${progressBar(cityPct)}</code> ${cityPct.toFixed(1)}%`
-      ].join('\n'))
-    }
     // Resumen diario detallado → solo admin
 
     // Detectar operativos sin ventas en los últimos 3 días

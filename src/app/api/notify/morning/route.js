@@ -23,6 +23,12 @@ export async function GET(req) {
     const now = new Date()
     const dayOfMonth = now.getDate()
     const isMidMonth = dayOfMonth === 15
+    const isMonday = now.getDay() === 1
+
+    if (!isMonday && !isMidMonth) {
+      return Response.json({ ok: true, message: 'Skipped morning report: only runs on Mondays or mid-month (day 15)' })
+    }
+
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
     const mesNombre = now.toLocaleDateString('es-EC', { month: 'long', year: 'numeric' })
