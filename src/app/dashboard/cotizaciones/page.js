@@ -270,13 +270,19 @@ export default function CotizacionesPage() {
           q._esCaducada ? 'caducada' : 'activa en espera'
         ).toLowerCase()
 
+        const passengerNames = Array.isArray(q.nombres_pasajeros)
+          ? q.nombres_pasajeros.join(' ').toLowerCase()
+          : typeof q.nombres_pasajeros === 'string'
+            ? q.nombres_pasajeros.toLowerCase()
+            : ''
+
         return (
-          q.codigo?.toLowerCase().includes(s) ||
-          q.agencia?.toLowerCase().includes(s) ||
-          q.destino?.toLowerCase().includes(s) ||
-          q.comercial?.toLowerCase().includes(s) ||
-          q.nombres_pasajeros?.toLowerCase().includes(s) ||
-          q.profiles?.nombre?.toLowerCase().includes(s) ||
+          (q.codigo || '').toLowerCase().includes(s) ||
+          (q.agencia || '').toLowerCase().includes(s) ||
+          (q.destino || '').toLowerCase().includes(s) ||
+          (q.comercial || '').toLowerCase().includes(s) ||
+          passengerNames.includes(s) ||
+          (q.profiles?.nombre || '').toLowerCase().includes(s) ||
           computedEstado.includes(s)
         )
       })

@@ -180,12 +180,18 @@ export default function VouchersPage() {
       const s = search.toLowerCase()
       result = result.filter(v => {
         const computedEstado = (v.estado === 'anulado' ? 'cancelada' : 'activa emitida').toLowerCase()
+        const passengerNames = Array.isArray(v.pasajeros)
+          ? v.pasajeros.join(' ').toLowerCase()
+          : typeof v.pasajeros === 'string'
+            ? v.pasajeros.toLowerCase()
+            : ''
+
         return (
-          v.codigo?.toLowerCase().includes(s) ||
-          v.agencia?.toLowerCase().includes(s) ||
-          v.destino?.toLowerCase().includes(s) ||
-          v.pasajeros?.toLowerCase().includes(s) ||
-          v.profiles?.nombre?.toLowerCase().includes(s) ||
+          (v.codigo || '').toLowerCase().includes(s) ||
+          (v.agencia || '').toLowerCase().includes(s) ||
+          (v.destino || '').toLowerCase().includes(s) ||
+          passengerNames.includes(s) ||
+          (v.profiles?.nombre || '').toLowerCase().includes(s) ||
           (v.ventas?.cotizaciones?.comercial || '').toLowerCase().includes(s) ||
           computedEstado.includes(s)
         )

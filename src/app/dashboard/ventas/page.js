@@ -277,11 +277,17 @@ export default function VentasPage() {
       const s = search.toLowerCase()
       result = result.filter(v => {
         const computedEstado = (v.estado === 'anulada' ? 'cancelada' : 'activa').toLowerCase()
+        const passengerNames = Array.isArray(v.cotizaciones?.nombres_pasajeros)
+          ? v.cotizaciones.nombres_pasajeros.join(' ').toLowerCase()
+          : typeof v.cotizaciones?.nombres_pasajeros === 'string'
+            ? v.cotizaciones.nombres_pasajeros.toLowerCase()
+            : ''
+
         return (
           (v.cotizaciones?.agencia || '').toLowerCase().includes(s) ||
           (v.cotizaciones?.codigo || '').toLowerCase().includes(s) ||
           (v.cotizaciones?.destino || '').toLowerCase().includes(s) ||
-          (v.cotizaciones?.nombres_pasajeros || '').toLowerCase().includes(s) ||
+          passengerNames.includes(s) ||
           (v.profiles?.nombre || '').toLowerCase().includes(s) ||
           (v.cotizaciones?.comercial || '').toLowerCase().includes(s) ||
           computedEstado.includes(s)
