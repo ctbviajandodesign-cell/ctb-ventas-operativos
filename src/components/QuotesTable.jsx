@@ -26,6 +26,19 @@ import {
 } from 'lucide-react'
 import { showToast } from '@/utils/toast'
 
+const isExpired = (q) => {
+  if (q.fecha_caducidad) {
+    const timeStr = q.hora_caducidad ? q.hora_caducidad : '23:59:59'
+    const expiryDate = new Date(`${q.fecha_caducidad}T${timeStr}`)
+    return expiryDate < new Date()
+  }
+  if (q.created_at) {
+    const hours = (new Date() - new Date(q.created_at)) / (1000 * 60 * 60)
+    return hours > 24
+  }
+  return false
+}
+
 export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, onUpdate }) {
   const [viewingQuote, setViewingQuote] = useState(null)
   const [closingQuote, setClosingQuote] = useState(null)
@@ -52,9 +65,7 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, onUpdate })
       )
     }
     
-    // Check if more than 24 hours have passed since quote creation
-    const hours = (new Date() - new Date(quote.created_at)) / (1000 * 60 * 60)
-    if (hours > 24) {
+    if (isExpired(quote)) {
       return (
         <span className="bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1 border border-rose-100">
           <Clock size={10} className="text-rose-500" /> CADUCADA

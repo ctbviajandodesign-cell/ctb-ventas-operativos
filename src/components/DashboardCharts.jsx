@@ -22,10 +22,16 @@ import {
 } from 'lucide-react'
 
 const isExpired = (q) => {
-  if (!q.fecha_caducidad) return false
-  const timeStr = q.hora_caducidad ? q.hora_caducidad : '23:59:59'
-  const expiryDate = new Date(`${q.fecha_caducidad}T${timeStr}`)
-  return expiryDate < new Date()
+  if (q.fecha_caducidad) {
+    const timeStr = q.hora_caducidad ? q.hora_caducidad : '23:59:59'
+    const expiryDate = new Date(`${q.fecha_caducidad}T${timeStr}`)
+    return expiryDate < new Date()
+  }
+  if (q.created_at) {
+    const hours = (new Date() - new Date(q.created_at)) / (1000 * 60 * 60)
+    return hours > 24
+  }
+  return false
 }
 
 /**
