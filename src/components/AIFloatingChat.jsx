@@ -222,7 +222,7 @@ export default function AIFloatingChat() {
       {isOpen && (
         <div
           ref={chatWindowRef}
-          className="fixed inset-0 sm:inset-auto sm:bottom-24 sm:right-6 sm:w-[360px] sm:h-[500px] bg-white border border-gray-100 sm:rounded-[2rem] shadow-[0_15px_40px_rgba(0,0,0,0.1)] flex flex-col overflow-hidden z-50 animate-in slide-in-from-bottom-6 duration-300"
+          className="fixed bottom-20 left-4 right-4 h-[75vh] max-h-[500px] sm:inset-auto sm:bottom-24 sm:right-6 sm:w-[360px] sm:h-[500px] bg-white border border-gray-100 sm:rounded-[2rem] rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.1)] flex flex-col overflow-hidden z-50 animate-in slide-in-from-bottom-6 duration-300"
         >
           {/* Cabecera ultra-mínima */}
           <div className="bg-gray-900 text-white px-5 py-3.5 flex items-center justify-between border-b border-gray-800">
@@ -317,7 +317,7 @@ export default function AIFloatingChat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={isLoading}
-              className="flex-1 bg-gray-50 border border-gray-100 rounded-xl pl-3 pr-2 py-2.5 text-xs font-semibold text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary/20 focus:border-primary transition-all"
+              className="flex-1 min-w-0 bg-gray-50 border border-gray-100 rounded-xl pl-3 pr-2 py-2.5 text-xs font-semibold text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary/20 focus:border-primary transition-all"
             />
             <button
               type="submit"

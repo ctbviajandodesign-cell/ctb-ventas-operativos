@@ -839,22 +839,24 @@ export default function DashboardPage() {
             <h4 className="text-sm font-black text-gray-905 uppercase tracking-tighter italic">Asistente IA Comercial</h4>
             <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mt-1">Realiza consultas inteligentes en lenguaje natural sobre tus datos</p>
           </div>
-          <form onSubmit={handleAiQuestionSubmit} className="relative flex items-center">
-            <div className="absolute left-5 text-primary shrink-0">
-              <Sparkles size={20} className={aiLoading ? "animate-pulse text-indigo-500" : ""} />
+          <form onSubmit={handleAiQuestionSubmit} className="relative flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="relative flex-1">
+              <div className="absolute left-5 top-1/2 -translate-y-1/2 text-primary shrink-0">
+                <Sparkles size={20} className={aiLoading ? "animate-pulse text-indigo-500" : ""} />
+              </div>
+              <input
+                type="text"
+                placeholder="Pregunta a la IA (ej. ¿Qué agencia cotizó más?)"
+                value={aiQuestion}
+                onChange={(e) => setAiQuestion(e.target.value)}
+                disabled={aiLoading}
+                className="w-full pl-14 pr-4 sm:pr-36 py-4 bg-gray-50 border border-gray-100 rounded-full text-sm font-semibold text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              />
             </div>
-            <input
-              type="text"
-              placeholder="Pregunta a la IA (ej. ¿Qué agencia cotizó más?)"
-              value={aiQuestion}
-              onChange={(e) => setAiQuestion(e.target.value)}
-              disabled={aiLoading}
-              className="w-full pl-14 pr-36 py-4 bg-gray-50 border border-gray-100 rounded-full text-sm font-semibold text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-            />
             <button
               type="submit"
               disabled={aiLoading || !aiQuestion.trim()}
-              className="absolute right-3 bg-primary text-white px-5 py-2.5 rounded-full font-black text-xs uppercase tracking-wider shadow-md shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 disabled:shadow-none"
+              className="w-full sm:w-auto sm:absolute sm:right-3 sm:top-1/2 sm:-translate-y-1/2 bg-primary text-white px-6 py-3 sm:py-2.5 rounded-full font-black text-xs uppercase tracking-wider shadow-md shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 disabled:shadow-none"
             >
               {aiLoading ? 'Pensando...' : 'Preguntar'}
             </button>

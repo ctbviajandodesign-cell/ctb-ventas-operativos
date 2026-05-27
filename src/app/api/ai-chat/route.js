@@ -11,6 +11,18 @@ export async function POST(request) {
 
     const { question, dataset, leaderboard, operativos } = await request.json()
 
+    // Ajustar a UTC-5 (hora de Ecuador / Colombia / Perú)
+    const offsetMs = -5 * 60 * 60 * 1000
+    const localNow = new Date(Date.now() + offsetMs)
+    const localYesterday = new Date(Date.now() - 24 * 60 * 60 * 1000 + offsetMs)
+    const localBeforeYesterday = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + offsetMs)
+
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' }
+    const todayStr = localNow.toLocaleDateString('es-ES', options)
+    const todayIso = localNow.toISOString().split('T')[0]
+    const yesterdayIso = localYesterday.toISOString().split('T')[0]
+    const beforeYesterdayIso = localBeforeYesterday.toISOString().split('T')[0]
+
     if (!question) {
       return NextResponse.json({ answer: 'Por favor, escribe una pregunta.' })
     }
@@ -164,6 +176,14 @@ export async function POST(request) {
     })).sort((a, b) => b.total_aporte - a.total_aporte)
 
     const prompt = `Eres un analista de datos comerciales experto para la empresa "CTB Viajando". Responde la pregunta del usuario usando ÚNICAMENTE los datos pre-calculados que se muestran a continuación. Razona internamente paso a paso, pero entrega solo la respuesta final.
+
+=== FECHA ACTUAL Y CONTEXTO TEMPORAL ===
+- Fecha y día de hoy: ${todayStr} (formato YYYY-MM-DD: ${todayIso})
+- Usa esta fecha de hoy como referencia absoluta para interpretar términos relativos en la pregunta del usuario:
+  * "hoy" se refiere al día: ${todayIso}
+  * "ayer" se refiere al día: ${yesterdayIso}
+  * "anteayer" se refiere al día: ${beforeYesterdayIso}
+- Al responder preguntas sobre registros del día de ayer, hoy o fechas específicas, describe con precisión los datos y menciona explícitamente el día de la semana y fecha correspondientes (ej: "ayer martes 26 de mayo" o "hoy miércoles 27 de mayo") para ubicar al usuario en el contexto temporal exacto.
 
 === DEFINICIONES ===
 - "agencia": Cliente externo / agencia de viajes (ej: HUALAMBARI, DREAMS).
