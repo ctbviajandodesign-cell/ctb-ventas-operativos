@@ -71,9 +71,13 @@ export default function VouchersPage() {
   async function fetchVouchers() {
     setLoading(true)
     try {
+      const selectStr = isAdmin
+        ? '*, profiles!left(nombre, ciudad), ventas(id, cotizaciones(comercial))'
+        : '*, profiles!inner(nombre, ciudad), ventas(id, cotizaciones(comercial))'
+
       let query = supabase
         .from('vouchers')
-        .select('*, profiles!inner(nombre, ciudad), ventas(id, cotizaciones(comercial))')
+        .select(selectStr)
         .order('created_at', { ascending: false })
 
       if (!isAdmin) {

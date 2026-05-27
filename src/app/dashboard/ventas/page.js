@@ -46,9 +46,13 @@ export default function VentasPage() {
     setLoading(true)
     setErrorState(null)
     try {
+      const selectStr = isAdmin
+        ? '*, profiles!left(nombre, ciudad), cotizaciones(id, agencia, destino, codigo, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, notas_iniciales), vouchers(codigo)'
+        : '*, profiles!inner(nombre, ciudad), cotizaciones(id, agencia, destino, codigo, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, notas_iniciales), vouchers(codigo)'
+
       let query = supabase
         .from('ventas')
-        .select('*, profiles!inner(nombre, ciudad), cotizaciones(id, agencia, destino, codigo, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, notas_iniciales), vouchers(codigo)')
+        .select(selectStr)
         .order('created_at', { ascending: false })
 
       if (!isAdmin) {
