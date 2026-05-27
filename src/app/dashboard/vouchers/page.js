@@ -178,12 +178,18 @@ export default function VouchersPage() {
     // 1. Búsqueda por texto
     if (search.trim()) {
       const s = search.toLowerCase()
-      result = result.filter(v =>
-        v.codigo?.toLowerCase().includes(s) ||
-        v.agencia?.toLowerCase().includes(s) ||
-        v.profiles?.nombre?.toLowerCase().includes(s) ||
-        (v.ventas?.cotizaciones?.comercial || '').toLowerCase().includes(s)
-      )
+      result = result.filter(v => {
+        const computedEstado = (v.estado === 'anulado' ? 'cancelada' : 'activa emitida').toLowerCase()
+        return (
+          v.codigo?.toLowerCase().includes(s) ||
+          v.agencia?.toLowerCase().includes(s) ||
+          v.destino?.toLowerCase().includes(s) ||
+          v.pasajeros?.toLowerCase().includes(s) ||
+          v.profiles?.nombre?.toLowerCase().includes(s) ||
+          (v.ventas?.cotizaciones?.comercial || '').toLowerCase().includes(s) ||
+          computedEstado.includes(s)
+        )
+      })
     }
 
     // 2. Filtro por ciudad

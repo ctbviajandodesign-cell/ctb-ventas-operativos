@@ -263,13 +263,23 @@ export default function CotizacionesPage() {
     }
     if (search.trim()) {
       const s = search.toLowerCase()
-      result = result.filter(q =>
-        q.codigo?.toLowerCase().includes(s) ||
-        q.agencia?.toLowerCase().includes(s) ||
-        q.destino?.toLowerCase().includes(s) ||
-        q.comercial?.toLowerCase().includes(s) ||
-        q.profiles?.nombre?.toLowerCase().includes(s)
-      )
+      result = result.filter(q => {
+        const computedEstado = (
+          q.estado === 'ganada' ? 'vendida' :
+          q.estado === 'perdida' || q.estado === 'anulada' ? 'cancelada' :
+          q._esCaducada ? 'caducada' : 'activa en espera'
+        ).toLowerCase()
+
+        return (
+          q.codigo?.toLowerCase().includes(s) ||
+          q.agencia?.toLowerCase().includes(s) ||
+          q.destino?.toLowerCase().includes(s) ||
+          q.comercial?.toLowerCase().includes(s) ||
+          q.nombres_pasajeros?.toLowerCase().includes(s) ||
+          q.profiles?.nombre?.toLowerCase().includes(s) ||
+          computedEstado.includes(s)
+        )
+      })
     }
     return result
   }, [enrichedQuotes, statusFilter, selectedCity, dateFilter, search, isAdmin])

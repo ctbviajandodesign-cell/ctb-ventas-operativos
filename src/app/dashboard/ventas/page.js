@@ -275,13 +275,18 @@ export default function VentasPage() {
     }
     if (search.trim()) {
       const s = search.toLowerCase()
-      result = result.filter(v =>
-        (v.cotizaciones?.agencia || '').toLowerCase().includes(s) ||
-        (v.cotizaciones?.codigo || '').toLowerCase().includes(s) ||
-        (v.cotizaciones?.destino || '').toLowerCase().includes(s) ||
-        (v.profiles?.nombre || '').toLowerCase().includes(s) ||
-        (v.cotizaciones?.comercial || '').toLowerCase().includes(s)
-      )
+      result = result.filter(v => {
+        const computedEstado = (v.estado === 'anulada' ? 'cancelada' : 'activa').toLowerCase()
+        return (
+          (v.cotizaciones?.agencia || '').toLowerCase().includes(s) ||
+          (v.cotizaciones?.codigo || '').toLowerCase().includes(s) ||
+          (v.cotizaciones?.destino || '').toLowerCase().includes(s) ||
+          (v.cotizaciones?.nombres_pasajeros || '').toLowerCase().includes(s) ||
+          (v.profiles?.nombre || '').toLowerCase().includes(s) ||
+          (v.cotizaciones?.comercial || '').toLowerCase().includes(s) ||
+          computedEstado.includes(s)
+        )
+      })
     }
     return result
   }, [ventas, statusFilter, selectedCity, dateFilter, search, isAdmin])
