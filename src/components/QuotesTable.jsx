@@ -65,13 +65,39 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, onUpdate })
       )
     }
     
-    if (isExpired(quote)) {
-      return (
-        <span className="bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1 border border-rose-100">
-          <Clock size={10} className="text-rose-500" /> CADUCADA
-        </span>
-      )
+    // Calculate expiration deadline
+    let expiryDate = null
+    if (quote.fecha_caducidad) {
+      const timeStr = quote.hora_caducidad ? quote.hora_caducidad : '23:59:59'
+      expiryDate = new Date(`${quote.fecha_caducidad}T${timeStr}`)
+    } else if (quote.created_at) {
+      const createdAtDate = new Date(quote.created_at)
+      expiryDate = new Date(createdAtDate.getTime() + 24 * 60 * 60 * 1000)
     }
+
+    if (expiryDate) {
+      const diffMs = expiryDate - new Date()
+      if (diffMs < 0) {
+        return (
+          <span className="bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1 border border-rose-100">
+            <Clock size={10} className="text-rose-500" /> CADUCADA
+          </span>
+        )
+      }
+      
+      const hoursRemaining = diffMs / (1000 * 60 * 60)
+      if (hoursRemaining <= 4) {
+        const minsRemaining = Math.round((diffMs % (1000 * 60 * 60)) / (1000 * 60))
+        const hoursFloor = Math.floor(hoursRemaining)
+        const timeText = hoursFloor > 0 ? `${hoursFloor}h ${minsRemaining}m` : `${minsRemaining}m`
+        return (
+          <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1 border border-amber-200 shadow-sm animate-pulse">
+            <Clock size={10} className="text-amber-500" /> POR CADUCAR ({timeText})
+          </span>
+        )
+      }
+    }
+
     return <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider">ACTIVA</span>
   }
 
