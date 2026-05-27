@@ -850,7 +850,7 @@ export default function DashboardPage() {
                 value={aiQuestion}
                 onChange={(e) => setAiQuestion(e.target.value)}
                 disabled={aiLoading}
-                className="w-full pl-14 pr-4 sm:pr-36 py-4 bg-gray-50 border border-gray-100 rounded-full text-sm font-semibold text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                className="w-full pl-14 pr-4 sm:pr-36 py-4 bg-gray-50 border border-gray-100 rounded-full text-[16px] sm:text-sm font-semibold text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               />
             </div>
             <button

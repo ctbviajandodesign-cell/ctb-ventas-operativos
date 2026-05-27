@@ -317,7 +317,7 @@ export default function AIFloatingChat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={isLoading}
-              className="flex-1 min-w-0 bg-gray-50 border border-gray-100 rounded-xl pl-3 pr-2 py-2.5 text-xs font-semibold text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary/20 focus:border-primary transition-all"
+              className="flex-1 min-w-0 bg-gray-50 border border-gray-100 rounded-xl pl-3 pr-2 py-2.5 text-[16px] sm:text-xs font-semibold text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary/20 focus:border-primary transition-all"
             />
             <button
               type="submit"

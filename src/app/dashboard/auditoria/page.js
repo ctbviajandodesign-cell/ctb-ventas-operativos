@@ -137,7 +137,7 @@ export default function AuditoriaPage() {
           <div className="relative w-full md:w-80">
             <Search className="absolute left-3.5 top-3.5 text-gray-400" size={16} />
             <input 
-              className="input pl-10 text-sm py-3 rounded-2xl" 
+              className="input pl-10 text-[16px] sm:text-sm py-3 rounded-2xl" 
               placeholder="Buscar por usuario, acción o detalles..." 
               value={search}
               onChange={e => setSearch(e.target.value)}

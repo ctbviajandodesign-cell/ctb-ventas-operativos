@@ -502,7 +502,7 @@ export default function CotizacionesPage() {
           <div className="relative w-full md:w-64">
             <Search className="absolute left-4 top-3.5 text-gray-300" size={14} />
             <input
-              className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-10 pr-4 py-3 text-xs font-bold text-gray-800 outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-gray-300 transition-all"
+              className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-10 pr-4 py-3 text-[16px] sm:text-xs font-bold text-gray-800 outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-gray-300 transition-all"
               placeholder="Buscar..."
               value={search}
               onChange={e => setSearch(e.target.value)}
