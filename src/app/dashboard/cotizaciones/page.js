@@ -242,6 +242,9 @@ export default function CotizacionesPage() {
         if (dateFilter === 'hoy') {
           return date.toDateString() === now.toDateString()
         }
+        if (dateFilter === '24horas') {
+          return diffTime <= 24 * 60 * 60 * 1000
+        }
         if (dateFilter === 'semana') {
           return diffDays <= 7
         }
@@ -449,6 +452,7 @@ export default function CotizacionesPage() {
             >
               <option value="todas">Todas las Fechas</option>
               <option value="hoy">Hoy</option>
+              <option value="24horas">Últimas 24 Horas</option>
               <option value="semana">Esta Semana</option>
               <option value="mes">Este Mes</option>
               <option value="año">Este Año</option>
