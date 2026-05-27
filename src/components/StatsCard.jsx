@@ -35,22 +35,24 @@ export default function StatsCard({ title, value, icon: Icon, color = 'primary',
   const scheme = colorSchemes[color] || colorSchemes.primary
 
   return (
-    <div className={`backdrop-blur-md p-6 rounded-[2.2rem] border ${scheme.border} ${scheme.bg} flex items-center justify-between gap-4 hover:scale-[1.03] shadow-lg ${scheme.glow} transition-all duration-500 ease-out group cursor-default`}>
-      <div className="min-w-0 space-y-1">
-        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none group-hover:text-gray-500 transition-colors">
+    <div className={`backdrop-blur-md p-5 rounded-[2.2rem] border ${scheme.border} ${scheme.bg} flex flex-col justify-between gap-3 hover:scale-[1.03] shadow-lg ${scheme.glow} transition-all duration-500 ease-out group cursor-default h-full min-h-[135px]`}>
+      <div className="flex items-start justify-between w-full gap-2">
+        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-normal group-hover:text-gray-500 transition-colors pr-2 break-words">
           {title}
         </p>
-        <h3 className="text-2xl md:text-3xl font-black text-gray-950 tracking-tighter leading-tight">
+        <div className={`p-2.5 rounded-[1.1rem] ${scheme.iconBg} shrink-0 group-hover:scale-110 transition-all duration-500 ease-out`}>
+          <Icon size={16} className="stroke-[2.5]" />
+        </div>
+      </div>
+      <div className="space-y-1 mt-auto">
+        <h3 className="text-2xl md:text-3xl font-black text-gray-950 tracking-tighter leading-none">
           {value}
         </h3>
         {description && (
-          <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mt-1 leading-none group-hover:text-gray-500 transition-colors">
+          <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider leading-none mt-1 group-hover:text-gray-500 transition-colors">
             {description}
           </p>
         )}
-      </div>
-      <div className={`p-4 rounded-[1.5rem] ${scheme.iconBg} shrink-0 group-hover:scale-110 transition-all duration-500 ease-out`}>
-        <Icon size={24} className="stroke-[2.5]" />
       </div>
     </div>
   )
