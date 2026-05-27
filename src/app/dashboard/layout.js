@@ -19,6 +19,7 @@ import {
   X
 } from 'lucide-react'
 import SalesModal from '@/components/SalesModal'
+import AIFloatingChat from '@/components/AIFloatingChat'
 
 export default function DashboardLayout({ children }) {
   const router = useRouter()
@@ -240,6 +241,7 @@ export default function DashboardLayout({ children }) {
           </div>
         </div>
       )}
+      <AIFloatingChat />
     </div>
   )
 }
