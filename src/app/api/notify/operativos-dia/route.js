@@ -25,26 +25,35 @@ export async function GET(req) {
   }
 
   try {
-    // Rango: ayer 00:00:00 → ayer 23:59:59 (hora Ecuador UTC-5)
-    const now = new Date()
-    // Ajustar a medianoche Ecuador (UTC-5 = +5h offset en UTC)
-    const ayerInicio = new Date(now)
-    ayerInicio.setUTCHours(ayerInicio.getUTCHours() - 5) // a hora Ecuador
-    ayerInicio.setHours(0, 0, 0, 0)
-    ayerInicio.setUTCHours(ayerInicio.getUTCHours() + 5) // de vuelta a UTC
+    // Rango: ayer 00:00:00 → ayer 23:59:59 en hora Ecuador (UTC-5)
+    // Estrategia: tratamos los ms como si fueran hora EC, calculamos ayer,
+    // luego sumamos 5h de vuelta para obtener el equivalente UTC real.
+    const nowUTC = new Date()
+    const EC_OFFSET_MS = 5 * 60 * 60 * 1000 // UTC-5
 
-    const ayerFin = new Date(ayerInicio)
-    ayerFin.setDate(ayerFin.getDate() + 1) // hasta inicio de hoy UTC
+    // "Ahora" expresado como fecha en hora Ecuador (usando UTC internamente)
+    const nowEC = new Date(nowUTC.getTime() - EC_OFFSET_MS)
 
-    // También calcular "ayer en Ecuador" para el título
-    const ayerEC = new Date(now)
-    ayerEC.setUTCHours(ayerEC.getUTCHours() - 5)
-    ayerEC.setDate(ayerEC.getDate() - 1)
-    const diaAyer = ayerEC.toLocaleDateString('es-EC', {
+    // Inicio de ayer en EC: retroceder 1 día y poner medianoche
+    const ayerInicioEC = new Date(nowEC)
+    ayerInicioEC.setUTCDate(ayerInicioEC.getUTCDate() - 1)
+    ayerInicioEC.setUTCHours(0, 0, 0, 0)
+
+    // Fin de ayer en EC: mismo día a las 23:59:59.999
+    const ayerFinEC = new Date(ayerInicioEC)
+    ayerFinEC.setUTCHours(23, 59, 59, 999)
+
+    // Convertir a UTC real para Supabase (sumar 5h)
+    const ayerInicioUTC = new Date(ayerInicioEC.getTime() + EC_OFFSET_MS)
+    const ayerFinUTC    = new Date(ayerFinEC.getTime()    + EC_OFFSET_MS)
+
+    // Fecha legible de ayer para el título del mensaje
+    const diaAyer = ayerInicioEC.toLocaleDateString('es-EC', {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
     })
+
 
     // --- Todos los operativos ---
     const { data: allOps } = await supabase
@@ -60,16 +69,16 @@ export async function GET(req) {
     const { data: cotsAyer } = await supabase
       .from('cotizaciones')
       .select('operativo_id')
-      .gte('created_at', ayerInicio.toISOString())
-      .lt('created_at', ayerFin.toISOString())
+      .gte('created_at', ayerInicioUTC.toISOString())
+      .lt('created_at', ayerFinUTC.toISOString())
 
     // --- Ventas cerradas ayer ---
     const { data: ventasAyer } = await supabase
       .from('ventas')
       .select('total, comision, utilidad, operativo_id')
       .eq('estado', 'activa')
-      .gte('created_at', ayerInicio.toISOString())
-      .lt('created_at', ayerFin.toISOString())
+      .gte('created_at', ayerInicioUTC.toISOString())
+      .lt('created_at', ayerFinUTC.toISOString())
 
     // --- Construir mapa por operativo ---
     const statsMap = {}
