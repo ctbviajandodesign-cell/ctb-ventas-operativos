@@ -38,8 +38,8 @@ export async function POST(req) {
     const { error: errVenta } = await supabaseAdmin.from('ventas').update({ estado: 'anulada' }).eq('id', ventaId)
     if (errVenta) throw errVenta
 
-    // 2. Eliminar el Voucher
-    await supabaseAdmin.from('vouchers').delete().eq('venta_id', ventaId)
+    // 2. Anular el Voucher (cambiar estado a 'anulado' en vez de borrar)
+    await supabaseAdmin.from('vouchers').update({ estado: 'anulado' }).eq('venta_id', ventaId)
 
     // 3. Anular la Cotización
     if (cotizacionId) {

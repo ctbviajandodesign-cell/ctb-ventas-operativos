@@ -82,6 +82,7 @@ export default function VoucherVerificationPage() {
   )
 
   const isExpired = voucher.fecha_caducidad && new Date(voucher.fecha_caducidad) < new Date()
+  const isAnulado = voucher.estado === 'anulado'
   const isValid = voucher.estado === 'activo' && !isExpired
 
   return (
@@ -99,7 +100,9 @@ export default function VoucherVerificationPage() {
         <div className="flex justify-center mb-[-16px] relative z-20 px-4">
           <div className={`px-6 py-2.5 rounded-full border-2 ${isValid ? 'bg-success border-white/20' : 'bg-danger border-white/20'} text-white shadow-2xl flex items-center gap-2.5 animate-bounce text-center`}>
             {isValid ? <ShieldCheck size={18} className="shrink-0" /> : <AlertCircle size={18} className="shrink-0" />}
-            <span className="text-[11px] sm:text-xs font-black uppercase tracking-widest truncate">{isValid ? 'Verificado & Válido' : 'Documento Vencido'}</span>
+            <span className="text-[11px] sm:text-xs font-black uppercase tracking-widest truncate">
+              {isAnulado ? 'Voucher Anulado' : (isValid ? 'Verificado & Válido' : 'Documento Vencido')}
+            </span>
           </div>
         </div>
 
@@ -125,8 +128,10 @@ export default function VoucherVerificationPage() {
                 <p className="text-lg sm:text-2xl font-mono font-black tracking-tight text-white break-all">{voucher.codigo}</p>
               </div>
               <div className="sm:text-right">
-                <p className="text-[10px] sm:text-xs font-black text-success uppercase tracking-[0.2em] mb-1">Estado del Voucher</p>
-                <p className="text-lg sm:text-xl font-black text-success tracking-tight uppercase">Confirmado</p>
+                <p className={`text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] mb-1 ${isValid ? 'text-success' : 'text-danger'}`}>Estado del Voucher</p>
+                <p className={`text-lg sm:text-xl font-black tracking-tight uppercase ${isValid ? 'text-success' : 'text-danger'}`}>
+                  {isAnulado ? 'Anulado' : (isValid ? 'Confirmado' : 'Vencido')}
+                </p>
               </div>
             </div>
           </div>

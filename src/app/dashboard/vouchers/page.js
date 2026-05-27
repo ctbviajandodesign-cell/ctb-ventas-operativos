@@ -30,6 +30,7 @@ import { es } from 'date-fns/locale'
 import { generateVoucherPDF } from '@/lib/pdf-generator'
 import { logActivity } from '@/utils/audit'
 import { showToast } from '@/utils/toast'
+import { useUserSession } from '@/hooks/useUserSession'
 
 export default function VouchersPage() {
   const [vouchers, setVouchers] = useState([])
@@ -42,7 +43,7 @@ export default function VouchersPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(15)
   const [baseUrl, setBaseUrl] = useState('')
-  const [profile, setProfile] = useState(null)
+  const { user, profile, isAdmin, loading: sessionLoading } = useUserSession()
 
   useEffect(() => {
     setCurrentPage(1)
@@ -56,29 +57,36 @@ export default function VouchersPage() {
   }
 
   useEffect(() => {
-    fetchVouchers()
     if (typeof window !== 'undefined') {
       setBaseUrl(window.location.origin)
     }
   }, [])
 
-  async function fetchVouchers() {
-    const { data: { user } } = await supabase.auth.getUser()
-    const { data: p } = await supabase.from('profiles').select('rol, ciudad').eq('id', user.id).single()
-    setProfile(p)
-    
-    let query = supabase
-      .from('vouchers')
-      .select('*, profiles!inner(nombre, ciudad), ventas(id, cotizaciones(comercial))')
-      .order('created_at', { ascending: false })
-
-    if (p?.rol !== 'admin' && p?.rol !== 'superadmin') {
-      query = query.eq('profiles.ciudad', p.ciudad)
+  useEffect(() => {
+    if (!sessionLoading && user) {
+      fetchVouchers()
     }
+  }, [sessionLoading, user])
 
-    const { data } = await query
-    setVouchers(data || [])
-    setLoading(false)
+  async function fetchVouchers() {
+    setLoading(true)
+    try {
+      let query = supabase
+        .from('vouchers')
+        .select('*, profiles!inner(nombre, ciudad), ventas(id, cotizaciones(comercial))')
+        .order('created_at', { ascending: false })
+
+      if (!isAdmin) {
+        query = query.eq('profiles.ciudad', profile.ciudad)
+      }
+
+      const { data } = await query
+      setVouchers(data || [])
+    } catch (err) {
+      console.error('Error fetching vouchers:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleDeleteVoucher = async (id) => {

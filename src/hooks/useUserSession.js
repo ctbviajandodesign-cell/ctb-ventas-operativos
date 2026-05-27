@@ -37,7 +37,7 @@ export function useUserSession() {
         if (profileError) throw profileError
 
         setProfile(profileData)
-        setIsAdmin(profileData?.rol === 'admin')
+        setIsAdmin(profileData?.rol === 'admin' || profileData?.rol === 'superadmin')
       } catch (err) {
         console.error('Error fetching user session:', err)
         setError(err.message)

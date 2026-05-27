@@ -32,6 +32,8 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, onUpdate })
   const [motivoPerdida, setMotivoPerdida] = useState('')
   const [otroMotivo, setOtroMotivo] = useState('')
   const [observacionPerdida, setObservacionPerdida] = useState('')
+  const [deleteConfirmQuote, setDeleteConfirmQuote] = useState(null)
+  const [deletingPermanent, setDeletingPermanent] = useState(false)
   
   const getStatusBadge = (quote) => {
     const hasVch = !!getVoucherCodigo(quote)
@@ -74,7 +76,7 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, onUpdate })
 
 
   const handleDelete = async (quote) => {
-    if (!confirm('¿Seguro que quieres anular y archivar esta cotización?')) return
+    if (!confirm('¿Seguro que quieres anular y archivar esta cotización? El registro quedará guardado como cancelada.')) return
     
     const isGanada = (quote.estado || '').trim().toLowerCase() === 'ganada'
     const hasVch = !!getVoucherCodigo(quote)
@@ -97,11 +99,37 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, onUpdate })
       })
       const result = await res.json()
       if (!result.ok) throw new Error(result.error || 'Error al anular la cotización')
-      
+      showToast('Cotización anulada y archivada.')
       onUpdate()
     } catch (err) {
       console.error(err)
-      alert(err.message)
+      showToast(err.message, 'error')
+    }
+  }
+
+  const handlePermanentDelete = async () => {
+    if (!deleteConfirmQuote) return
+    setDeletingPermanent(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      const res = await fetch('/api/admin/eliminar-cotizacion', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ cotizacionId: deleteConfirmQuote.id })
+      })
+      const result = await res.json()
+      if (!result.ok) throw new Error(result.error || 'Error al eliminar')
+      showToast('Cotización eliminada permanentemente de la base de datos.')
+      setDeleteConfirmQuote(null)
+      onUpdate()
+    } catch (err) {
+      showToast(err.message, 'error')
+    } finally {
+      setDeletingPermanent(false)
     }
   }
 
@@ -273,7 +301,18 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, onUpdate })
                     {isSuperAdmin && (
                       <>
                         <Link href={`/dashboard/cotizaciones/editar/${quote.id}`} className="p-1.5 text-gray-400 hover:text-primary rounded-lg" title="Editar"><Edit size={16}/></Link>
-                        <button onClick={() => handleDelete(quote)} className="p-1.5 text-gray-300 hover:text-danger rounded-lg transition-colors">
+                        <button
+                          onClick={() => handleDelete(quote)}
+                          className="p-1.5 text-amber-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                          title="Anular (queda registrada)"
+                        >
+                          <AlertCircle size={16} />
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirmQuote(quote)}
+                          className="p-1.5 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Eliminar permanentemente de la base de datos"
+                        >
                           <Trash2 size={16} />
                         </button>
                       </>
@@ -336,6 +375,13 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, onUpdate })
                     </div>
                   </div>
                 </div>
+
+                {viewingQuote.notas_iniciales && (
+                  <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10 min-w-0">
+                    <p className="text-[10px] sm:text-xs font-black text-primary uppercase tracking-widest mb-1.5">Observaciones / Especificaciones del Programa</p>
+                    <p className="text-xs text-gray-700 font-medium whitespace-pre-wrap break-words">{viewingQuote.notas_iniciales}</p>
+                  </div>
+                )}
 
                 {((viewingQuote.estado || '').trim().toLowerCase() === 'perdida' || (viewingQuote.estado || '').trim().toLowerCase() === 'anulada') && (
                   <div className="bg-red-50 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-red-100 text-red-600 min-w-0 break-words">
@@ -479,6 +525,52 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, onUpdate })
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Modal Eliminación Permanente */}
+      {deleteConfirmQuote && (
+        <div className="fixed inset-0 bg-black/70 z-[120] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] max-w-md w-full overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="bg-red-600 p-8 text-white">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="bg-white/20 p-2 rounded-xl">
+                  <Trash2 size={22} />
+                </div>
+                <h2 className="text-2xl font-black uppercase tracking-tighter">Eliminar Permanente</h2>
+              </div>
+              <p className="text-red-100 text-xs font-bold uppercase tracking-widest">Esta acción NO se puede deshacer</p>
+            </div>
+            <div className="p-8 space-y-4">
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
+                <p className="text-xs font-black text-red-600 uppercase tracking-widest mb-1">Se eliminará permanentemente:</p>
+                <p className="font-black text-gray-900 text-sm">#{deleteConfirmQuote.codigo} — {deleteConfirmQuote.agencia || 'Directo'}</p>
+                <p className="text-xs text-gray-500 mt-1">{deleteConfirmQuote.destino}</p>
+              </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-800 font-bold space-y-1">
+                <p>⚠️ Se borrarán también todas las <b>ventas</b> y <b>vouchers</b> asociados.</p>
+                <p>📋 Se guardará un log de auditoría con tu nombre.</p>
+                <p>🚫 No hay forma de recuperar este registro después.</p>
+              </div>
+            </div>
+            <div className="px-8 pb-8 flex gap-3">
+              <button
+                onClick={() => setDeleteConfirmQuote(null)}
+                disabled={deletingPermanent}
+                className="flex-1 py-4 rounded-2xl font-black text-sm text-gray-500 bg-gray-100 hover:bg-gray-200 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handlePermanentDelete}
+                disabled={deletingPermanent}
+                className="flex-1 py-4 rounded-2xl font-black text-sm text-white bg-red-600 hover:bg-red-700 transition-colors shadow-lg shadow-red-200 flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                <Trash2 size={16} />
+                {deletingPermanent ? 'Eliminando...' : 'Sí, eliminar para siempre'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

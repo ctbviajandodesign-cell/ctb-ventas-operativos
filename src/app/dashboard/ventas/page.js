@@ -29,6 +29,8 @@ export default function VentasPage() {
   const [selectedVoucher, setSelectedVoucher] = useState(null)
   const [voucherLoading, setVoucherLoading] = useState(false)
   const [annulVentaModal, setAnnulVentaModal] = useState(null) // { venta, motivo }
+  const [deleteConfirmVenta, setDeleteConfirmVenta] = useState(null)
+  const [deletingPermanent, setDeletingPermanent] = useState(false)
 
   useEffect(() => {
     setCurrentPage(1)
@@ -46,7 +48,7 @@ export default function VentasPage() {
     try {
       let query = supabase
         .from('ventas')
-        .select('*, profiles!inner(nombre, ciudad), cotizaciones(id, agencia, destino, codigo, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial), vouchers(codigo)')
+        .select('*, profiles!inner(nombre, ciudad), cotizaciones(id, agencia, destino, codigo, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, notas_iniciales), vouchers(codigo)')
         .order('created_at', { ascending: false })
 
       if (!isAdmin) {
@@ -167,6 +169,36 @@ export default function VentasPage() {
       fetchVentas()
     } catch (error) {
       showToast(error.message, 'error')
+    }
+  }
+
+  const handlePermanentDeleteVenta = async () => {
+    if (!deleteConfirmVenta) return
+    setDeletingPermanent(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      const targetCotizacionId = deleteConfirmVenta.cotizacion_id || deleteConfirmVenta.cotizaciones?.id
+      const res = await fetch('/api/admin/eliminar-venta', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          ventaId: deleteConfirmVenta.id,
+          cotizacionId: targetCotizacionId
+        })
+      })
+      const result = await res.json()
+      if (!result.ok) throw new Error(result.error || 'Error al eliminar la venta')
+      showToast('Venta/Proforma eliminada permanentemente de la base de datos.')
+      setDeleteConfirmVenta(null)
+      fetchVentas()
+    } catch (err) {
+      showToast(err.message, 'error')
+    } finally {
+      setDeletingPermanent(false)
     }
   }
 
@@ -586,6 +618,15 @@ export default function VentasPage() {
                           </button>
                         </>
                       )}
+                      {profile?.rol === 'superadmin' && (
+                        <button
+                          onClick={() => setDeleteConfirmVenta(venta)}
+                          className="p-2 text-gray-300 hover:text-red-650 hover:bg-red-50 rounded-xl transition-colors"
+                          title="Eliminar permanentemente de la base de datos"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -733,7 +774,9 @@ export default function VentasPage() {
                       <div key={i} className={`flex justify-between items-center p-3.5 rounded-xl ${m.status === 'pagado' ? 'bg-success/5 border border-success/10' : 'bg-amber-50 border border-amber-100'}`}>
                         <div>
                           <p className="text-xs font-black text-gray-800">{m.label}</p>
-                          <p className="text-xs text-gray-400">{m.date}</p>
+                          <p className="text-xs text-gray-400">
+                            {m.date} {m.method && ` · ${m.method === 'tarjeta' ? '💳 Tarjeta' : m.method === 'transferencia' ? '🏦 Transferencia' : '💵 Efectivo'}`}
+                          </p>
                         </div>
                         <div className="text-right">
                           <p className="text-xs font-black text-gray-900">${Number(m.amount).toLocaleString()}</p>
@@ -758,6 +801,13 @@ export default function VentasPage() {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {selectedVenta.cotizaciones?.notas_iniciales && (
+                <div className="bg-primary/5 p-5 rounded-2xl border border-primary/10">
+                  <h4 className="text-xs font-black text-primary uppercase tracking-widest mb-2">Observaciones / Especificaciones del Programa</h4>
+                  <p className="text-xs text-gray-700 font-medium whitespace-pre-wrap break-words">{selectedVenta.cotizaciones.notas_iniciales}</p>
                 </div>
               )}
             </div>
@@ -832,6 +882,52 @@ export default function VentasPage() {
                   Confirmar Anulación
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Eliminación Permanente de Venta */}
+      {deleteConfirmVenta && (
+        <div className="fixed inset-0 bg-black/70 z-[120] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] max-w-md w-full overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="bg-red-600 p-8 text-white">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="bg-white/20 p-2 rounded-xl">
+                  <Trash2 size={22} />
+                </div>
+                <h2 className="text-2xl font-black uppercase tracking-tighter">Eliminar Proforma</h2>
+              </div>
+              <p className="text-red-100 text-xs font-bold uppercase tracking-widest">Esta acción NO se puede deshacer</p>
+            </div>
+            <div className="p-8 space-y-4">
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
+                <p className="text-xs font-black text-red-600 uppercase tracking-widest mb-1">Se eliminará permanentemente:</p>
+                <p className="font-black text-gray-900 text-sm">#{deleteConfirmVenta.cotizaciones?.codigo} — {deleteConfirmVenta.cotizaciones?.agencia || 'Directo'}</p>
+                <p className="text-xs text-gray-500 mt-1">{deleteConfirmVenta.cotizaciones?.destino}</p>
+              </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-800 font-bold space-y-1">
+                <p>⚠️ Se borrará también el <b>voucher</b> asociado permanentemente.</p>
+                <p>📋 Se guardará un log de auditoría con tu nombre.</p>
+                <p>🔄 La cotización asociada se devolverá al estado <b>'abierta'</b> para que pueda ser editada o cerrada nuevamente.</p>
+              </div>
+            </div>
+            <div className="px-8 pb-8 flex gap-3">
+              <button
+                onClick={() => setDeleteConfirmVenta(null)}
+                disabled={deletingPermanent}
+                className="flex-1 py-4 rounded-2xl font-black text-sm text-gray-500 bg-gray-100 hover:bg-gray-200 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handlePermanentDeleteVenta}
+                disabled={deletingPermanent}
+                className="flex-1 py-4 rounded-2xl font-black text-sm text-white bg-red-600 hover:bg-red-700 transition-colors shadow-lg shadow-red-200 flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                <Trash2 size={16} />
+                {deletingPermanent ? 'Eliminando...' : 'Sí, eliminar para siempre'}
+              </button>
             </div>
           </div>
         </div>

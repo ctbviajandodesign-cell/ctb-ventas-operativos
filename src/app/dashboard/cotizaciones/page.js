@@ -38,7 +38,7 @@ export default function CotizacionesPage() {
     try {
       let query = supabase
         .from('cotizaciones')
-        .select('id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, comercial, estado, motivo_perdida, created_at, profiles!inner(nombre, ciudad), ventas(id, estado, vouchers(codigo))')
+        .select('id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, comercial, estado, motivo_perdida, created_at, notas_iniciales, profiles!inner(nombre, ciudad), ventas(id, estado, vouchers(codigo))')
         .order('created_at', { ascending: false })
 
       if (!isAdmin) {
@@ -114,7 +114,7 @@ export default function CotizacionesPage() {
       if (venta && Array.isArray(venta.plan_pagos)) {
         totalCobrado = venta.plan_pagos.filter(m => m.status === 'pagado').reduce((acc, m) => acc + (Number(m.amount) || 0), 0)
         totalPendiente = Math.max(0, ventaTotal - totalCobrado)
-        planDePagosDesc = venta.plan_pagos.map(m => `${m.label}: $${m.amount} (${m.status === 'pagado' ? 'Pagado' : 'Pendiente'} - ${m.date || 'Sin fecha'})`).join(' | ')
+        planDePagosDesc = venta.plan_pagos.map(m => `${m.label}: $${m.amount} (${m.status === 'pagado' ? 'Pagado' : 'Pendiente'} - ${m.method ? m.method.toUpperCase() : 'TRANSFERENCIA'} - ${m.date || 'Sin fecha'})`).join(' | ')
       } else if (venta) {
         totalCobrado = ventaTotal
         totalPendiente = 0

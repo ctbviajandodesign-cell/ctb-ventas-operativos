@@ -71,7 +71,7 @@ export default function EditarCotizacionPage() {
   async function fetchQuote() {
     const { data, error } = await supabase
       .from('cotizaciones')
-      .select('*')
+      .select('id, agencia, destino, numero_pasajeros, fecha_caducidad, hora_caducidad, notas_iniciales, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, nombres_pasajeros')
       .eq('id', id)
       .single()
     
@@ -188,6 +188,16 @@ export default function EditarCotizacionPage() {
               ))}
             </div>
             <button type="button" onClick={() => setPasajeros([...pasajeros, ''])} className="text-xs font-bold text-primary">+ Añadir pasajero</button>
+          </div>
+
+          <div className="card space-y-4">
+            <h3 className="font-bold text-gray-800 border-b pb-2">Observaciones / Especificaciones del Programa</h3>
+            <textarea
+              className="input mt-1 min-h-[120px] text-sm resize-none"
+              placeholder="Descripción del viaje, preferencias, tipo de servicio requerido..."
+              value={formData.notas_iniciales}
+              onChange={e => setFormData({ ...formData, notas_iniciales: e.target.value })}
+            />
           </div>
         </div>
 

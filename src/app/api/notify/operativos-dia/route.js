@@ -20,7 +20,12 @@ export async function GET(req) {
   )
 
   const secret = req.headers.get('x-cron-secret')
-  if (secret !== process.env.CRON_SECRET) {
+  const authHeader = req.headers.get('authorization')
+  const cronSecret = process.env.CRON_SECRET
+  const isVercelCron = cronSecret && authHeader === `Bearer ${cronSecret}`
+  const isCustomCron = cronSecret && secret === cronSecret
+
+  if (!isVercelCron && !isCustomCron) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

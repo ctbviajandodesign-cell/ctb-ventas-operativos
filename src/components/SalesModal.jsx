@@ -17,7 +17,7 @@ export default function SalesModal() {
   const isEditing = !!quote?.existingSale
 
   const [milestones, setMilestones] = useState([
-    { id: Date.now(), label: 'Primer Pago', amount: 0, percent: 0, date: new Date().toISOString().split('T')[0], status: 'pagado' }
+    { id: Date.now(), label: 'Primer Pago', amount: 0, percent: 0, date: new Date().toISOString().split('T')[0], status: 'pagado', method: 'efectivo' }
   ])
   const [inclusions, setInclusions] = useState({ hotel: true, traslados: false, boletos: false, tours: false, seguro: false })
   const [formData, setFormData] = useState({
@@ -51,7 +51,7 @@ export default function SalesModal() {
           pasajeros_voucher: Array.isArray(q.nombres_pasajeros) ? q.nombres_pasajeros.join('\n') : (q.nombres_pasajeros || '')
         })
         if (s.plan_pagos?.length) setMilestones(s.plan_pagos)
-        else setMilestones([{ id: Date.now(), label: 'Primer Pago', amount: s.total || 0, percent: 100, date: new Date().toISOString().split('T')[0], status: 'pagado' }])
+        else setMilestones([{ id: Date.now(), label: 'Primer Pago', amount: s.total || 0, percent: 100, date: new Date().toISOString().split('T')[0], status: 'pagado', method: 'efectivo' }])
 
         // Cargar voucher existente
         const { data: voucher } = await supabase
@@ -79,7 +79,7 @@ export default function SalesModal() {
           pasajeros_voucher: Array.isArray(q.nombres_pasajeros) ? q.nombres_pasajeros.join('\n') : (q.nombres_pasajeros || '')
         })
         setMilestones([
-          { id: Date.now(), label: 'Primer Pago', amount: initialTotal, percent: 100, date: new Date().toISOString().split('T')[0], status: 'pagado' }
+          { id: Date.now(), label: 'Primer Pago', amount: initialTotal, percent: 100, date: new Date().toISOString().split('T')[0], status: 'pagado', method: 'efectivo' }
         ])
       }
     }
@@ -114,9 +114,9 @@ export default function SalesModal() {
         utilidad: Number(formData.utilidad) || 0,
         bono_counter: Number(formData.bono_counter) || 0,
         plan_pagos: milestones,
-        abono_tarjeta: milestones.filter(m => m.status === 'pagado' && m.label.toLowerCase().includes('tarjeta')).reduce((acc, m) => acc + (Number(m.amount) || 0), 0),
-        abono_1: milestones.filter(m => m.status === 'pagado' && !m.label.toLowerCase().includes('tarjeta'))[0]?.amount || 0,
-        abono_2: milestones.filter(m => m.status === 'pagado' && !m.label.toLowerCase().includes('tarjeta')).slice(1).reduce((acc, m) => acc + (Number(m.amount) || 0), 0),
+        abono_tarjeta: milestones.filter(m => m.status === 'pagado' && m.method === 'tarjeta').reduce((acc, m) => acc + (Number(m.amount) || 0), 0),
+        abono_1: milestones.filter(m => m.status === 'pagado' && m.method !== 'tarjeta')[0]?.amount || 0,
+        abono_2: milestones.filter(m => m.status === 'pagado' && m.method !== 'tarjeta').slice(1).reduce((acc, m) => acc + (Number(m.amount) || 0), 0),
         estado: 'activa'
       }
 
@@ -262,6 +262,18 @@ export default function SalesModal() {
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-7 space-y-7">
 
+          {/* OBSERVACIONES DE LA COTIZACIÓN */}
+          {(quote?.notas_iniciales || quote?.cotizaciones?.notas_iniciales) && (
+            <div className="bg-primary/5 p-5 rounded-2xl border border-primary/10">
+              <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-1.5">
+                Observaciones / Especificaciones del Programa
+              </p>
+              <p className="text-xs text-gray-750 font-medium whitespace-pre-wrap break-words">
+                {quote.notas_iniciales || quote.cotizaciones?.notas_iniciales}
+              </p>
+            </div>
+          )}
+
           {/* VOUCHER EXISTENTE — solo en modo edición */}
           {isEditing && existingVoucher && (
             <div className="flex items-center justify-between bg-primary/5 border border-primary/20 p-5 rounded-2xl">
@@ -351,7 +363,7 @@ export default function SalesModal() {
                 else if (count === 8) nextLabel = 'Pago Ocho'
                 else if (count === 9) nextLabel = 'Pago Nueve'
                 else if (count === 10) nextLabel = 'Pago Diez'
-                setMilestones([...milestones, { id: Date.now(), label: nextLabel, amount: 0, percent: 0, date: '', status: 'pendiente' }])
+                setMilestones([...milestones, { id: Date.now(), label: nextLabel, amount: 0, percent: 0, date: '', status: 'pendiente', method: 'transferencia' }])
               }}
                 className="text-xs font-black text-primary bg-primary/5 px-3 py-1.5 rounded-full hover:bg-primary/10 transition-colors">
                 + Añadir pago
@@ -370,17 +382,28 @@ export default function SalesModal() {
             <div className="space-y-2">
               {milestones.map(m => (
                 <div key={m.id} className={`grid grid-cols-12 gap-2 p-3.5 rounded-2xl border transition-all ${m.status === 'pagado' ? 'bg-success/5 border-success/20' : 'bg-amber-50/50 border-amber-100'}`}>
-                  <div className="col-span-4">
+                  <div className="col-span-3">
                     <input className="bg-transparent border-none text-xs font-black w-full outline-none" value={m.label} onChange={e => updateMilestone(m.id, 'label', e.target.value)} />
                   </div>
                   <div className="col-span-2 relative">
                     <span className="absolute left-1 top-2 text-xs text-gray-400">$</span>
                     <input type="number" className="bg-white border-none rounded-lg text-xs font-black w-full pl-4 py-1.5 outline-none" value={m.amount} onChange={e => updateMilestone(m.id, 'amount', e.target.value)} />
                   </div>
-                  <div className="col-span-3">
+                  <div className="col-span-2">
                     <input type="date" className="bg-white border-none rounded-lg text-xs font-bold w-full py-1.5 px-2 outline-none" value={m.date} onChange={e => updateMilestone(m.id, 'date', e.target.value)} />
                   </div>
-                  <div className="col-span-3 flex justify-end gap-1 items-center">
+                  <div className="col-span-3">
+                    <select
+                      className="bg-white border-none rounded-lg text-[10px] font-bold w-full py-1.5 px-1 outline-none text-gray-700"
+                      value={m.method || 'transferencia'}
+                      onChange={e => updateMilestone(m.id, 'method', e.target.value)}
+                    >
+                      <option value="efectivo">💵 Efectivo</option>
+                      <option value="transferencia">🏦 Transferencia</option>
+                      <option value="tarjeta">💳 Tarjeta</option>
+                    </select>
+                  </div>
+                  <div className="col-span-2 flex justify-end gap-1 items-center">
                     <button type="button" onClick={() => updateMilestone(m.id, 'status', m.status === 'pagado' ? 'pendiente' : 'pagado')}
                       className={`p-1.5 rounded-lg transition-all ${m.status === 'pagado' ? 'text-success bg-white shadow-sm' : 'text-gray-300 hover:text-success'}`}>
                       <CheckCircle2 size={18} />
