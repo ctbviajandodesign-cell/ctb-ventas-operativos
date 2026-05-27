@@ -10,6 +10,13 @@ import Link from 'next/link'
 import { showToast } from '@/utils/toast'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, CartesianGrid } from 'recharts'
 
+const isExpired = (q) => {
+  if (!q.fecha_caducidad) return false
+  const timeStr = q.hora_caducidad ? q.hora_caducidad : '23:59:59'
+  const expiryDate = new Date(`${q.fecha_caducidad}T${timeStr}`)
+  return expiryDate < new Date()
+}
+
 export default function CotizacionesPage() {
   const [quotes, setQuotes] = useState([])
   const [loading, setLoading] = useState(true)
@@ -38,7 +45,7 @@ export default function CotizacionesPage() {
     try {
       let query = supabase
         .from('cotizaciones')
-        .select('id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, comercial, estado, motivo_perdida, created_at, notas_iniciales, profiles!inner(nombre, ciudad), ventas(id, estado, vouchers(codigo))')
+        .select('id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, comercial, estado, motivo_perdida, created_at, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!inner(nombre, ciudad), ventas(id, estado, vouchers(codigo))')
         .order('created_at', { ascending: false })
 
       if (!isAdmin) {
@@ -171,7 +178,8 @@ export default function CotizacionesPage() {
       }
       return {
         ...q,
-        estado: computedEstado
+        estado: computedEstado,
+        _esCaducada: computedEstado === 'abierta' && isExpired(q)
       }
     })
   }, [quotes])
@@ -179,7 +187,8 @@ export default function CotizacionesPage() {
   // Métricas para el mini-dashboard
   const stats = useMemo(() => {
     const total = enrichedQuotes.length
-    const abiertas = enrichedQuotes.filter(q => (q.estado || '').trim() === 'abierta').length
+    const abiertas = enrichedQuotes.filter(q => (q.estado || '').trim() === 'abierta' && !q._esCaducada).length
+    const caducadas = enrichedQuotes.filter(q => (q.estado || '').trim() === 'abierta' && q._esCaducada).length
     const ganadas = enrichedQuotes.filter(q => (q.estado || '').trim() === 'ganada').length
     const perdidas = enrichedQuotes.filter(q => (q.estado || '').trim() === 'perdida').length
     const anuladas = enrichedQuotes.filter(q => (q.estado || '').trim() === 'anulada').length
@@ -189,21 +198,28 @@ export default function CotizacionesPage() {
       .reduce((acc, q) => acc + (Number(q.valor_comision) || 0) + (Number(q.valor_utilidad) || 0), 0)
     const conversion = total > 0 ? ((ganadas / total) * 100).toFixed(1) : 0
 
-    return { total, abiertas, ganadas, perdidas, anuladas, totalVenta, totalAporte, conversion }
+    return { total, abiertas, caducadas, ganadas, perdidas, anuladas, totalVenta, totalAporte, conversion }
   }, [enrichedQuotes])
 
   const chartData = [
     { name: 'En Espera', value: stats.abiertas, color: '#0066CC' },
+    { name: 'Caducadas', value: stats.caducadas, color: '#EF4444' },
     { name: 'Vendidas ✓', value: stats.ganadas, color: '#16A34A' },
     { name: 'No Concretadas', value: stats.perdidas, color: '#F5A623' },
-    { name: 'Canceladas', value: stats.anuladas, color: '#EF4444' },
+    { name: 'Canceladas', value: stats.anuladas, color: '#DC2626' },
   ]
 
   // Filtros combinados: estado + búsqueda de texto + ciudad (para admin) + fecha
   const filtered = useMemo(() => {
     let result = enrichedQuotes
     if (statusFilter !== 'todas') {
-      result = result.filter(q => (q.estado || '').trim() === statusFilter)
+      if (statusFilter === 'abierta') {
+        result = result.filter(q => (q.estado || '').trim() === 'abierta' && !q._esCaducada)
+      } else if (statusFilter === 'caducada') {
+        result = result.filter(q => (q.estado || '').trim() === 'abierta' && q._esCaducada)
+      } else {
+        result = result.filter(q => (q.estado || '').trim() === statusFilter)
+      }
     }
     if (isAdmin && selectedCity !== 'todas') {
       result = result.filter(q => q.profiles?.ciudad === selectedCity)
@@ -253,9 +269,10 @@ export default function CotizacionesPage() {
   const filterTabs = [
     { key: 'todas', label: 'Todas', icon: FileText, color: 'gray' },
     { key: 'abierta', label: 'En Espera', icon: Clock, color: 'blue' },
+    { key: 'caducada', label: 'Caducadas', icon: AlertTriangle, color: 'red' },
     { key: 'ganada', label: 'Vendidas', icon: CheckCircle2, color: 'green' },
     { key: 'perdida', label: 'No Concretadas', icon: XCircle, color: 'amber' },
-    { key: 'anulada', label: 'Canceladas', icon: AlertTriangle, color: 'red' },
+    { key: 'anulada', label: 'Canceladas', icon: AlertCircle, color: 'red' },
   ]
 
   if (loading) return (
@@ -293,7 +310,7 @@ export default function CotizacionesPage() {
       </div>
 
       {/* MINI DASHBOARD DE STATS */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col justify-between">
           <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Total Cotizaciones</p>
           <p className="text-4xl font-black text-gray-900 mt-2">{stats.total}</p>
@@ -304,12 +321,17 @@ export default function CotizacionesPage() {
           <p className="text-4xl font-black text-primary mt-2">{stats.abiertas}</p>
           <p className="text-xs text-primary/60 mt-2 font-bold">Esperando cierre</p>
         </div>
+        <div className="bg-rose-50/60 border border-rose-100 p-6 rounded-[2rem] text-rose-600 flex flex-col justify-between">
+          <p className="text-xs font-black text-rose-500 uppercase tracking-widest">Caducadas</p>
+          <p className="text-4xl font-black text-rose-600 mt-2">{stats.caducadas}</p>
+          <p className="text-xs text-rose-450 mt-2 font-bold">Fecha límite pasada</p>
+        </div>
         <div className="bg-success/5 border border-success/10 p-6 rounded-[2rem] flex flex-col justify-between">
           <p className="text-xs font-black text-success/80 uppercase tracking-widest">Vendidas</p>
           <p className="text-4xl font-black text-success mt-2">{stats.ganadas}</p>
           <p className="text-xs text-success/60 mt-2 font-bold">{stats.conversion}% de conversión</p>
         </div>
-        <div className="bg-gray-900 p-6 rounded-[2rem] text-white flex flex-col justify-between">
+        <div className="bg-gray-900 p-6 rounded-[2rem] text-white flex flex-col justify-between col-span-2 md:col-span-1">
           <p className="text-xs font-black text-primary uppercase tracking-widest">Mi Ganancia Total</p>
           <p className="text-2xl font-black mt-2">${stats.totalAporte.toLocaleString()}</p>
           <p className="text-xs text-gray-400 mt-2 font-bold">Comisiones + Utilidades</p>
@@ -321,6 +343,7 @@ export default function CotizacionesPage() {
       <AIInsightCard metricas={{
         total: stats.total,
         abiertas: stats.abiertas,
+        caducadas: stats.caducadas,
         ganadas: stats.ganadas,
         perdidas: stats.perdidas,
         conversion: stats.conversion,
@@ -399,6 +422,7 @@ export default function CotizacionesPage() {
                 <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-black ${isActive ? 'bg-white/20' : 'bg-gray-200 text-gray-500'}`}>
                   {tab.key === 'todas' ? stats.total
                     : tab.key === 'abierta' ? stats.abiertas
+                    : tab.key === 'caducada' ? stats.caducadas
                     : tab.key === 'ganada' ? stats.ganadas
                     : tab.key === 'perdida' ? stats.perdidas
                     : stats.anuladas}

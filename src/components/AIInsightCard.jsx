@@ -58,7 +58,7 @@ export default function AIInsightCard({ metricas, modo = 'OPERATIVE' }) {
     return () => {
       active = false
     }
-  }, [metricas?.total, metricas?.ganadas, metricas?.abiertas, metricas?.perdidas, modo])
+  }, [metricas?.total, metricas?.ganadas, metricas?.abiertas, metricas?.caducadas, metricas?.perdidas, modo])
 
   return (
     <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-6 rounded-[2.5rem] text-white relative overflow-hidden border border-white/5 shadow-2xl">

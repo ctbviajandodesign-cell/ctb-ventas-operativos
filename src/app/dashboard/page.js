@@ -44,6 +44,13 @@ import {
   Cell 
 } from 'recharts'
 
+const isExpired = (q) => {
+  if (!q.fecha_caducidad) return false
+  const timeStr = q.hora_caducidad ? q.hora_caducidad : '23:59:59'
+  const expiryDate = new Date(`${q.fecha_caducidad}T${timeStr}`)
+  return expiryDate < new Date()
+}
+
 export default function DashboardPage() {
   const [profile, setProfile] = useState(null)
   const [selectedOperative, setSelectedOperative] = useState('global')
@@ -55,6 +62,7 @@ export default function DashboardPage() {
     totalVendido: 0,
     metaComputable: 0,
     cotizacionesAbiertas: 0,
+    cotizacionesCaducadas: 0,
     porcentajeMeta: 0,
     pipeline: 0,
     topDestino: 'N/A',
@@ -152,8 +160,8 @@ export default function DashboardPage() {
 
       let ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id').eq('estado', 'activa').gte('created_at', startIso)
       let cotGanadasQuery = supabase.from('cotizaciones').select('valor_total').eq('estado', 'ganada').gte('created_at', startIso)
-      let quotesQuery = supabase.from('cotizaciones').select('id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, estado, motivo_perdida, created_at, notas_iniciales, profiles!left(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10)
-      let pipelineQuery = supabase.from('cotizaciones').select('operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, profiles!left(nombre, ciudad), ventas(id, estado, vouchers(codigo))').gte('created_at', startIso)
+      let quotesQuery = supabase.from('cotizaciones').select('id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, estado, motivo_perdida, created_at, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10)
+      let pipelineQuery = supabase.from('cotizaciones').select('operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(id, estado, vouchers(codigo))').gte('created_at', startIso)
       let openCountQuery = supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'abierta').gte('created_at', startIso)
       let lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, notas_iniciales, created_at, comercial, estado, profiles!left(nombre, ciudad)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).order('created_at', { ascending: false })
 
@@ -169,13 +177,13 @@ export default function DashboardPage() {
         // MODO GLOBAL/ADMIN: Filtrar por ciudad haciendo join manual con profiles (requiere foreign keys intactas)
         ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id, profiles!inner(ciudad)').eq('estado', 'activa').gte('created_at', startIso).eq('profiles.ciudad', activeCityFilter)
         cotGanadasQuery = supabase.from('cotizaciones').select('valor_total, profiles!inner(ciudad)').eq('estado', 'ganada').gte('created_at', startIso).eq('profiles.ciudad', activeCityFilter)
-        quotesQuery = supabase.from('cotizaciones').select('id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, estado, motivo_perdida, created_at, notas_iniciales, profiles!inner(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10).eq('profiles.ciudad', activeCityFilter)
-        pipelineQuery = supabase.from('cotizaciones').select('operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, profiles!inner(nombre, ciudad), ventas(id, estado, vouchers(codigo))').gte('created_at', startIso).eq('profiles.ciudad', activeCityFilter)
+        quotesQuery = supabase.from('cotizaciones').select('id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, estado, motivo_perdida, created_at, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!inner(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10).eq('profiles.ciudad', activeCityFilter)
+        pipelineQuery = supabase.from('cotizaciones').select('operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!inner(nombre, ciudad), ventas(id, estado, vouchers(codigo))').gte('created_at', startIso).eq('profiles.ciudad', activeCityFilter)
         openCountQuery = supabase.from('cotizaciones').select('id, profiles!inner(ciudad)', { count: 'exact', head: true }).eq('estado', 'abierta').gte('created_at', startIso).eq('profiles.ciudad', activeCityFilter)
         lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, notas_iniciales, created_at, comercial, estado, profiles!inner(nombre, ciudad)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).order('created_at', { ascending: false }).eq('profiles.ciudad', activeCityFilter)
       } else {
         // MODO GLOBAL TOTAL
-        quotesQuery = supabase.from('cotizaciones').select('id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, estado, motivo_perdida, created_at, notas_iniciales, profiles!left(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10)
+        quotesQuery = supabase.from('cotizaciones').select('id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, estado, motivo_perdida, created_at, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10)
         lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, notas_iniciales, created_at, comercial, estado, profiles!left(nombre, ciudad)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).order('created_at', { ascending: false })
       }
 
@@ -230,78 +238,7 @@ export default function DashboardPage() {
       setLeaderboard(board || [])
       setChartData(board || [])
 
-      if (targetIdForIndividual) {
-        const [
-          { count: vCount },
-          { count: wonCount },
-          { count: openCountInd },
-          { count: lostCount },
-          { count: anuladaCount },
-          { count: totalQ }
-        ] = await Promise.all([
-          supabase.from('vouchers').select('id', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual).gte('created_at', startIso),
-          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual).eq('estado', 'ganada').gte('created_at', startIso),
-          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual).eq('estado', 'abierta').gte('created_at', startIso),
-          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual).eq('estado', 'perdida').gte('created_at', startIso),
-          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual).eq('estado', 'anulada').gte('created_at', startIso),
-          supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('operativo_id', targetIdForIndividual).gte('created_at', startIso)
-        ])
-
-        const stats = [
-          { name: 'Ganadas', value: wonCount || 0, color: '#16A34A' },
-          { name: 'Abiertas', value: openCountInd || 0, color: '#0066CC' },
-          { name: 'Perdidas', value: lostCount || 0, color: '#F5A623' },
-          { name: 'Anuladas', value: anuladaCount || 0, color: '#DC2626' }
-        ]
-        setIndividualStats(stats)
-
-        setMetrics(prev => ({ 
-          ...prev, 
-          vouchersEmitidos: vCount || 0, 
-          cotizacionesAbiertas: openCountInd || 0,
-          conversionRate: totalQ > 0 ? ((wonCount || 0) / totalQ) * 100 : 0,
-          total: totalQ || 0,
-          abiertas: openCountInd || 0,
-          ganadas: wonCount || 0,
-          perdidas: lostCount || 0,
-          conversion: totalQ > 0 ? (((wonCount || 0) / totalQ) * 100).toFixed(1) : 0
-        }))
-      } else {
-        let wonAllQuery = supabase.from('cotizaciones').select('id, profiles!inner(ciudad)', { count: 'exact', head: true }).eq('estado', 'ganada').gte('created_at', startIso)
-        let openAllQuery = supabase.from('cotizaciones').select('id, profiles!inner(ciudad)', { count: 'exact', head: true }).eq('estado', 'abierta').gte('created_at', startIso)
-        let lostAllQuery = supabase.from('cotizaciones').select('id, profiles!inner(ciudad)', { count: 'exact', head: true }).eq('estado', 'perdida').gte('created_at', startIso)
-        let totalAllQuery = supabase.from('cotizaciones').select('id, profiles!inner(ciudad)', { count: 'exact', head: true }).gte('created_at', startIso)
-
-        if (activeCityFilter && activeCityFilter !== 'global') {
-          wonAllQuery = wonAllQuery.eq('profiles.ciudad', activeCityFilter)
-          openAllQuery = openAllQuery.eq('profiles.ciudad', activeCityFilter)
-          lostAllQuery = lostAllQuery.eq('profiles.ciudad', activeCityFilter)
-          totalAllQuery = totalAllQuery.eq('profiles.ciudad', activeCityFilter)
-        }
-
-        const [
-          { count: wonAll },
-          { count: openAll },
-          { count: lostAll },
-          { count: totalAll }
-        ] = await Promise.all([
-          wonAllQuery,
-          openAllQuery,
-          lostAllQuery,
-          totalAllQuery
-        ])
-
-        setMetrics(prev => ({ 
-          ...prev, 
-          cotizacionesAbiertas: openAll || 0,
-          conversionRate: totalAll > 0 ? ((wonAll || 0) / totalAll) * 100 : 0,
-          total: totalAll || 0,
-          abiertas: openAll || 0,
-          ganadas: wonAll || 0,
-          perdidas: lostAll || 0,
-          conversion: totalAll > 0 ? (((wonAll || 0) / totalAll) * 100).toFixed(1) : 0
-        }))
-      }
+      // Las métricas y estadísticas del embudo se calculan en memoria a partir de pipelineEnriched al final del flujo.
 
       // Calcular motivos principales de pérdida para el periodo actual
       const motivesMap = {}
@@ -360,10 +297,22 @@ export default function DashboardPage() {
         return a + com + uti
       }, 0)
       
-      const abiertasReal   = pipelineEnriched.filter(q => !q._esVenta && q.estado !== 'perdida' && q.estado !== 'anulada').length
+      const caducadasReal  = pipelineEnriched.filter(q => !q._esVenta && q.estado !== 'perdida' && q.estado !== 'anulada' && isExpired(q)).length
+      const abiertasReal   = pipelineEnriched.filter(q => !q._esVenta && q.estado !== 'perdida' && q.estado !== 'anulada' && !isExpired(q)).length
       const perdidasReal   = pipelineEnriched.filter(q => q.estado === 'perdida').length
+      const anuladasReal   = pipelineEnriched.filter(q => q.estado === 'anulada').length
       const totalReal      = pipelineEnriched.length
       const convReal       = totalReal > 0 ? (ganadasCount / totalReal * 100) : 0
+
+      // Si estamos en modo individual o para el embudo de visualización personal
+      const indStats = [
+        { name: 'Ganadas', value: ganadasCount, color: '#16A34A' },
+        { name: 'En Espera', value: abiertasReal, color: '#0066CC' },
+        { name: 'Caducadas', value: caducadasReal, color: '#EF4444' },
+        { name: 'Perdidas', value: perdidasReal, color: '#F5A623' },
+        { name: 'Anuladas', value: anuladasReal, color: '#DC2626' }
+      ]
+      setIndividualStats(indStats)
 
       setMetrics(prev => ({
         ...prev,
@@ -374,6 +323,7 @@ export default function DashboardPage() {
         vouchersEmitidos: ganadasCount,
         abiertas:        abiertasReal,
         cotizacionesAbiertas: abiertasReal,
+        cotizacionesCaducadas: caducadasReal,
         perdidas:        perdidasReal,
         total:           totalReal,
         conversionRate:  convReal,
@@ -457,7 +407,7 @@ export default function DashboardPage() {
     const startOfMonth = new Date(); startOfMonth.setDate(1); startOfMonth.setHours(0,0,0,0)
     const [{ data: ventas }, { data: cots }, { count: vouchers }] = await Promise.all([
       supabase.from('ventas').select('total,comision,utilidad,created_at').eq('operativo_id', op.id).eq('estado','activa').gte('created_at', startOfMonth.toISOString()),
-      supabase.from('cotizaciones').select('estado,valor_total,destino,motivo_perdida').eq('operativo_id', op.id),
+      supabase.from('cotizaciones').select('estado,valor_total,destino,motivo_perdida,fecha_caducidad,hora_caducidad,valor_comision,valor_utilidad').eq('operativo_id', op.id),
       supabase.from('vouchers').select('id', { count:'exact', head:true }).eq('operativo_id', op.id)
     ])
     // IMPORTANTE: ganancia = comision + utilidad (aporte CTB), totalVendido = valor cliente
@@ -467,7 +417,8 @@ export default function DashboardPage() {
     const totalVendido = aporteVentasCots  // Aporte CTB (comision+utilidad), para info
     const valorTotalCliente = cots?.filter(c=>c.estado==='ganada').reduce((a,c)=>a+(Number(c.valor_total)||0),0)||0
     const ganadas = cots?.filter(c=>c.estado==='ganada').length||0
-    const abiertas = cots?.filter(c=>c.estado==='abierta').length||0
+    const abiertas = cots?.filter(c=>c.estado==='abierta' && !isExpired(c)).length||0
+    const caducadas = cots?.filter(c=>c.estado==='abierta' && isExpired(c)).length||0
     const perdidas = cots?.filter(c=>['perdida','anulada'].includes(c.estado)).length||0
     const totalCots = cots?.length||0
 
@@ -496,6 +447,7 @@ export default function DashboardPage() {
       valorTotalCliente,
       ganadas,
       abiertas,
+      caducadas,
       perdidas,
       totalCots,
       vouchers: vouchers||0,
@@ -743,15 +695,16 @@ export default function DashboardPage() {
 
               <div>
                 <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Cotizaciones (histórico total)</p>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-4 gap-2">
                   {[
                     { label: 'Ganadas', val: operativePanel.ganadas, color: 'text-success bg-success/10 border-success/20' },
                     { label: 'En Espera', val: operativePanel.abiertas, color: 'text-primary bg-primary/10 border-primary/20' },
+                    { label: 'Caducadas', val: operativePanel.caducadas, color: 'text-rose-600 bg-rose-50 border-rose-100' },
                     { label: 'Perdidas', val: operativePanel.perdidas, color: 'text-amber-600 bg-amber-50 border-amber-100' },
                   ].map(item => (
-                    <div key={item.label} className={`p-3 rounded-2xl text-center border ${item.color}`}>
-                      <p className="text-2xl font-black">{item.val}</p>
-                      <p className="text-xs font-black uppercase mt-0.5">{item.label}</p>
+                    <div key={item.label} className={`p-3 rounded-2xl text-center border ${item.color} min-w-0`}>
+                      <p className="text-2xl font-black truncate">{item.val}</p>
+                      <p className="text-[10px] font-black uppercase mt-0.5 truncate">{item.label}</p>
                     </div>
                   ))}
                 </div>
@@ -934,7 +887,7 @@ export default function DashboardPage() {
       </div>
 
       {/* KPI GRID */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <StatsCard 
           title="Total Ventas"
           value={`$${metrics.totalVendido.toLocaleString()}`} 
@@ -957,16 +910,25 @@ export default function DashboardPage() {
           description="Comisión + Utilidad (Meta)"
         />
         <StatsCard 
-          title="Cotizaciones Emitidas" 
-          value={metrics.pipeline.toLocaleString()} 
+          title="En Espera" 
+          value={metrics.cotizacionesAbiertas.toLocaleString()} 
           icon={Target}
           color="warning"
+          description="Cotizaciones vigentes"
         />
         <StatsCard 
-          title={selectedOperative === 'global' && isAdmin ? "Cotizaciones en Espera" : "Vouchers Emitidos"} 
-          value={selectedOperative === 'global' && isAdmin ? metrics.cotizacionesAbiertas : metrics.vouchersEmitidos} 
-          icon={FileText}
+          title="Caducadas" 
+          value={metrics.cotizacionesCaducadas.toLocaleString()} 
+          icon={AlertTriangle}
           color="danger"
+          description="Excedieron 24h/límite"
+        />
+        <StatsCard 
+          title="Vouchers Emitidos" 
+          value={metrics.vouchersEmitidos.toLocaleString()} 
+          icon={FileText}
+          color="primary"
+          description="Vouchers activos"
         />
       </div>
 

@@ -21,6 +21,13 @@ import {
   AlertTriangle
 } from 'lucide-react'
 
+const isExpired = (q) => {
+  if (!q.fecha_caducidad) return false
+  const timeStr = q.hora_caducidad ? q.hora_caducidad : '23:59:59'
+  const expiryDate = new Date(`${q.fecha_caducidad}T${timeStr}`)
+  return expiryDate < new Date()
+}
+
 /**
  * DashboardCharts Component
  * Renders the global or individual performance charts for the dashboard.
@@ -81,7 +88,8 @@ export default function DashboardCharts({
   const advisorStats = useMemo(() => {
     const total = filteredData.length
     const vendidas = filteredData.filter(q => q._esVenta).length
-    const abiertas = filteredData.filter(q => !q._esVenta && q.estado === 'abierta').length
+    const abiertas = filteredData.filter(q => !q._esVenta && q.estado === 'abierta' && !isExpired(q)).length
+    const caducadas = filteredData.filter(q => !q._esVenta && q.estado === 'abierta' && isExpired(q)).length
     const perdidas = filteredData.filter(q => q.estado === 'perdida').length
     const anuladas = filteredData.filter(q => q.estado === 'anulada').length
 
@@ -99,6 +107,7 @@ export default function DashboardCharts({
       total,
       vendidas,
       abiertas,
+      caducadas,
       perdidas,
       anuladas,
       conversion,
@@ -296,6 +305,22 @@ export default function DashboardCharts({
                         <div 
                           className="bg-primary h-full transition-all duration-550" 
                           style={{ width: `${advisorStats.total > 0 ? (advisorStats.abiertas / advisorStats.total) * 100 : 0}%` }}
+                        ></div>
+                      </div>
+                    </div>
+
+                    {/* CADUCADAS */}
+                    <div>
+                      <div className="flex justify-between items-center mb-1 text-xs">
+                        <span className="font-black text-rose-500 uppercase flex items-center gap-1.5">
+                          <AlertTriangle size={12} /> Caducadas
+                        </span>
+                        <span className="font-bold text-gray-500">{advisorStats.caducadas}</span>
+                      </div>
+                      <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                        <div 
+                          className="bg-rose-500 h-full transition-all duration-550" 
+                          style={{ width: `${advisorStats.total > 0 ? (advisorStats.caducadas / advisorStats.total) * 100 : 0}%` }}
                         ></div>
                       </div>
                     </div>
