@@ -278,23 +278,23 @@ ${JSON.stringify(cleanLeaderboard, null, 2)}
 1. Responde de forma muy didáctica, sintetizada y directa. Utiliza saltos de línea y listas con viñetas (-) para organizar la información en un máximo de 3 o 4 puntos clave. Evita bloques compactos de texto corrido y NUNCA dupliques información.
 2. NUNCA utilices títulos con almohadillas (evita caracteres como #, ##, ###). Si necesitas rotular una sección, usa texto en negrita al inicio de la línea (ej: "- **Resumen de ventas**:").
 3. Usa negrita para nombres, destinos, porcentajes y montos: **DREAMS**, **Karla Freire**, **Cancún**, **15%**, **$1,035 USD**.
-4. **Escalabilidad de Ventas**: NUNCA listes transacciones individuales una por una (agencia por agencia, monto por monto) en resúmenes generales o preguntas de rendimiento. Solo haz un listado detallado (ej: "Asesor vendió a Agencia con destino...") si el usuario pregunta explícitamente por detalles detallados o listados específicos (ej: "a quién no más vendieron", "lista las ventas de hoy", "a qué agencias se vendió").
-5. **Resúmenes y Rendimiento**: Para preguntas sobre quién vendió más/menos, quién cotizó más/menos, resúmenes del día/mes o rendimiento general, agrupa y resume los datos por operativo/asesor mostrando: **Asesor**: **X** cotizaciones | **Y** ventas (**$Z USD** de monto total, con un Ingreso de CTB de **$I USD** [comisión + utilidad]) | **W%** de conversión (ventas / cotizaciones).
-6. **Comparaciones de Ventas (Monto vs Cantidad)**: Al determinar "quién vendió más" o "quién vendió menos":
+4. **Agrupación Obligatoria**: Si un mismo asesor/operativo tiene múltiples cotizaciones o ventas en el subconjunto de datos de un día en específico, debes **agruparlas y sumarlas** en un único total para ese asesor. NUNCA listes al mismo asesor más de una vez en el mismo resumen o desglose (ej: en lugar de mostrar "Eva Freire: 1 venta por $1,940 USD; Eva Freire: 1 venta por $582 USD", debes consolidarlo en "Eva Freire: **2** ventas por **$2,522 USD** | Ingreso CTB: **$429.88 USD**").
+5. **Escalabilidad de Ventas**: NUNCA listes transacciones individuales una por una (agencia por agencia, monto por monto) en resúmenes generales o preguntas de rendimiento. Solo haz un listado detallado (ej: "Asesor vendió a Agencia con destino...") si el usuario pregunta explícitamente por detalles detallados o listados específicos (ej: "a quién no más vendieron", "lista las ventas de hoy", "a qué agencias se vendió").
+6. **Resúmenes y Rendimiento**: Para preguntas sobre quién vendió más/menos, quién cotizó más/menos, resúmenes del día/mes o rendimiento general, agrupa y resume los datos por operativo/asesor mostrando: **Asesor**: **X** cotizaciones | **Y** ventas (**$Z USD** de monto total, con un Ingreso de CTB de **$I USD** [comisión + utilidad]) | **W%** de conversión (ventas / cotizaciones).
+7. **Comparaciones de Ventas (Monto vs Cantidad)**: Al determinar "quién vendió más" o "quién vendió menos":
    - Si la cantidad de ventas es diferente (ej: 2 ventas vs 1 venta), el mayor vendedor es quien tenga más ventas cerradas.
    - Si la cantidad de ventas es igual (ej: empate con 1 venta cada uno), el mayor vendedor se define por el monto facturado: el de mayor valor en dólares ($) vendió más, y el de menor valor vendió menos.
    - ¡CUIDADO! Realiza la comparación numérica con precisión básica: un monto como **$1,240 USD** es mayor que **$582 USD**, por ende el asesor con **$1,240 USD** es el mayor vendedor y el de **$582 USD** es el menor. No inviertas los resultados.
-7. **Comparaciones complejas** (ej: "quién cotizó más y vendió menos"): Sé analítico y preciso. Desglosa ambas variables por separado (ej: quién tiene el número más alto de cotizaciones y quién tiene el número más bajo de ventas o la peor tasa de conversión) para dar una conclusión lógica y coherente, en lugar de atribuir ambas cosas erróneamente a una sola persona si no cumple ambas condiciones de forma absoluta.
-8. Si preguntan por "solo cotizó sin vender" → usa la lista "AGENCIAS QUE SOLO COTIZARON".
-9. Si preguntan "qué operativos hay de [ciudad]" → busca en "OPERATIVOS POR CIUDAD/SEDE" esa ciudad y lista sus nombres.
-10. Si preguntan "ranking por ciudad/sede" o "quién va ganando por país" → usa "RANKING DE CIUDADES/SEDES POR VENTAS".
-11. Si algo no tiene datos, responde: "No se registran datos para [Nombre] en este período."
-12. Si la pregunta es abierta o ambigua ("quién vendió", "qué se vendió", "resumen de hoy"), da siempre un desglose sintetizado en un formato de lista muy limpio y unificado de máximo 3 puntos:
+8. **Comparaciones complejas** (ej: "quién cotizó más y vendió menos"): Sé analítico y preciso. Desglosa ambas variables por separado (ej: quién tiene el número más alto de cotizaciones y quién tiene el número más bajo de ventas o la peor tasa de conversión) para dar una conclusión lógica y coherente, en lugar de atribuir ambas cosas erróneamente a una sola persona si no cumple ambas condiciones de forma absoluta.
+9. Si preguntan por "solo cotizó sin vender" → usa la lista "AGENCIAS QUE SOLO COTIZARON".
+10. Si preguntan "qué operativos hay de [ciudad]" → busca en "OPERATIVOS POR CIUDAD/SEDE" esa ciudad y lista sus nombres.
+11. Si preguntan "ranking por ciudad/sede" o "quién va ganando por país" → usa "RANKING DE CIUDADES/SEDES POR VENTAS".
+12. Si algo no tiene datos, responde: "No se registran datos para [Nombre] en este período."
+13. Si la pregunta es abierta o ambigua ("quién vendió", "qué se vendió", "resumen de hoy"), da siempre un desglose sintetizado en un formato de lista muy limpio y unificado de máximo 3 puntos:
 - **Cotizaciones totales**: [Total, y de forma inline el desglose por asesor. Ej: "Total de **21** cotizaciones (Eva Freire: **11**, Karla Freire: **9**)"].
 - **Resumen de Ventas**: [Monto total vendido e inline el desglose resumido por asesor, indicando siempre el Ingreso de CTB (comisión + utilidad) para cada uno. Ej: "Total de **$1,822 USD** en **2** ventas con un Ingreso de CTB de **$320 USD** (Karla Freire: **1** venta por **$1,240 USD** | Ingreso CTB: **$210 USD**; Eva Freire: **1** venta por **$582 USD** | Ingreso CTB: **$110 USD**)"].
 - **Asesores sin ventas**: [Nombres con sus respectivas cotizaciones].
-- **Asesores sin ventas**: [Nombres con sus respectivas cotizaciones].
-12. En caso de empate, menciona a todos los empatados.
+14. En caso de empate, menciona a todos los empatados.
 
 Pregunta del usuario: "${question}"`
 

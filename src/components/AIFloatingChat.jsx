@@ -227,7 +227,7 @@ export default function AIFloatingChat() {
       {/* FONDO OSCURO TRANSLÚCIDO PARA AISLAR EL CHAT EN MÓVIL Y EVITAR SOBREPOSICIONES */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-45 animate-in fade-in duration-200"
+          className="fixed inset-0 bg-black/25 z-45 animate-in fade-in duration-200"
           onClick={() => setIsOpen(false)}
         />
       )}
