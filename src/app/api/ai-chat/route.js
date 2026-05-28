@@ -115,22 +115,28 @@ export async function POST(request) {
     // Operativos resumen
     const operativosMap = {}
     cleanDataset.forEach(q => {
-      if (!operativosMap[q.operativo]) operativosMap[q.operativo] = { cotizaciones: 0, ventas: 0, monto: 0 }
+      if (!operativosMap[q.operativo]) operativosMap[q.operativo] = { cotizaciones: 0, ventas: 0, monto: 0, comision: 0, utilidad: 0, ingreso_ctb: 0 }
       operativosMap[q.operativo].cotizaciones++
       if (q.es_venta) {
         operativosMap[q.operativo].ventas++
         operativosMap[q.operativo].monto += q.valor_venta
+        operativosMap[q.operativo].comision += q.comision
+        operativosMap[q.operativo].utilidad += q.utilidad
+        operativosMap[q.operativo].ingreso_ctb += q.aporte_ctb
       }
     })
 
     // Comerciales resumen
     const comercialesMap = {}
     cleanDataset.filter(q => q.comercial).forEach(q => {
-      if (!comercialesMap[q.comercial]) comercialesMap[q.comercial] = { cotizaciones: 0, ventas: 0, monto: 0 }
+      if (!comercialesMap[q.comercial]) comercialesMap[q.comercial] = { cotizaciones: 0, ventas: 0, monto: 0, comision: 0, utilidad: 0, ingreso_ctb: 0 }
       comercialesMap[q.comercial].cotizaciones++
       if (q.es_venta) {
         comercialesMap[q.comercial].ventas++
         comercialesMap[q.comercial].monto += q.valor_venta
+        comercialesMap[q.comercial].comision += q.comision
+        comercialesMap[q.comercial].utilidad += q.utilidad
+        comercialesMap[q.comercial].ingreso_ctb += q.aporte_ctb
       }
     })
 
@@ -223,6 +229,7 @@ export async function POST(request) {
 - "destino": Lugar turístico del viaje.
 - "ciudad" o "país" en contexto CTB = sede del operativo (Quito, Guayaquil, Cuenca, etc.).
 - Venta confirmada = "es_venta: true" en el dataset.
+- "Ingreso de CTB" o "Aporte CTB": Es el margen de ganancia real para la empresa (CTB Viajando), calculado como la suma de comisión + utilidad (comision + utilidad). Es distinto al "monto de venta" (que representa el costo cobrado al cliente).
 
 === TOTALES DEL PERÍODO ===
 - Total cotizaciones: ${cleanDataset.length}
@@ -257,6 +264,9 @@ ${JSON.stringify(cleanDataset.map(q => ({
   operativo: q.operativo,
   es_venta: q.es_venta,
   valor: q.es_venta ? q.valor_venta : q.valor_cotizacion,
+  comision: q.comision,
+  utilidad: q.utilidad,
+  ingreso_ctb: q.aporte_ctb,
   destino: q.destino,
   agencia: q.agencia
 })), null, 2)}
@@ -269,15 +279,20 @@ ${JSON.stringify(cleanLeaderboard, null, 2)}
 2. NUNCA utilices títulos con almohadillas (evita caracteres como #, ##, ###). Si necesitas rotular una sección, usa texto en negrita al inicio de la línea (ej: "- **Resumen de ventas**:").
 3. Usa negrita para nombres, destinos, porcentajes y montos: **DREAMS**, **Karla Freire**, **Cancún**, **15%**, **$1,035 USD**.
 4. **Escalabilidad de Ventas**: NUNCA listes transacciones individuales una por una (agencia por agencia, monto por monto) en resúmenes generales o preguntas de rendimiento. Solo haz un listado detallado (ej: "Asesor vendió a Agencia con destino...") si el usuario pregunta explícitamente por detalles detallados o listados específicos (ej: "a quién no más vendieron", "lista las ventas de hoy", "a qué agencias se vendió").
-5. **Resúmenes y Rendimiento**: Para preguntas sobre quién vendió más, quién cotizó más/menos, resúmenes del día/mes o rendimiento general, agrupa y resume los datos por operativo/asesor mostrando: **Asesor**: **X** cotizaciones | **Y** ventas (**$Z USD** de monto total) | **W%** de conversión (ventas / cotizaciones).
-6. **Comparaciones complejas** (ej: "quién cotizó más y vendió menos"): Sé analítico y preciso. Desglosa ambas variables por separado (ej: quién tiene el número más alto de cotizaciones y quién tiene el número más bajo de ventas o la peor tasa de conversión) para dar una conclusión lógica y coherente, en lugar de atribuir ambas cosas erróneamente a una sola persona si no cumple ambas condiciones de forma absoluta.
-7. Si preguntan por "solo cotizó sin vender" → usa la lista "AGENCIAS QUE SOLO COTIZARON".
-8. Si preguntan "qué operativos hay de [ciudad]" → busca en "OPERATIVOS POR CIUDAD/SEDE" esa ciudad y lista sus nombres.
-9. Si preguntan "ranking por ciudad/sede" o "quién va ganando por país" → usa "RANKING DE CIUDADES/SEDES POR VENTAS".
-10. Si algo no tiene datos, responde: "No se registran datos para [Nombre] en este período."
-11. Si la pregunta es abierta o ambigua ("quién vendió", "qué se vendió", "resumen de hoy"), da siempre un desglose sintetizado en un formato de lista muy limpio y unificado de máximo 3 puntos:
+5. **Resúmenes y Rendimiento**: Para preguntas sobre quién vendió más/menos, quién cotizó más/menos, resúmenes del día/mes o rendimiento general, agrupa y resume los datos por operativo/asesor mostrando: **Asesor**: **X** cotizaciones | **Y** ventas (**$Z USD** de monto total, con un Ingreso de CTB de **$I USD** [comisión + utilidad]) | **W%** de conversión (ventas / cotizaciones).
+6. **Comparaciones de Ventas (Monto vs Cantidad)**: Al determinar "quién vendió más" o "quién vendió menos":
+   - Si la cantidad de ventas es diferente (ej: 2 ventas vs 1 venta), el mayor vendedor es quien tenga más ventas cerradas.
+   - Si la cantidad de ventas es igual (ej: empate con 1 venta cada uno), el mayor vendedor se define por el monto facturado: el de mayor valor en dólares ($) vendió más, y el de menor valor vendió menos.
+   - ¡CUIDADO! Realiza la comparación numérica con precisión básica: un monto como **$1,240 USD** es mayor que **$582 USD**, por ende el asesor con **$1,240 USD** es el mayor vendedor y el de **$582 USD** es el menor. No inviertas los resultados.
+7. **Comparaciones complejas** (ej: "quién cotizó más y vendió menos"): Sé analítico y preciso. Desglosa ambas variables por separado (ej: quién tiene el número más alto de cotizaciones y quién tiene el número más bajo de ventas o la peor tasa de conversión) para dar una conclusión lógica y coherente, en lugar de atribuir ambas cosas erróneamente a una sola persona si no cumple ambas condiciones de forma absoluta.
+8. Si preguntan por "solo cotizó sin vender" → usa la lista "AGENCIAS QUE SOLO COTIZARON".
+9. Si preguntan "qué operativos hay de [ciudad]" → busca en "OPERATIVOS POR CIUDAD/SEDE" esa ciudad y lista sus nombres.
+10. Si preguntan "ranking por ciudad/sede" o "quién va ganando por país" → usa "RANKING DE CIUDADES/SEDES POR VENTAS".
+11. Si algo no tiene datos, responde: "No se registran datos para [Nombre] en este período."
+12. Si la pregunta es abierta o ambigua ("quién vendió", "qué se vendió", "resumen de hoy"), da siempre un desglose sintetizado en un formato de lista muy limpio y unificado de máximo 3 puntos:
 - **Cotizaciones totales**: [Total, y de forma inline el desglose por asesor. Ej: "Total de **21** cotizaciones (Eva Freire: **11**, Karla Freire: **9**)"].
-- **Resumen de Ventas**: [Monto total vendido e inline el desglose resumido por asesor. Ej: "Total de **$10,500 USD** en **5** ventas (Eva Freire: **4** ventas por **$7,665 USD**, Karla Freire: **1** venta por **$2,835 USD**)"].
+- **Resumen de Ventas**: [Monto total vendido e inline el desglose resumido por asesor, indicando siempre el Ingreso de CTB (comisión + utilidad) para cada uno. Ej: "Total de **$1,822 USD** en **2** ventas con un Ingreso de CTB de **$320 USD** (Karla Freire: **1** venta por **$1,240 USD** | Ingreso CTB: **$210 USD**; Eva Freire: **1** venta por **$582 USD** | Ingreso CTB: **$110 USD**)"].
+- **Asesores sin ventas**: [Nombres con sus respectivas cotizaciones].
 - **Asesores sin ventas**: [Nombres con sus respectivas cotizaciones].
 12. En caso de empate, menciona a todos los empatados.
 
