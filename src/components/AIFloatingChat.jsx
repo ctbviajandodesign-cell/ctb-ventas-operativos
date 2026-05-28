@@ -106,7 +106,7 @@ export default function AIFloatingChat() {
 
       setDataContext({
         quotes: resQuotes.data || [],
-        leaderboard: resBoard.ranking || [],
+        leaderboard: resBoard.leaderboard || [],
         operatives: ops
       })
       setDataLoadingState('ready')
