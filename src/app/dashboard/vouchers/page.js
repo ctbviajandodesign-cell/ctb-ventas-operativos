@@ -81,7 +81,7 @@ export default function VouchersPage() {
         .order('created_at', { ascending: false })
 
       if (!isAdmin) {
-        query = query.eq('profiles.ciudad', profile.ciudad)
+        query = query.eq('operativo_id', user.id)
       }
 
       const { data } = await query
