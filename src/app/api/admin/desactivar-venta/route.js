@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic'
 import { createClient } from '@supabase/supabase-js'
+import { notifyAll, formatMoney, progressBar } from '@/lib/telegram'
 
 export async function POST(req) {
   try {
@@ -30,6 +31,13 @@ export async function POST(req) {
     const { ventaId, cotizacionId } = await req.json()
     if (!ventaId) return Response.json({ ok: false, error: 'Falta ventaId' }, { status: 400 })
 
+    // Fetch details of the sale being deactivated before deleting it
+    const { data: venta } = await supabaseAdmin
+      .from('ventas')
+      .select('*, profiles(nombre, ciudad, meta_mensual, id), cotizaciones(codigo, agencia, destino)')
+      .eq('id', ventaId)
+      .single()
+
     // Fetch quote details for audit logging
     const { data: quote } = await supabaseAdmin.from('cotizaciones').select('codigo, agencia, destino, valor_total').eq('id', cotizacionId).single()
     const logDetails = `Venta de la Cotización ${quote?.codigo || cotizacionId} (Agencia: ${quote?.agencia || 'Directo'}, Destino: ${quote?.destino || 'Desconocido'}) fue desactivada y devuelta a cotización en espera.`
@@ -59,6 +67,49 @@ export async function POST(req) {
       accion: 'desactivar_venta',
       detalles: logDetails
     }])
+
+    // Send Telegram Notification
+    try {
+      if (venta) {
+        const opId = venta.profiles?.id
+        const startOfMonth = new Date()
+        startOfMonth.setDate(1)
+        startOfMonth.setHours(0, 0, 0, 0)
+
+        // Fetch active sales for this month, excluding the one we are about to deactivate
+        const { data: activeVentas } = await supabaseAdmin
+          .from('ventas')
+          .select('comision, utilidad')
+          .eq('operativo_id', opId)
+          .eq('estado', 'activa')
+          .neq('id', ventaId)
+          .gte('created_at', startOfMonth.toISOString())
+
+        const newAporteTotal = activeVentas?.reduce((a, v) => a + (Number(v.comision) || 0) + (Number(v.utilidad) || 0), 0) || 0
+        const metaAmount = Number(venta.profiles?.meta_mensual || 5000)
+        const newPct = metaAmount > 0 ? (newAporteTotal / metaAmount) * 100 : 0
+
+        const cancellationAporte = (Number(venta.comision) || 0) + (Number(venta.utilidad) || 0)
+        const cancellationTotal = Number(venta.total) || 0
+
+        const deactivateMsg = [
+          `🔄 <b>VENTA REVERTIDA A COTIZACIÓN — ${(venta.profiles?.ciudad || '').toUpperCase()}</b>`,
+          ``,
+          `👤 <b>Asesor:</b> ${venta.profiles?.nombre}`,
+          `✈️ <b>Destino:</b> ${venta.cotizaciones?.destino || 'N/A'}  |  🏢 <b>Agencia:</b> ${venta.cotizaciones?.agencia || 'Directo'}`,
+          `📉 <b>Descuento Aporte:</b> -${formatMoney(cancellationAporte)}`,
+          `💰 <b>Descuento Total:</b> -${formatMoney(cancellationTotal)}`,
+          `ℹ️ La venta ha sido devuelta al estado de Cotización en Espera.`,
+          ``,
+          `📊 <b>Nueva Meta del mes:</b> ${newPct.toFixed(1)}% (${formatMoney(newAporteTotal)} de ${formatMoney(metaAmount)})`,
+          `<code>${progressBar(newPct)}</code>`,
+        ].join('\n')
+
+        await notifyAll(venta.profiles?.ciudad, deactivateMsg)
+      }
+    } catch (tgErr) {
+      console.error('Error sending Telegram notification on deactivation:', tgErr)
+    }
 
     return Response.json({ ok: true })
   } catch (err) {
