@@ -25,6 +25,7 @@ import {
   Share2
 } from 'lucide-react'
 import { showToast } from '@/utils/toast'
+import { useUserSession } from '@/hooks/useUserSession'
 
 const isExpired = (q) => {
   if (q.fecha_caducidad) {
@@ -39,7 +40,10 @@ const isExpired = (q) => {
   return false
 }
 
-export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, onUpdate }) {
+export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, currentUserId, onUpdate }) {
+  const { user } = useUserSession()
+  // Prefer currentUserId prop (passed from parent) to avoid async timing issues
+  const effectiveUserId = currentUserId || user?.id
   const [viewingQuote, setViewingQuote] = useState(null)
   const [closingQuote, setClosingQuote] = useState(null)
   const [motivoPerdida, setMotivoPerdida] = useState('')
@@ -342,9 +346,11 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, onUpdate })
                       ) : null
                     })()}
 
+                    {(isSuperAdmin || quote.operativo_id === effectiveUserId) && (
+                      <Link href={`/dashboard/cotizaciones/editar/${quote.id}`} className="p-1.5 text-gray-400 hover:text-primary rounded-lg" title="Editar"><Edit size={16}/></Link>
+                    )}
                     {isSuperAdmin && (
                       <>
-                        <Link href={`/dashboard/cotizaciones/editar/${quote.id}`} className="p-1.5 text-gray-400 hover:text-primary rounded-lg" title="Editar"><Edit size={16}/></Link>
                         <button
                           onClick={() => handleDelete(quote)}
                           className="p-1.5 text-amber-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"

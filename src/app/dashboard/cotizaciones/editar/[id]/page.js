@@ -52,14 +52,44 @@ export default function EditarCotizacionPage() {
           .eq('id', user.id)
           .single()
 
-        if (p?.rol !== 'superadmin') {
-          showToast('Acceso restringido. Solo el Super Admin puede editar cotizaciones.', 'error')
+        setProfile(p)
+
+        const { data: quoteData, error: quoteError } = await supabase
+          .from('cotizaciones')
+          .select('id, operativo_id, agencia, destino, numero_pasajeros, fecha_caducidad, hora_caducidad, notas_iniciales, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, nombres_pasajeros')
+          .eq('id', id)
+          .single()
+
+        if (quoteError || !quoteData) {
+          showToast('Cotización no encontrada.', 'error')
           router.push('/dashboard/cotizaciones')
           return
         }
 
-        setProfile(p)
-        await fetchQuote()
+        const isOwner = quoteData.operativo_id === user.id
+        const isSuperAdmin = p?.rol === 'superadmin'
+
+        if (!isSuperAdmin && !isOwner) {
+          showToast('Acceso restringido. No tienes permiso para editar esta cotización.', 'error')
+          router.push('/dashboard/cotizaciones')
+          return
+        }
+
+        setFormData({
+          agencia: quoteData.agencia || '',
+          destino: quoteData.destino || '',
+          numero_pasajeros: quoteData.numero_pasajeros || 1,
+          fecha_caducidad: quoteData.fecha_caducidad || '',
+          hora_caducidad: quoteData.hora_caducidad || '',
+          notas_iniciales: quoteData.notas_iniciales || '',
+          valor_total: quoteData.valor_total || 0,
+          valor_comision: quoteData.valor_comision || 0,
+          valor_utilidad: quoteData.valor_utilidad || 0,
+          valor_bono: quoteData.valor_bono || 0,
+          comercial: quoteData.comercial || ''
+        })
+        setPasajeros(quoteData.nombres_pasajeros || [''])
+        setLoading(false)
       } catch (err) {
         console.error('Error de autenticación:', err)
         router.push('/dashboard/cotizaciones')
@@ -67,32 +97,6 @@ export default function EditarCotizacionPage() {
     }
     checkAuthAndFetch()
   }, [id])
-
-  async function fetchQuote() {
-    const { data, error } = await supabase
-      .from('cotizaciones')
-      .select('id, agencia, destino, numero_pasajeros, fecha_caducidad, hora_caducidad, notas_iniciales, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, nombres_pasajeros')
-      .eq('id', id)
-      .single()
-    
-    if (data) {
-      setFormData({
-        agencia: data.agencia || '',
-        destino: data.destino || '',
-        numero_pasajeros: data.numero_pasajeros || 1,
-        fecha_caducidad: data.fecha_caducidad || '',
-        hora_caducidad: data.hora_caducidad || '',
-        notas_iniciales: data.notas_iniciales || '',
-        valor_total: data.valor_total || 0,
-        valor_comision: data.valor_comision || 0,
-        valor_utilidad: data.valor_utilidad || 0,
-        valor_bono: data.valor_bono || 0,
-        comercial: data.comercial || ''
-      })
-      setPasajeros(data.nombres_pasajeros || [''])
-    }
-    setLoading(false)
-  }
 
   const handlePasajeroChange = (idx, val) => {
     const n = [...pasajeros]
