@@ -11,9 +11,7 @@ import {
   FileText, 
   Plus, 
   Trash2, 
-  DollarSign,
-  Calendar,
-  Clock
+  DollarSign
 } from 'lucide-react'
 import { showToast } from '@/utils/toast'
 
@@ -28,8 +26,6 @@ export default function NuevaCotizacionPage() {
     numero_pasajeros: 1,
     notas_iniciales: '',
     comercial: '',
-    fecha_caducidad: '',
-    hora_caducidad: '',
     valor_total: '',
     valor_comision: '',
     valor_utilidad: '',
@@ -64,8 +60,6 @@ export default function NuevaCotizacionPage() {
           numero_pasajeros: formData.numero_pasajeros,
           notas_iniciales: formData.notas_iniciales,
           comercial: formData.comercial,
-          fecha_caducidad: formData.fecha_caducidad || null,
-          hora_caducidad: formData.hora_caducidad || null,
           operativo_id: user.id,
           estado: 'abierta',
           valor_total: Number(formData.valor_total) || 0,
@@ -164,31 +158,6 @@ export default function NuevaCotizacionPage() {
                   value={formData.numero_pasajeros}
                   onChange={e => setFormData({ ...formData, numero_pasajeros: parseInt(e.target.value) || 1 })}
                 />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 col-span-1 md:col-span-2">
-                <div>
-                  <label className="label flex items-center gap-1.5">
-                    <Calendar size={12} className="text-primary" /> Límite Caducidad (Opcional)
-                  </label>
-                  <input
-                    type="date"
-                    className="input mt-1 text-xs"
-                    value={formData.fecha_caducidad}
-                    onChange={e => setFormData({ ...formData, fecha_caducidad: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="label flex items-center gap-1.5">
-                    <Clock size={12} className="text-primary" /> Hora Límite (Opcional)
-                  </label>
-                  <input
-                    type="time"
-                    className="input mt-1 text-xs"
-                    value={formData.hora_caducidad}
-                    onChange={e => setFormData({ ...formData, hora_caducidad: e.target.value })}
-                  />
-                </div>
               </div>
             </div>
           </div>
