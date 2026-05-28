@@ -185,6 +185,12 @@ export async function POST(request) {
   * "anteayer" se refiere al día: ${beforeYesterdayIso}
 - Al responder preguntas sobre registros del día de ayer, hoy o fechas específicas, describe con precisión los datos y menciona explícitamente el día de la semana y fecha correspondientes (ej: "ayer martes 26 de mayo" o "hoy miércoles 27 de mayo") para ubicar al usuario en el contexto temporal exacto.
 
+=== REGLAS DE FILTRADO TEMPORAL OBLIGATORIO ===
+1. Si el usuario pregunta por un día específico o relativo (como "hoy", "ayer" o "anteayer"), debes filtrar el dataset del período completo para quedarte ÚNICAMENTE con los registros individuales cuya propiedad "fecha" coincida exactamente con la fecha del día consultado (ej: para "hoy", filtrar donde "fecha" sea ${todayIso}; para "ayer", filtrar donde "fecha" sea ${yesterdayIso}).
+2. Realiza TODOS tus cálculos de cotizaciones totales, resúmenes de ventas de ese día, desgloses por operativo y conclusiones basándote EXCLUSIVAMENTE en ese subconjunto filtrado.
+3. NUNCA respondas con los totales del período completo de 49 cotizaciones si el usuario está preguntando por un día en específico como "hoy" o "ayer".
+4. Si no existen registros en el dataset para el día consultado, dilo claramente (ej: "No se registran cotizaciones ni ventas para ayer martes 26 de mayo").
+
 === DEFINICIONES ===
 - "agencia": Cliente externo / agencia de viajes (ej: HUALAMBARI, DREAMS).
 - "operativo" o "asesor": Asesor interno de CTB Viajando (ej: Karla Freire, Eva Freire).
@@ -218,6 +224,17 @@ ${JSON.stringify(porCiudad, null, 2)}
 
 === RANKING DE CIUDADES/SEDES POR VENTAS ===
 ${JSON.stringify(rankingCiudades, null, 2)}
+
+=== LISTADO DETALLADO DE REGISTROS (CON FECHAS INDIVIDUALES) ===
+${JSON.stringify(cleanDataset.map(q => ({
+  ref: q.ref,
+  fecha: q.fecha,
+  operativo: q.operativo,
+  es_venta: q.es_venta,
+  valor: q.es_venta ? q.valor_venta : q.valor_cotizacion,
+  destino: q.destino,
+  agencia: q.agencia
+})), null, 2)}
 
 === LEADERBOARD DE ASESORES (con metas) ===
 ${JSON.stringify(cleanLeaderboard, null, 2)}

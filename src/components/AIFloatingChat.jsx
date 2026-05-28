@@ -212,17 +212,25 @@ export default function AIFloatingChat() {
       {/* BOTÓN FLOTANTE MÍNIMO */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="ai-chat-trigger fixed bottom-6 right-6 z-40 bg-gradient-to-tr from-primary to-indigo-600 hover:from-primary/95 hover:to-indigo-500 text-white p-3.5 sm:p-4 rounded-full shadow-[0_10px_25px_rgba(0,102,204,0.25)] hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer flex items-center justify-center border border-white/10 animate-in fade-in"
+        className="ai-chat-trigger fixed bottom-6 right-6 z-50 bg-gradient-to-tr from-primary to-indigo-600 hover:from-primary/95 hover:to-indigo-500 text-white p-3.5 sm:p-4 rounded-full shadow-[0_10px_25px_rgba(0,102,204,0.25)] hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer flex items-center justify-center border border-white/10 animate-in fade-in"
         title="Asistente de IA"
       >
         {isOpen ? <X size={20} /> : <Sparkles size={20} className="animate-pulse" />}
       </button>
 
+      {/* FONDO OSCURO TRANSLÚCIDO PARA AISLAR EL CHAT EN MÓVIL Y EVITAR SOBREPOSICIONES */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-45 animate-in fade-in duration-200"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
       {/* PANEL DE CHAT ULTRA LIMPIO */}
       {isOpen && (
         <div
           ref={chatWindowRef}
-          className="fixed bottom-20 left-4 right-4 h-[75vh] max-h-[500px] sm:inset-auto sm:bottom-24 sm:right-6 sm:w-[360px] sm:h-[500px] bg-white border border-gray-100 sm:rounded-[2rem] rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.1)] flex flex-col overflow-hidden z-50 animate-in slide-in-from-bottom-6 duration-300"
+          className="fixed bottom-20 left-4 right-4 h-[75vh] max-h-[500px] sm:inset-auto sm:bottom-24 sm:right-6 sm:w-[360px] sm:h-[500px] bg-white border border-gray-100 sm:rounded-[2rem] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex flex-col overflow-hidden z-50 animate-in slide-in-from-bottom-6 duration-300"
         >
           {/* Cabecera ultra-mínima */}
           <div className="bg-gray-900 text-white px-5 py-3.5 flex items-center justify-between border-b border-gray-800">
