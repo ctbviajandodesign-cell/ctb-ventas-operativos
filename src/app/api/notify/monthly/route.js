@@ -8,7 +8,7 @@
  */
 export const dynamic = 'force-dynamic'
 import { createClient } from '@supabase/supabase-js'
-import { notifyAdmin, notifyCity, formatMoney, progressBar } from '@/lib/telegram'
+import { notifyAdmin, notifyCity, formatMoney, progressBar, escapeHtml, getEcuadorTime, ecToUTC } from '@/lib/telegram'
 
 export async function GET(req) {
   const supabase = createClient(
@@ -27,27 +27,33 @@ export async function GET(req) {
 
   try {
     const now = new Date()
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-    const mesNombre = now.toLocaleDateString('es-EC', { month: 'long', year: 'numeric' })
+    const ecNow = getEcuadorTime(now)
+    // Inicio del mes en Ecuador (para consultar el mes correcto en Supabase)
+    const ecMonthStart = new Date(Date.UTC(ecNow.getUTCFullYear(), ecNow.getUTCMonth(), 1, 0, 0, 0, 0))
+    const startOfMonthUTC = ecToUTC(ecMonthStart)
+    const mesNombre = now.toLocaleDateString('es-EC', { month: 'long', year: 'numeric', timeZone: 'America/Guayaquil' })
 
-    // Ventas del mes
-    const { data: ventas } = await supabase
+    const { data: ventas, error: errorVentas } = await supabase
       .from('ventas')
       .select('total, comision, utilidad, operativo_id, profiles!inner(nombre, ciudad, meta_mensual)')
       .eq('estado', 'activa')
-      .gte('created_at', startOfMonth.toISOString())
+      .gte('created_at', startOfMonthUTC.toISOString())
 
-    // Cotizaciones del mes (para tasa de cierre y motivos de pérdida)
-    const { data: cots } = await supabase
+    if (errorVentas) throw new Error(`Error ventas: ${errorVentas.message}`)
+
+    const { data: cots, error: errorCots } = await supabase
       .from('cotizaciones')
       .select('estado, operativo_id, motivo_perdida, profiles!inner(nombre, ciudad)')
-      .gte('created_at', startOfMonth.toISOString())
+      .gte('created_at', startOfMonthUTC.toISOString())
 
-    // Todos los operativos
-    const { data: allOps } = await supabase
+    if (errorCots) throw new Error(`Error cotizaciones: ${errorCots.message}`)
+
+    const { data: allOps, error: errorAllOps } = await supabase
       .from('profiles')
       .select('id, nombre, ciudad, meta_mensual')
       .eq('rol', 'operativo')
+
+    if (errorAllOps) throw new Error(`Error operativos: ${errorAllOps.message}`)
 
     // --- Construir mapa de operativos ---
     const ops = {}
@@ -185,8 +191,8 @@ export async function GET(req) {
       const top = opsList.sort((a, b) => (b.comision + b.utilidad) - (a.comision + a.utilidad))[0]
       const cityAporte = opsList.reduce((a, o) => a + o.comision + o.utilidad, 0)
       const cityVentas = opsList.reduce((a, o) => a + o.ventas, 0)
-      adminLines.push(`🏙 <b>${ciudad.toUpperCase()}</b>: ${formatMoney(cityVentas)} · Aporte: ${formatMoney(cityAporte)}`)
-      if (top) adminLines.push(`   MVP: ${top.nombre} · ${((top.comision + top.utilidad) / (top.meta || 1) * 100).toFixed(0)}% meta`)
+      adminLines.push(`🏙 <b>${escapeHtml(ciudad.toUpperCase())}</b>: ${formatMoney(cityVentas)} · Aporte: ${formatMoney(cityAporte)}`)
+      if (top) adminLines.push(`   MVP: ${escapeHtml(top.nombre)} · ${((top.comision + top.utilidad) / (top.meta || 1) * 100).toFixed(0)}% meta`)
     }
 
     adminLines.push(``)
@@ -205,14 +211,14 @@ export async function GET(req) {
     if (llegaron.length > 0) {
       adminLines.push(``)
       adminLines.push(`🏆 <b>Cumplieron meta (${llegaron.length}):</b>`)
-      llegaron.forEach(o => adminLines.push(`   🟢 ${o.nombre} (${o.ciudad}) — ${((o.comision + o.utilidad) / o.meta * 100).toFixed(0)}%`))
+      llegaron.forEach(o => adminLines.push(`   🟢 ${escapeHtml(o.nombre)} (${escapeHtml(o.ciudad)}) — ${((o.comision + o.utilidad) / o.meta * 100).toFixed(0)}%`))
     }
     if (noLlegaron.length > 0) {
       adminLines.push(``)
       adminLines.push(`⚠️ <b>No cumplieron meta (${noLlegaron.length}):</b>`)
       noLlegaron.forEach(o => {
         const pct = o.meta > 0 ? ((o.comision + o.utilidad) / o.meta * 100).toFixed(0) : 0
-        adminLines.push(`   🔴 ${o.nombre} (${o.ciudad}) — ${pct}% · Faltó: ${formatMoney(Math.max(0, o.meta - (o.comision + o.utilidad)))}`)
+        adminLines.push(`   🔴 ${escapeHtml(o.nombre)} (${escapeHtml(o.ciudad)}) — ${pct}% · Faltó: ${formatMoney(Math.max(0, o.meta - (o.comision + o.utilidad)))}`)
       })
     }
 
@@ -228,7 +234,10 @@ export async function GET(req) {
       adminLines.push(`📋 Sin motivos de pérdida registrados este mes.`)
     }
 
-    await notifyAdmin(adminLines.join('\n'))
+    const telRes = await notifyAdmin(adminLines.join('\n'))
+    if (!telRes || !telRes.ok) {
+      throw new Error(`Telegram error: ${JSON.stringify(telRes)}`)
+    }
 
     return Response.json({ ok: true, operativos: allOpsList.length, motivosCount: motivosOrdenados.length })
   } catch (err) {

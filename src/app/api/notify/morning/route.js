@@ -7,7 +7,7 @@
  */
 export const dynamic = 'force-dynamic'
 import { createClient } from '@supabase/supabase-js'
-import { notifyAdmin, notifyCity, formatMoney, progressBar } from '@/lib/telegram'
+import { notifyAdmin, notifyCity, formatMoney, progressBar, escapeHtml, getEcuadorTime, ecToUTC } from '@/lib/telegram'
 
 export async function GET(req) {
   const supabase = createClient(
@@ -26,35 +26,41 @@ export async function GET(req) {
 
   try {
     const now = new Date()
-    const dayOfMonth = now.getDate()
+    const ecNow = getEcuadorTime(now)
+    const dayOfMonth = ecNow.getUTCDate()
     const isMidMonth = dayOfMonth === 15
-    const isMonday = now.getDay() === 1
+    const isMonday = ecNow.getUTCDay() === 1
 
     if (!isMonday && !isMidMonth) {
       return Response.json({ ok: true, message: 'Skipped morning report: only runs on Mondays or mid-month (day 15)' })
     }
 
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    // Inicio del mes en hora Ecuador → convertir a UTC para Supabase
+    const ecMonthStart = new Date(Date.UTC(ecNow.getUTCFullYear(), ecNow.getUTCMonth(), 1, 0, 0, 0, 0))
+    const startOfMonthUTC = ecToUTC(ecMonthStart)
 
-    const mesNombre = now.toLocaleDateString('es-EC', { month: 'long', year: 'numeric' })
-    const diaHoy = now.toLocaleDateString('es-EC', { weekday: 'long', day: 'numeric', month: 'long' })
+    const mesNombre = now.toLocaleDateString('es-EC', { month: 'long', year: 'numeric', timeZone: 'America/Guayaquil' })
+    const diaHoy = now.toLocaleDateString('es-EC', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Guayaquil' })
 
     // Todos los operativos con su meta
-    const { data: allOps } = await supabase
+    const { data: allOps, error: errorAllOps } = await supabase
       .from('profiles')
       .select('id, nombre, ciudad, meta_mensual')
       .eq('rol', 'operativo')
 
+    if (errorAllOps) throw new Error(`Error al obtener operativos: ${errorAllOps.message}`)
     if (!allOps || allOps.length === 0) {
       return Response.json({ ok: true, message: 'No operatives found' })
     }
 
     // Ventas del mes hasta hoy (aporte = comisión + utilidad)
-    const { data: ventasMes } = await supabase
+    const { data: ventasMes, error: errorVentasMes } = await supabase
       .from('ventas')
       .select('total, comision, utilidad, operativo_id')
       .eq('estado', 'activa')
-      .gte('created_at', startOfMonth.toISOString())
+      .gte('created_at', startOfMonthUTC.toISOString())
+
+    if (errorVentasMes) throw new Error(`Error al obtener ventas del mes: ${errorVentasMes.message}`)
 
     // Calcular aporte por operativo
     const aporteMap = {}
@@ -84,7 +90,7 @@ export async function GET(req) {
       })
     }
 
-    const diasRestantes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - dayOfMonth
+    const diasRestantes = new Date(Date.UTC(ecNow.getUTCFullYear(), ecNow.getUTCMonth() + 1, 0)).getUTCDate() - dayOfMonth
     const motivacional = isMidMonth
       ? `⚠️ <b>¡MITAD DE MES!</b> Quedan ${diasRestantes} días para cerrar ${mesNombre.toUpperCase()}.`
       : `☀️ <b>¡Buenos días equipo CTB!</b> A cerrar ${mesNombre.toUpperCase()} con todo. 💪`
@@ -94,14 +100,14 @@ export async function GET(req) {
       const sorted = ops.sort((a, b) => b.pct - a.pct)
       const lines = [
         motivacional,
-        `<i>${diaHoy} — Ranking ${ciudad.toUpperCase()}</i>`,
+        `<i>${diaHoy} — Ranking ${escapeHtml(ciudad.toUpperCase())}</i>`,
         ``
       ]
 
       for (const [i, op] of sorted.entries()) {
         const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`
         const emoji = op.pct >= 100 ? '🏆' : op.pct >= 75 ? '🔥' : op.pct >= 50 ? '📈' : op.pct > 0 ? '📊' : '💤'
-        lines.push(`${medal} <b>${op.nombre}</b> ${emoji}`)
+        lines.push(`${medal} <b>${escapeHtml(op.nombre)}</b> ${emoji}`)
         lines.push(`   <code>${progressBar(op.pct)}</code> ${op.pct.toFixed(1)}%`)
         if (op.count > 0) lines.push(`   ${op.count} venta${op.count > 1 ? 's' : ''} · Meta: ${formatMoney(op.meta)}`)
         else lines.push(`   Sin ventas registradas este mes`)
@@ -111,7 +117,7 @@ export async function GET(req) {
         const opsSinMeta = sorted.filter(o => o.pct < 50)
         if (opsSinMeta.length > 0) {
           lines.push(``)
-          lines.push(`🎯 Con menos del 50% de meta: ${opsSinMeta.map(o => o.nombre).join(', ')}`)
+          lines.push(`🎯 Con menos del 50% de meta: ${opsSinMeta.map(o => escapeHtml(o.nombre)).join(', ')}`)
           lines.push(`¡Es hora de acelerar! Quedan ${diasRestantes} días 🚀`)
         }
       }
@@ -138,13 +144,13 @@ export async function GET(req) {
     for (const [ciudad, ops] of Object.entries(porCiudad)) {
       const top = ops.sort((a, b) => b.pct - a.pct)[0]
       const cityAporte = ops.reduce((a, o) => a + o.aporte, 0)
-      adminLines.push(`🏙 <b>${ciudad.toUpperCase()}</b>: ${formatMoney(cityAporte)} | Líder: ${top.nombre} (${top.pct.toFixed(0)}%)`)
+      adminLines.push(`🏙 <b>${escapeHtml(ciudad.toUpperCase())}</b>: ${formatMoney(cityAporte)} | Líder: ${escapeHtml(top.nombre)} (${top.pct.toFixed(0)}%)`)
     }
 
     if (sinVentas.length > 0) {
       adminLines.push(``)
       adminLines.push(`💤 <b>Sin ventas en el mes (${sinVentas.length}):</b>`)
-      sinVentas.forEach(o => adminLines.push(`   · ${o.nombre}`))
+      sinVentas.forEach(o => adminLines.push(`   · ${escapeHtml(o.nombre)}`))
     }
 
     if (isMidMonth) {
@@ -153,13 +159,16 @@ export async function GET(req) {
       const atRisk = todosOps.filter(o => o.pct < 50)
       if (atRisk.length > 0) {
         adminLines.push(`Operativos en riesgo (< 50% meta):`)
-        atRisk.forEach(o => adminLines.push(`   🔴 ${o.nombre}: ${o.pct.toFixed(1)}% de ${formatMoney(o.meta)}`))
+        atRisk.forEach(o => adminLines.push(`   🔴 ${escapeHtml(o.nombre)}: ${o.pct.toFixed(1)}% de ${formatMoney(o.meta)}`))
       } else {
         adminLines.push(`✅ Todo el equipo supera el 50% de meta. ¡Excelente ritmo!`)
       }
     }
 
-    await notifyAdmin(adminLines.join('\n'))
+    const telRes = await notifyAdmin(adminLines.join('\n'))
+    if (!telRes || !telRes.ok) {
+      throw new Error(`Telegram error (admin): ${JSON.stringify(telRes)}`)
+    }
 
     return Response.json({ ok: true, operativos: allOps.length, isMidMonth })
   } catch (err) {

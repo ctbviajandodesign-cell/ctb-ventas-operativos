@@ -17,6 +17,35 @@ function getChatMap() {
 }
 
 /**
+ * Escapa caracteres especiales de HTML para evitar que la API de Telegram
+ * rechace el mensaje con error 400.
+ */
+export function escapeHtml(text) {
+  if (!text) return ''
+  return text
+    .toString()
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+/**
+ * Retorna un objeto Date que representa la fecha/hora actual desplazada -5 horas (Ecuador)
+ * para realizar cálculos de fecha basados en componentes UTC de forma segura.
+ */
+export function getEcuadorTime(date = new Date()) {
+  return new Date(date.getTime() - 5 * 60 * 60 * 1000)
+}
+
+/**
+ * Convierte una fecha construida con componentes locales de Ecuador de vuelta
+ * al equivalente real de UTC sumando las 5 horas de offset.
+ */
+export function ecToUTC(ecDate) {
+  return new Date(ecDate.getTime() + 5 * 60 * 60 * 1000)
+}
+
+/**
  * Envía un mensaje a un chat_id específico
  */
 export async function sendTelegram(chatId, text) {
@@ -32,9 +61,20 @@ export async function sendTelegram(chatId, text) {
         disable_web_page_preview: true
       })
     })
-    return await res.json()
+    
+    const data = await res.json()
+    if (!res.ok || !data.ok) {
+      console.error('Telegram API error details:', {
+        status: res.status,
+        statusText: res.statusText,
+        data,
+        chatId,
+        textSnippet: text.slice(0, 200)
+      })
+    }
+    return data
   } catch (err) {
-    console.error('Telegram error:', err)
+    console.error('Telegram fetch error:', err)
     return { ok: false, error: err.message }
   }
 }
@@ -53,7 +93,7 @@ export function getChatIds(ciudad = '') {
 }
 
 /**
- * Envía al grupo de ciudad
+ * Envía al grupo de ciudad y admin
  */
 export async function notifyAll(ciudad, text) {
   const ids = getChatIds(ciudad)

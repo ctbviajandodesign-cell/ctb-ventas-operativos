@@ -6,7 +6,7 @@
  */
 export const dynamic = 'force-dynamic'
 import { createClient } from '@supabase/supabase-js'
-import { notifyAdmin, notifyCity, formatMoney } from '@/lib/telegram'
+import { notifyAdmin, notifyCity, formatMoney, escapeHtml, getEcuadorTime, ecToUTC } from '@/lib/telegram'
 
 export async function GET(req) {
   const supabase = createClient(
@@ -26,16 +26,19 @@ export async function GET(req) {
   try {
     // Lunes de esta semana
     const now = new Date()
-    const dayOfWeek = now.getDay() === 0 ? 7 : now.getDay()
-    const monday = new Date(now)
-    monday.setDate(now.getDate() - (dayOfWeek - 1))
-    monday.setHours(0, 0, 0, 0)
+    const ecNow = getEcuadorTime(now)
+    const dayOfWeek = ecNow.getUTCDay() === 0 ? 7 : ecNow.getUTCDay()
+    // Inicio del lunes de esta semana en Ecuador
+    const ecMondayStart = new Date(Date.UTC(ecNow.getUTCFullYear(), ecNow.getUTCMonth(), ecNow.getUTCDate() - (dayOfWeek - 1), 0, 0, 0, 0))
+    const mondayUTC = ecToUTC(ecMondayStart)
 
-    const { data: ventas } = await supabase
+    const { data: ventas, error: errorVentas } = await supabase
       .from('ventas')
       .select('total, comision, utilidad, operativo_id, profiles!inner(nombre, ciudad, meta_mensual)')
       .eq('estado', 'activa')
-      .gte('created_at', monday.toISOString())
+      .gte('created_at', mondayUTC.toISOString())
+
+    if (errorVentas) throw new Error(`Error al obtener ventas de la semana: ${errorVentas.message}`)
 
     if (!ventas || ventas.length === 0) {
       await notifyAdmin(`📋 <b>Resumen Semanal CTB</b>\n\nSin ventas registradas esta semana aún.`)
@@ -64,7 +67,7 @@ export async function GET(req) {
       globalAporte += aporte
     }
 
-    const semana = `${monday.toLocaleDateString('es-EC', { day: 'numeric', month: 'short' })} – ${now.toLocaleDateString('es-EC', { day: 'numeric', month: 'short' })}`
+    const semana = `${ecMondayStart.toLocaleDateString('es-EC', { day: 'numeric', month: 'short', timeZone: 'UTC' })} – ${now.toLocaleDateString('es-EC', { day: 'numeric', month: 'short', timeZone: 'America/Guayaquil' })}`
 
     // Resumen semanal → solo admin (los grupos solo reciben venta inmediata y morning)
 
@@ -76,14 +79,17 @@ export async function GET(req) {
     ]
     for (const [ciudad, data] of Object.entries(porCiudad)) {
       const topOp = Object.entries(data.ops).sort((a, b) => b[1].total - a[1].total)[0]
-      adminLines.push(`🏙 <b>${ciudad.toUpperCase()}</b>: ${formatMoney(data.total)}`)
-      if (topOp) adminLines.push(`   👑 Mejor: ${topOp[0]} · ${formatMoney(topOp[1].total)}`)
+      adminLines.push(`🏙 <b>${escapeHtml(ciudad.toUpperCase())}</b>: ${formatMoney(data.total)}`)
+      if (topOp) adminLines.push(`   👑 Mejor: ${escapeHtml(topOp[0])} · ${formatMoney(topOp[1].total)}`)
     }
     adminLines.push(``)
     adminLines.push(`💼 <b>Total global: ${formatMoney(globalVentas)}</b>  |  Aporte CTB: ${formatMoney(globalAporte)}`)
     adminLines.push(`📁 Ventas totales: ${ventas.length}`)
 
-    await notifyAdmin(adminLines.join('\n'))
+    const telRes = await notifyAdmin(adminLines.join('\n'))
+    if (!telRes || !telRes.ok) {
+      throw new Error(`Telegram error: ${JSON.stringify(telRes)}`)
+    }
 
     return Response.json({ ok: true, ventas: ventas.length })
   } catch (err) {

@@ -8,7 +8,7 @@
  */
 export const dynamic = 'force-dynamic'
 import { createClient } from '@supabase/supabase-js'
-import { notifyAdmin, notifyCity, formatMoney, progressBar } from '@/lib/telegram'
+import { notifyAdmin, notifyCity, formatMoney, progressBar, escapeHtml, getEcuadorTime, ecToUTC } from '@/lib/telegram'
 
 export async function GET(req) {
   const supabase = createClient(
@@ -27,38 +27,56 @@ export async function GET(req) {
 
   try {
     const now = new Date()
-    const today = new Date(now); today.setHours(0, 0, 0, 0)
-    const threeDaysAgo = new Date(now); threeDaysAgo.setDate(now.getDate() - 3); threeDaysAgo.setHours(0, 0, 0, 0)
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const ecNow = getEcuadorTime(now)
+    
+    // Inicio de hoy en Ecuador (00:00:00)
+    const ecTodayStart = new Date(Date.UTC(ecNow.getUTCFullYear(), ecNow.getUTCMonth(), ecNow.getUTCDate(), 0, 0, 0, 0))
+    const todayUTC = ecToUTC(ecTodayStart)
+    
+    // Hace 3 días en Ecuador (inicio del día)
+    const ecThreeDaysAgoStart = new Date(Date.UTC(ecNow.getUTCFullYear(), ecNow.getUTCMonth(), ecNow.getUTCDate() - 3, 0, 0, 0, 0))
+    const threeDaysAgoUTC = ecToUTC(ecThreeDaysAgoStart)
+    
+    // Inicio del mes en Ecuador (00:00:00)
+    const ecMonthStart = new Date(Date.UTC(ecNow.getUTCFullYear(), ecNow.getUTCMonth(), 1, 0, 0, 0, 0))
+    const startOfMonthUTC = ecToUTC(ecMonthStart)
 
-    const diaHoy = now.toLocaleDateString('es-EC', { weekday: 'long', day: 'numeric', month: 'long' })
+    const diaHoy = now.toLocaleDateString('es-EC', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Guayaquil' })
 
     // --- Ventas de hoy ---
-    const { data: ventasHoy } = await supabase
+    const { data: ventasHoy, error: errorVentasHoy } = await supabase
       .from('ventas')
       .select('total, comision, utilidad, operativo_id, profiles!inner(nombre, ciudad, meta_mensual)')
       .eq('estado', 'activa')
-      .gte('created_at', today.toISOString())
+      .gte('created_at', todayUTC.toISOString())
+
+    if (errorVentasHoy) throw new Error(`Error al obtener ventas de hoy: ${errorVentasHoy.message}`)
 
     // --- Ventas últimos 3 días (para detectar inactividad) ---
-    const { data: ventas3dias } = await supabase
+    const { data: ventas3dias, error: errorVentas3dias } = await supabase
       .from('ventas')
       .select('operativo_id')
       .eq('estado', 'activa')
-      .gte('created_at', threeDaysAgo.toISOString())
+      .gte('created_at', threeDaysAgoUTC.toISOString())
+
+    if (errorVentas3dias) throw new Error(`Error al obtener ventas de los últimos 3 días: ${errorVentas3dias.message}`)
 
     // --- Ventas del mes (para calcular % meta) ---
-    const { data: ventasMes } = await supabase
+    const { data: ventasMes, error: errorVentasMes } = await supabase
       .from('ventas')
       .select('total, comision, utilidad, operativo_id')
       .eq('estado', 'activa')
-      .gte('created_at', startOfMonth.toISOString())
+      .gte('created_at', startOfMonthUTC.toISOString())
+
+    if (errorVentasMes) throw new Error(`Error al obtener ventas del mes: ${errorVentasMes.message}`)
 
     // --- Todos los operativos ---
-    const { data: allOps } = await supabase
+    const { data: allOps, error: errorAllOps } = await supabase
       .from('profiles')
       .select('id, nombre, ciudad, meta_mensual')
       .eq('rol', 'operativo')
+
+    if (errorAllOps) throw new Error(`Error al obtener operativos: ${errorAllOps.message}`)
 
     // Mapa de operativos activos últimos 3 días
     const opsActivos3dias = new Set((ventas3dias || []).map(v => v.operativo_id))
@@ -70,12 +88,12 @@ export async function GET(req) {
       aporteMap[v.operativo_id] += Number(v.comision || 0) + Number(v.utilidad || 0)
     }
 
-    // Fecha corta para mensajes de ciudad
-    const dayStr = now.toLocaleDateString('es-EC', { day: 'numeric', month: 'short' })
-
     if (!ventasHoy || ventasHoy.length === 0) {
       // Sin ventas en ninguna ciudad → aviso silencioso solo a admin
-      await notifyAdmin(`🌙 <b>Resumen Diario CTB</b>\n<i>${diaHoy}</i>\n\n❌ Sin ventas registradas hoy en ninguna ciudad.\n\n💪 ¡Mañana será mejor!`)
+      const telRes = await notifyAdmin(`🌙 <b>Resumen Diario CTB</b>\n<i>${diaHoy}</i>\n\n❌ Sin ventas registradas hoy en ninguna ciudad.\n\n💪 ¡Mañana será mejor!`)
+      if (!telRes || !telRes.ok) {
+        throw new Error(`Telegram error: ${JSON.stringify(telRes)}`)
+      }
       return Response.json({ ok: true, ventas: 0 })
     }
 
@@ -123,8 +141,8 @@ export async function GET(req) {
 
     for (const [ciudad, data] of Object.entries(porCiudad)) {
       const topOp = Object.entries(data.ops).sort((a, b) => b[1].ventas - a[1].ventas)[0]
-      adminLines.push(`🏙 <b>${ciudad.toUpperCase()}</b>: ${formatMoney(data.totalVentas)} (${Object.keys(data.ops).length} asesor${Object.keys(data.ops).length > 1 ? 'es' : ''})`)
-      if (topOp) adminLines.push(`   👑 Líder: ${topOp[0]} · ${formatMoney(topOp[1].ventas)}`)
+      adminLines.push(`🏙 <b>${escapeHtml(ciudad.toUpperCase())}</b>: ${formatMoney(data.totalVentas)} (${Object.keys(data.ops).length} asesor${Object.keys(data.ops).length > 1 ? 'es' : ''})`)
+      if (topOp) adminLines.push(`   👑 Líder: ${escapeHtml(topOp[0])} · ${formatMoney(topOp[1].ventas)}`)
     }
 
     adminLines.push(``)
@@ -144,7 +162,7 @@ export async function GET(req) {
       adminLines.push(``)
       adminLines.push(`😶 <b>Sin ventas hoy (${sinVentasHoy.length}):</b>`)
       for (const [c, names] of Object.entries(byCiudad)) {
-        adminLines.push(`   ${c}: ${names.join(', ')}`)
+        adminLines.push(`   ${escapeHtml(c)}: ${names.map(escapeHtml).join(', ')}`)
       }
     }
 
@@ -159,11 +177,14 @@ export async function GET(req) {
       adminLines.push(``)
       adminLines.push(`🔴 <b>ALERTA — Sin ventas hace +3 días (${inactivos.length}):</b>`)
       for (const [c, names] of Object.entries(byCiudad)) {
-        adminLines.push(`   ${c}: ${names.join(', ')}`)
+        adminLines.push(`   ${escapeHtml(c)}: ${names.map(escapeHtml).join(', ')}`)
       }
     }
 
-    await notifyAdmin(adminLines.join('\n'))
+    const telRes = await notifyAdmin(adminLines.join('\n'))
+    if (!telRes || !telRes.ok) {
+      throw new Error(`Telegram error: ${JSON.stringify(telRes)}`)
+    }
 
     return Response.json({ ok: true, ventas: ventasHoy.length, inactivos: inactivos.length })
   } catch (err) {
@@ -171,3 +192,4 @@ export async function GET(req) {
     return Response.json({ ok: false, error: err.message }, { status: 500 })
   }
 }
+

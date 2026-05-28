@@ -10,8 +10,9 @@
  * Protegido por CRON_SECRET header.
  */
 export const dynamic = 'force-dynamic'
+
 import { createClient } from '@supabase/supabase-js'
-import { notifyAdmin, formatMoney } from '@/lib/telegram'
+import { notifyAdmin, formatMoney, escapeHtml, getEcuadorTime, ecToUTC } from '@/lib/telegram'
 
 export async function GET(req) {
   const supabase = createClient(
@@ -30,60 +31,53 @@ export async function GET(req) {
   }
 
   try {
-    // Rango: ayer 00:00:00 → ayer 23:59:59 en hora Ecuador (UTC-5)
-    // Estrategia: tratamos los ms como si fueran hora EC, calculamos ayer,
-    // luego sumamos 5h de vuelta para obtener el equivalente UTC real.
-    const nowUTC = new Date()
-    const EC_OFFSET_MS = 5 * 60 * 60 * 1000 // UTC-5
+    const now = new Date()
+    const ecNow = getEcuadorTime(now)
+    
+    // Inicio de ayer en Ecuador (00:00:00)
+    const ecYesterdayStart = new Date(Date.UTC(ecNow.getUTCFullYear(), ecNow.getUTCMonth(), ecNow.getUTCDate() - 1, 0, 0, 0, 0))
+    const ayerInicioUTC = ecToUTC(ecYesterdayStart)
+    
+    // Fin de ayer en Ecuador (23:59:59.999)
+    const ecYesterdayEnd = new Date(Date.UTC(ecNow.getUTCFullYear(), ecNow.getUTCMonth(), ecNow.getUTCDate() - 1, 23, 59, 59, 999))
+    const ayerFinUTC = ecToUTC(ecYesterdayEnd)
 
-    // "Ahora" expresado como fecha en hora Ecuador (usando UTC internamente)
-    const nowEC = new Date(nowUTC.getTime() - EC_OFFSET_MS)
-
-    // Inicio de ayer en EC: retroceder 1 día y poner medianoche
-    const ayerInicioEC = new Date(nowEC)
-    ayerInicioEC.setUTCDate(ayerInicioEC.getUTCDate() - 1)
-    ayerInicioEC.setUTCHours(0, 0, 0, 0)
-
-    // Fin de ayer en EC: mismo día a las 23:59:59.999
-    const ayerFinEC = new Date(ayerInicioEC)
-    ayerFinEC.setUTCHours(23, 59, 59, 999)
-
-    // Convertir a UTC real para Supabase (sumar 5h)
-    const ayerInicioUTC = new Date(ayerInicioEC.getTime() + EC_OFFSET_MS)
-    const ayerFinUTC    = new Date(ayerFinEC.getTime()    + EC_OFFSET_MS)
-
-    // Fecha legible de ayer para el título del mensaje
-    const diaAyer = ayerInicioEC.toLocaleDateString('es-EC', {
+    const diaAyer = now.toLocaleDateString('es-EC', {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
+      timeZone: 'America/Guayaquil'
     })
 
-
     // --- Todos los operativos ---
-    const { data: allOps } = await supabase
+    const { data: allOps, error: errorAllOps } = await supabase
       .from('profiles')
       .select('id, nombre, ciudad, meta_mensual')
       .eq('rol', 'operativo')
 
+    if (errorAllOps) throw new Error(`Error al obtener operativos: ${errorAllOps.message}`)
     if (!allOps || allOps.length === 0) {
       return Response.json({ ok: true, message: 'No hay operativos registrados' })
     }
 
     // --- Cotizaciones creadas ayer ---
-    const { data: cotsAyer } = await supabase
+    const { data: cotsAyer, error: errorCotsAyer } = await supabase
       .from('cotizaciones')
       .select('operativo_id')
       .gte('created_at', ayerInicioUTC.toISOString())
       .lt('created_at', ayerFinUTC.toISOString())
 
+    if (errorCotsAyer) throw new Error(`Error al obtener cotizaciones de ayer: ${errorCotsAyer.message}`)
+
     // --- Ventas cerradas ayer ---
-    const { data: ventasAyer } = await supabase
+    const { data: ventasAyer, error: errorVentasAyer } = await supabase
       .from('ventas')
       .select('total, comision, utilidad, operativo_id')
       .eq('estado', 'activa')
       .gte('created_at', ayerInicioUTC.toISOString())
       .lt('created_at', ayerFinUTC.toISOString())
+
+    if (errorVentasAyer) throw new Error(`Error al obtener ventas de ayer: ${errorVentasAyer.message}`)
 
     // --- Construir mapa por operativo ---
     const statsMap = {}
@@ -145,7 +139,7 @@ export async function GET(req) {
       const cityMonto = ops.reduce((a, o) => a + o.montoVendido, 0)
       const cityIngreso = ops.reduce((a, o) => a + o.ingresoCTB, 0)
 
-      lines.push(`🏙 <b>${ciudad.toUpperCase()}</b>`)
+      lines.push(`🏙 <b>${escapeHtml(ciudad.toUpperCase())}</b>`)
 
       for (const op of sorted) {
         const hasCots = op.cotizaciones > 0
@@ -153,7 +147,7 @@ export async function GET(req) {
         const actividadEmoji = hasVentas ? '✅' : hasCots ? '📋' : '💤'
 
         lines.push(``)
-        lines.push(`${actividadEmoji} <b>${op.nombre}</b>`)
+        lines.push(`${actividadEmoji} <b>${escapeHtml(op.nombre)}</b>`)
         lines.push(`   📋 Cotizaciones: <b>${op.cotizaciones}</b>`)
         lines.push(`   💼 Ventas cerradas: <b>${op.ventas}</b>`)
 
@@ -181,18 +175,21 @@ export async function GET(req) {
     if (sinActividadAyer.length > 0) {
       lines.push(``)
       lines.push(`💤 <b>Sin actividad ayer (${sinActividadAyer.length}):</b>`)
-      sinActividadAyer.forEach(o => lines.push(`   · ${o.nombre}${o.ciudad ? ` (${o.ciudad})` : ''}`))
+      sinActividadAyer.forEach(o => lines.push(`   · ${escapeHtml(o.nombre)}${o.ciudad ? ` (${escapeHtml(o.ciudad)})` : ''}`))
     }
 
     if (sinVentaAyer.length > 0) {
       lines.push(``)
       lines.push(`📋 <b>Cotizaron pero no cerraron venta (${sinVentaAyer.length}):</b>`)
       sinVentaAyer.forEach(o =>
-        lines.push(`   · ${o.nombre} — ${o.cotizaciones} cot${o.cotizaciones > 1 ? 's' : ''}`)
+        lines.push(`   · ${escapeHtml(o.nombre)} — ${o.cotizaciones} cot${o.cotizaciones > 1 ? 's' : ''}`)
       )
     }
 
-    await notifyAdmin(lines.join('\n'))
+    const telRes = await notifyAdmin(lines.join('\n'))
+    if (!telRes || !telRes.ok) {
+      throw new Error(`Telegram error: ${JSON.stringify(telRes)}`)
+    }
 
     return Response.json({
       ok: true,
