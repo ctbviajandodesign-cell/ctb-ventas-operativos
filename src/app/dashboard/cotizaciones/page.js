@@ -277,14 +277,42 @@ export default function CotizacionesPage() {
             : ''
 
         const createdDate = q.created_at ? new Date(q.created_at) : null
-        const formattedDate = createdDate ? createdDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' }).toLowerCase() : ''
-        const formattedDateSlash = createdDate ? createdDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
-        const formattedDateShort = createdDate ? createdDate.toLocaleDateString('es-EC', { day: '2-digit', month: 'short' }).toLowerCase() : ''
-        const dateIso = q.created_at ? q.created_at.split('T')[0] : ''
-        const matchesDate = formattedDate.includes(s) || formattedDateSlash.includes(s) || formattedDateShort.includes(s) || dateIso.includes(s)
+        const dayStr = createdDate ? createdDate.getDate().toString() : ''
+        const dayStrPadded = createdDate ? createdDate.getDate().toString().padStart(2, '0') : ''
+        const monthName = createdDate ? createdDate.toLocaleDateString('es-ES', { month: 'long' }).toLowerCase() : ''
+        const monthNameShort = createdDate ? createdDate.toLocaleDateString('es-EC', { month: 'short' }).toLowerCase() : ''
+        const dateSlashNoYear = createdDate ? `${dayStrPadded}/${(createdDate.getMonth() + 1).toString().padStart(2, '0')}` : ''
+        const dateTextNoYear = createdDate ? `${dayStr} de ${monthName}` : ''
+
+        const hasYearInQuery = s.includes('2026') || (s.includes('26') && s.length >= 4)
+
+        const matchesDate = hasYearInQuery
+          ? (
+              (createdDate?.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' }).toLowerCase() || '').includes(s) ||
+              (createdDate?.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) || '').includes(s) ||
+              (q.created_at || '').split('T')[0].includes(s)
+            )
+          : (
+              dayStr === s ||
+              dayStrPadded === s ||
+              monthName.includes(s) ||
+              monthNameShort.includes(s) ||
+              dateSlashNoYear.includes(s) ||
+              dateTextNoYear.includes(s)
+            )
+
+        // Evitar que búsquedas cortas numéricas coincidan con el año "2026" de la cotización
+        const matchesCode = q.codigo && (() => {
+          const c = q.codigo.toLowerCase()
+          if (s.length <= 3 && /^\d+$/.test(s)) {
+            const stripped = c.replace(/^(ctb-)?\d{4}-/, '')
+            return stripped.includes(s)
+          }
+          return c.includes(s)
+        })()
 
         return (
-          (q.codigo || '').toLowerCase().includes(s) ||
+          matchesCode ||
           (q.agencia || '').toLowerCase().includes(s) ||
           (q.destino || '').toLowerCase().includes(s) ||
           (q.comercial || '').toLowerCase().includes(s) ||
@@ -539,6 +567,7 @@ export default function CotizacionesPage() {
             quotes={paginatedData}
             isAdmin={profile?.rol === 'admin' || profile?.rol === 'superadmin'}
             isSuperAdmin={profile?.rol === 'superadmin'}
+            currentUserId={user?.id}
             onUpdate={fetchQuotes}
           />
         </div>

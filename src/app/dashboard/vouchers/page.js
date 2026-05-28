@@ -187,14 +187,42 @@ export default function VouchersPage() {
             : ''
 
         const createdDate = v.created_at ? new Date(v.created_at) : null
-        const formattedDate = createdDate ? createdDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' }).toLowerCase() : ''
-        const formattedDateSlash = createdDate ? createdDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
-        const formattedDateShort = createdDate ? createdDate.toLocaleDateString('es-EC', { day: '2-digit', month: 'short' }).toLowerCase() : ''
-        const dateIso = v.created_at ? v.created_at.split('T')[0] : ''
-        const matchesDate = formattedDate.includes(s) || formattedDateSlash.includes(s) || formattedDateShort.includes(s) || dateIso.includes(s)
+        const dayStr = createdDate ? createdDate.getDate().toString() : ''
+        const dayStrPadded = createdDate ? createdDate.getDate().toString().padStart(2, '0') : ''
+        const monthName = createdDate ? createdDate.toLocaleDateString('es-ES', { month: 'long' }).toLowerCase() : ''
+        const monthNameShort = createdDate ? createdDate.toLocaleDateString('es-EC', { month: 'short' }).toLowerCase() : ''
+        const dateSlashNoYear = createdDate ? `${dayStrPadded}/${(createdDate.getMonth() + 1).toString().padStart(2, '0')}` : ''
+        const dateTextNoYear = createdDate ? `${dayStr} de ${monthName}` : ''
+
+        const hasYearInQuery = s.includes('2026') || (s.includes('26') && s.length >= 4)
+
+        const matchesDate = hasYearInQuery
+          ? (
+              (createdDate?.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' }).toLowerCase() || '').includes(s) ||
+              (createdDate?.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) || '').includes(s) ||
+              (v.created_at || '').split('T')[0].includes(s)
+            )
+          : (
+              dayStr === s ||
+              dayStrPadded === s ||
+              monthName.includes(s) ||
+              monthNameShort.includes(s) ||
+              dateSlashNoYear.includes(s) ||
+              dateTextNoYear.includes(s)
+            )
+
+        // Evitar que búsquedas cortas numéricas coincidan con el año "2026" del código de voucher (ej. VCH-2026-XXXX)
+        const matchesCode = v.codigo && (() => {
+          const c = v.codigo.toLowerCase()
+          if (s.length <= 3 && /^\d+$/.test(s)) {
+            const stripped = c.replace(/^(vch-)?\d{4}-/, '')
+            return stripped.includes(s)
+          }
+          return c.includes(s)
+        })()
 
         return (
-          (v.codigo || '').toLowerCase().includes(s) ||
+          matchesCode ||
           (v.agencia || '').toLowerCase().includes(s) ||
           (v.destino || '').toLowerCase().includes(s) ||
           passengerNames.includes(s) ||
@@ -451,7 +479,7 @@ export default function VouchersPage() {
                       >
                         <Share2 size={18} />
                       </button>
-                      {profile?.rol === 'superadmin' && (
+                      {(profile?.rol === 'superadmin' || voucher.operativo_id === user?.id) && (
                         <button 
                           onClick={() => setEditingVoucher(voucher)}
                           className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
