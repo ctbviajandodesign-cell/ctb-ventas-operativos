@@ -11,17 +11,42 @@ export async function POST(request) {
 
     const { question, dataset, leaderboard, operativos } = await request.json()
 
-    // Ajustar a UTC-5 (hora de Ecuador / Colombia / Perú)
-    const offsetMs = -5 * 60 * 60 * 1000
-    const localNow = new Date(Date.now() + offsetMs)
-    const localYesterday = new Date(Date.now() - 24 * 60 * 60 * 1000 + offsetMs)
-    const localBeforeYesterday = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + offsetMs)
+    // Formateador robusto para la hora de Ecuador (America/Guayaquil, UTC-5)
+    // Evita problemas de desfases y funciona de manera idéntica en cualquier servidor (local o Vercel)
+    const getLocalDateIso = (dateVal) => {
+      if (!dateVal) return ''
+      try {
+        const d = new Date(dateVal)
+        if (isNaN(d.getTime())) return ''
+        const formatter = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'America/Guayaquil',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        })
+        return formatter.format(d)
+      } catch (err) {
+        return typeof dateVal === 'string' ? dateVal.split('T')[0] : ''
+      }
+    }
 
-    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' }
+    const localNow = new Date()
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Guayaquil',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    })
+    const todayIso = formatter.format(localNow)
+
+    const localYesterday = new Date(localNow.getTime() - 24 * 60 * 60 * 1000)
+    const yesterdayIso = formatter.format(localYesterday)
+
+    const localBeforeYesterday = new Date(localNow.getTime() - 2 * 24 * 60 * 60 * 1000)
+    const beforeYesterdayIso = formatter.format(localBeforeYesterday)
+
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Guayaquil' }
     const todayStr = localNow.toLocaleDateString('es-ES', options)
-    const todayIso = localNow.toISOString().split('T')[0]
-    const yesterdayIso = localYesterday.toISOString().split('T')[0]
-    const beforeYesterdayIso = localBeforeYesterday.toISOString().split('T')[0]
 
     if (!question) {
       return NextResponse.json({ answer: 'Por favor, escribe una pregunta.' })
@@ -55,7 +80,7 @@ export async function POST(request) {
         pasajeros:        q.numero_pasajeros || (Array.isArray(q.nombres_pasajeros) ? q.nombres_pasajeros.length : 0),
         motivo_perdida:   q.motivo_perdida || '',
         estado_original:  q.estado,
-        fecha:            q.created_at ? q.created_at.split('T')[0] : ''
+        fecha:            getLocalDateIso(q.created_at)
       }
     })
 

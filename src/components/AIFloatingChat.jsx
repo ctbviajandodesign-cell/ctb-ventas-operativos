@@ -82,10 +82,16 @@ export default function AIFloatingChat() {
       const startIso = startDate.toISOString()
 
       // Consulta del pipeline de cotizaciones
+      // Usar profiles!inner si filtramos por ciudad para evitar que PostgREST ignore el filtro en cotizaciones
+      const selectStr = (!isAdmin && profileData)
+        ? 'operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!inner(nombre, ciudad), ventas(id, estado, vouchers(codigo))'
+        : 'operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(id, estado, vouchers(codigo))'
+
       let pipelineQuery = supabase
         .from('cotizaciones')
-        .select('operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(id, estado, vouchers(codigo))')
+        .select(selectStr)
         .gte('created_at', startIso)
+        .order('created_at', { ascending: false })
 
       if (!isAdmin && profileData) {
         pipelineQuery = pipelineQuery.eq('profiles.ciudad', profileData.ciudad)
