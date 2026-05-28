@@ -283,6 +283,13 @@ export default function VentasPage() {
             ? v.cotizaciones.nombres_pasajeros.toLowerCase()
             : ''
 
+        const createdDate = v.created_at ? new Date(v.created_at) : null
+        const formattedDate = createdDate ? createdDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' }).toLowerCase() : ''
+        const formattedDateSlash = createdDate ? createdDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
+        const formattedDateShort = createdDate ? createdDate.toLocaleDateString('es-EC', { day: '2-digit', month: 'short' }).toLowerCase() : ''
+        const dateIso = v.created_at ? v.created_at.split('T')[0] : ''
+        const matchesDate = formattedDate.includes(s) || formattedDateSlash.includes(s) || formattedDateShort.includes(s) || dateIso.includes(s)
+
         return (
           (v.cotizaciones?.agencia || '').toLowerCase().includes(s) ||
           (v.cotizaciones?.codigo || '').toLowerCase().includes(s) ||
@@ -290,7 +297,8 @@ export default function VentasPage() {
           passengerNames.includes(s) ||
           (v.profiles?.nombre || '').toLowerCase().includes(s) ||
           (v.cotizaciones?.comercial || '').toLowerCase().includes(s) ||
-          computedEstado.includes(s)
+          computedEstado.includes(s) ||
+          matchesDate
         )
       })
     }
@@ -528,7 +536,7 @@ export default function VentasPage() {
                   }}
                 >
                   <td className="py-4 px-6 text-xs text-gray-500 font-bold">
-                    {format(parseISO(venta.created_at), 'dd MMM yyyy', { locale: es })}
+                    {format(parseISO(venta.created_at), "dd MMM yyyy '·' HH:mm", { locale: es })}
                   </td>
                   <td className="py-4 px-6 font-mono text-xs font-black text-primary">
                     #{venta.cotizaciones?.codigo}

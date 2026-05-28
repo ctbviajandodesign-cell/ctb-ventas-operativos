@@ -276,6 +276,13 @@ export default function CotizacionesPage() {
             ? q.nombres_pasajeros.toLowerCase()
             : ''
 
+        const createdDate = q.created_at ? new Date(q.created_at) : null
+        const formattedDate = createdDate ? createdDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' }).toLowerCase() : ''
+        const formattedDateSlash = createdDate ? createdDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
+        const formattedDateShort = createdDate ? createdDate.toLocaleDateString('es-EC', { day: '2-digit', month: 'short' }).toLowerCase() : ''
+        const dateIso = q.created_at ? q.created_at.split('T')[0] : ''
+        const matchesDate = formattedDate.includes(s) || formattedDateSlash.includes(s) || formattedDateShort.includes(s) || dateIso.includes(s)
+
         return (
           (q.codigo || '').toLowerCase().includes(s) ||
           (q.agencia || '').toLowerCase().includes(s) ||
@@ -283,7 +290,8 @@ export default function CotizacionesPage() {
           (q.comercial || '').toLowerCase().includes(s) ||
           passengerNames.includes(s) ||
           (q.profiles?.nombre || '').toLowerCase().includes(s) ||
-          computedEstado.includes(s)
+          computedEstado.includes(s) ||
+          matchesDate
         )
       })
     }

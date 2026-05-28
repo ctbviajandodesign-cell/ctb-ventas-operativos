@@ -239,7 +239,14 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, onUpdate })
                 className={`group hover:bg-gray-50 transition-colors cursor-pointer ${isSold ? 'bg-success/5' : ''}`}
                 onClick={() => setViewingQuote(quote)}
               >
-                <td className="py-2.5 px-4 font-mono text-xs font-black text-primary">#{quote.codigo}</td>
+                <td className="py-2.5 px-4">
+                  <div className="font-mono text-xs font-black text-primary">#{quote.codigo}</div>
+                  {quote.created_at && (
+                    <div className="text-[10px] text-gray-400 font-bold mt-0.5 whitespace-nowrap">
+                      {new Date(quote.created_at).toLocaleString('es-EC', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  )}
+                </td>
                 <td className="py-2.5 px-4">
                   <div className="font-black text-gray-800 text-sm leading-snug">{quote.agencia || 'Directo'}</div>
                   <div className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.1em]">{quote.destino || 'S/D'}</div>

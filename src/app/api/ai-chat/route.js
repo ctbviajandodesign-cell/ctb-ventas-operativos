@@ -18,15 +18,20 @@ export async function POST(request) {
       try {
         const d = new Date(dateVal)
         if (isNaN(d.getTime())) return ''
-        const formatter = new Intl.DateTimeFormat('en-CA', {
+        const parts = new Intl.DateTimeFormat('es-EC', {
           timeZone: 'America/Guayaquil',
           year: 'numeric',
           month: '2-digit',
-          day: '2-digit'
-        })
-        return formatter.format(d)
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        }).formatToParts(d)
+        const map = {}
+        parts.forEach(p => { map[p.type] = p.value })
+        return `${map.year}-${map.month}-${map.day} ${map.hour}:${map.minute}`
       } catch (err) {
-        return typeof dateVal === 'string' ? dateVal.split('T')[0] : ''
+        return typeof dateVal === 'string' ? dateVal.replace('T', ' ').substring(0, 16) : ''
       }
     }
 
@@ -217,7 +222,7 @@ export async function POST(request) {
 - Al responder preguntas sobre registros del día de ayer, hoy o fechas específicas, describe con precisión los datos y menciona explícitamente el día de la semana y fecha correspondientes (ej: "ayer martes 26 de mayo" o "hoy miércoles 27 de mayo") para ubicar al usuario en el contexto temporal exacto.
 
 === REGLAS DE FILTRADO TEMPORAL OBLIGATORIO ===
-1. Si el usuario pregunta por un día específico o relativo (como "hoy", "ayer" o "anteayer"), debes filtrar el dataset del período completo para quedarte ÚNICAMENTE con los registros individuales cuya propiedad "fecha" coincida exactamente con la fecha del día consultado (ej: para "hoy", filtrar donde "fecha" sea ${todayIso}; para "ayer", filtrar donde "fecha" sea ${yesterdayIso}).
+1. Si el usuario pregunta por un día específico o relativo (como "hoy", "ayer" o "anteayer"), debes filtrar el dataset del período completo para quedarte ÚNICAMENTE con los registros individuales cuya propiedad "fecha" comience con la fecha del día consultado (ej: para "hoy", filtrar donde "fecha" comience con ${todayIso}; para "ayer", filtrar donde "fecha" comience con ${yesterdayIso}).
 2. Realiza TODOS tus cálculos de cotizaciones totales, resúmenes de ventas de ese día, desgloses por operativo y conclusiones basándote EXCLUSIVAMENTE en ese subconjunto filtrado.
 3. NUNCA respondas con los totales del período completo de 49 cotizaciones si el usuario está preguntando por un día en específico como "hoy" o "ayer".
 4. Si no existen registros en el dataset para el día consultado, dilo claramente (ej: "No se registran cotizaciones ni ventas para ayer martes 26 de mayo").
