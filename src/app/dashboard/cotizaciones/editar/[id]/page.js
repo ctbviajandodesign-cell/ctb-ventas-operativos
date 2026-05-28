@@ -171,16 +171,7 @@ export default function EditarCotizacionPage() {
                 <label className="label">Destino</label>
                 <input required className="input" value={formData.destino} onChange={e => setFormData({...formData, destino: e.target.value})} />
               </div>
-              <div className="grid grid-cols-2 gap-2 col-span-2">
-                <div>
-                  <label className="label">Caducidad</label>
-                  <input type="date" className="input" value={formData.fecha_caducidad} onChange={e => setFormData({...formData, fecha_caducidad: e.target.value})} />
-                </div>
-                <div>
-                  <label className="label">Hora</label>
-                  <input type="time" className="input" value={formData.hora_caducidad} onChange={e => setFormData({...formData, hora_caducidad: e.target.value})} />
-                </div>
-              </div>
+
             </div>
           </div>
 
