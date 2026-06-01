@@ -29,7 +29,7 @@ export default function CotizacionesPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('todas')
   const [selectedCity, setSelectedCity] = useState('todas')
-  const [dateFilter, setDateFilter] = useState('todas')
+  const [dateFilter, setDateFilter] = useState('mes')
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(15)
   const { user, profile, isAdmin, loading: sessionLoading } = useUserSession()
@@ -194,22 +194,60 @@ export default function CotizacionesPage() {
     })
   }, [quotes])
 
+  const dateFilteredQuotes = useMemo(() => {
+    let result = enrichedQuotes
+    if (isAdmin && selectedCity !== 'todas') {
+      result = result.filter(q => q.profiles?.ciudad === selectedCity)
+    }
+    // Date Filtering (Ecuador Timezone)
+    if (dateFilter !== 'todas') {
+      const now = new Date()
+      const ecTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Guayaquil" }))
+
+      result = result.filter(q => {
+        if (!q.created_at) return false
+        const date = new Date(q.created_at)
+        const qTime = new Date(date.toLocaleString("en-US", { timeZone: "America/Guayaquil" }))
+        const diffTime = Math.abs(ecTime - qTime)
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        
+        if (dateFilter === 'hoy') {
+          return qTime.toDateString() === ecTime.toDateString()
+        }
+        if (dateFilter === '24horas') {
+          return diffTime <= 24 * 60 * 60 * 1000
+        }
+        if (dateFilter === 'semana') {
+          return diffDays <= 7
+        }
+        if (dateFilter === 'mes') {
+          return qTime.getMonth() === ecTime.getMonth() && qTime.getFullYear() === ecTime.getFullYear()
+        }
+        if (dateFilter === 'año') {
+          return qTime.getFullYear() === ecTime.getFullYear()
+        }
+        return true
+      })
+    }
+    return result
+  }, [enrichedQuotes, dateFilter, selectedCity, isAdmin])
+
   // Métricas para el mini-dashboard
   const stats = useMemo(() => {
-    const total = enrichedQuotes.length
-    const abiertas = enrichedQuotes.filter(q => (q.estado || '').trim() === 'abierta' && !q._esCaducada).length
-    const caducadas = enrichedQuotes.filter(q => (q.estado || '').trim() === 'abierta' && q._esCaducada).length
-    const ganadas = enrichedQuotes.filter(q => (q.estado || '').trim() === 'ganada').length
-    const perdidas = enrichedQuotes.filter(q => (q.estado || '').trim() === 'perdida').length
-    const anuladas = enrichedQuotes.filter(q => (q.estado || '').trim() === 'anulada').length
-    const totalVenta = enrichedQuotes.filter(q => (q.estado || '').trim() === 'ganada')
+    const total = dateFilteredQuotes.length
+    const abiertas = dateFilteredQuotes.filter(q => (q.estado || '').trim() === 'abierta' && !q._esCaducada).length
+    const caducadas = dateFilteredQuotes.filter(q => (q.estado || '').trim() === 'abierta' && q._esCaducada).length
+    const ganadas = dateFilteredQuotes.filter(q => (q.estado || '').trim() === 'ganada').length
+    const perdidas = dateFilteredQuotes.filter(q => (q.estado || '').trim() === 'perdida').length
+    const anuladas = dateFilteredQuotes.filter(q => (q.estado || '').trim() === 'anulada').length
+    const totalVenta = dateFilteredQuotes.filter(q => (q.estado || '').trim() === 'ganada')
       .reduce((acc, q) => acc + (Number(q.valor_total) || 0), 0)
-    const totalAporte = enrichedQuotes.filter(q => (q.estado || '').trim() === 'ganada')
+    const totalAporte = dateFilteredQuotes.filter(q => (q.estado || '').trim() === 'ganada')
       .reduce((acc, q) => acc + (Number(q.valor_comision) || 0) + (Number(q.valor_utilidad) || 0), 0)
     const conversion = total > 0 ? ((ganadas / total) * 100).toFixed(1) : 0
 
     return { total, abiertas, caducadas, ganadas, perdidas, anuladas, totalVenta, totalAporte, conversion }
-  }, [enrichedQuotes])
+  }, [dateFilteredQuotes])
 
   const chartData = [
     { name: 'En Espera', value: stats.abiertas, color: '#0066CC' },
@@ -219,9 +257,9 @@ export default function CotizacionesPage() {
     { name: 'Canceladas', value: stats.anuladas, color: '#DC2626' },
   ]
 
-  // Filtros combinados: estado + búsqueda de texto + ciudad (para admin) + fecha
+  // Filtros combinados: estado + búsqueda de texto
   const filtered = useMemo(() => {
-    let result = enrichedQuotes
+    let result = dateFilteredQuotes
     if (statusFilter !== 'todas') {
       if (statusFilter === 'abierta') {
         result = result.filter(q => (q.estado || '').trim() === 'abierta' && !q._esCaducada)
@@ -230,36 +268,6 @@ export default function CotizacionesPage() {
       } else {
         result = result.filter(q => (q.estado || '').trim() === statusFilter)
       }
-    }
-    if (isAdmin && selectedCity !== 'todas') {
-      result = result.filter(q => q.profiles?.ciudad === selectedCity)
-    }
-    // Date Filtering
-    if (dateFilter !== 'todas') {
-      const now = new Date()
-      result = result.filter(q => {
-        if (!q.created_at) return false
-        const date = new Date(q.created_at)
-        const diffTime = Math.abs(now - date)
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-        
-        if (dateFilter === 'hoy') {
-          return date.toDateString() === now.toDateString()
-        }
-        if (dateFilter === '24horas') {
-          return diffTime <= 24 * 60 * 60 * 1000
-        }
-        if (dateFilter === 'semana') {
-          return diffDays <= 7
-        }
-        if (dateFilter === 'mes') {
-          return diffDays <= 30
-        }
-        if (dateFilter === 'año') {
-          return date.getFullYear() === now.getFullYear()
-        }
-        return true
-      })
     }
     if (search.trim()) {
       const s = search.toLowerCase()
@@ -324,7 +332,7 @@ export default function CotizacionesPage() {
       })
     }
     return result
-  }, [enrichedQuotes, statusFilter, selectedCity, dateFilter, search, isAdmin])
+  }, [dateFilteredQuotes, statusFilter, search])
 
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage
@@ -379,7 +387,7 @@ export default function CotizacionesPage() {
         <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col justify-between">
           <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Total Cotizaciones</p>
           <p className="text-4xl font-black text-gray-900 mt-2">{stats.total}</p>
-          <p className="text-xs text-gray-400 mt-2 font-bold">Este historial completo</p>
+          <p className="text-xs text-gray-400 mt-2 font-bold">{dateFilter === 'mes' ? 'Este Mes' : dateFilter === 'todas' ? 'Este historial completo' : dateFilter === 'hoy' ? 'El día de Hoy' : 'Este Período'}</p>
         </div>
         <div className="bg-primary/5 border border-primary/10 p-6 rounded-[2rem] flex flex-col justify-between">
           <p className="text-xs font-black text-primary/80 uppercase tracking-widest">En Espera</p>

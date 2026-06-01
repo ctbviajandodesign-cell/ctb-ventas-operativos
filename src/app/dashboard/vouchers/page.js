@@ -39,7 +39,7 @@ export default function VouchersPage() {
   const [viewingVoucher, setViewingVoucher] = useState(null)
   const [search, setSearch] = useState('')
   const [selectedCity, setSelectedCity] = useState('todas')
-  const [dateFilter, setDateFilter] = useState('todas')
+  const [dateFilter, setDateFilter] = useState('mes')
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(15)
   const [baseUrl, setBaseUrl] = useState('')
@@ -239,26 +239,29 @@ export default function VouchersPage() {
       result = result.filter(v => v.profiles?.ciudad === selectedCity)
     }
 
-    // 3. Filtro por fecha de creación
+    // 3. Filtro por fecha de creación (Ecuador Timezone)
     if (dateFilter !== 'todas') {
       const now = new Date()
+      const ecTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Guayaquil" }))
+      
       result = result.filter(v => {
         if (!v.created_at) return false
         const date = new Date(v.created_at)
-        const diffTime = Math.abs(now - date)
+        const qTime = new Date(date.toLocaleString("en-US", { timeZone: "America/Guayaquil" }))
+        const diffTime = Math.abs(ecTime - qTime)
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
         
         if (dateFilter === 'hoy') {
-          return date.toDateString() === now.toDateString()
+          return qTime.toDateString() === ecTime.toDateString()
         }
         if (dateFilter === 'semana') {
           return diffDays <= 7
         }
         if (dateFilter === 'mes') {
-          return diffDays <= 30
+          return qTime.getMonth() === ecTime.getMonth() && qTime.getFullYear() === ecTime.getFullYear()
         }
         if (dateFilter === 'año') {
-          return date.getFullYear() === now.getFullYear()
+          return qTime.getFullYear() === ecTime.getFullYear()
         }
         return true
       })

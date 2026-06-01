@@ -20,7 +20,7 @@ export default function VentasPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('activa')
   const [selectedCity, setSelectedCity] = useState('todas')
-  const [dateFilter, setDateFilter] = useState('todas')
+  const [dateFilter, setDateFilter] = useState('mes')
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(15)
   const { user, profile, isAdmin, loading: sessionLoading } = useUserSession()
@@ -79,19 +79,54 @@ export default function VentasPage() {
     return null
   }
 
+  const dateFilteredVentas = useMemo(() => {
+    let result = ventas
+    if (isAdmin && selectedCity !== 'todas') {
+      result = result.filter(v => v.profiles?.ciudad === selectedCity)
+    }
+    // Date Filtering (Ecuador Timezone)
+    if (dateFilter !== 'todas') {
+      const now = new Date()
+      const ecTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Guayaquil" }))
+
+      result = result.filter(v => {
+        if (!v.created_at) return false
+        const date = new Date(v.created_at)
+        const qTime = new Date(date.toLocaleString("en-US", { timeZone: "America/Guayaquil" }))
+        const diffTime = Math.abs(ecTime - qTime)
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        
+        if (dateFilter === 'hoy') {
+          return qTime.toDateString() === ecTime.toDateString()
+        }
+        if (dateFilter === 'semana') {
+          return diffDays <= 7
+        }
+        if (dateFilter === 'mes') {
+          return qTime.getMonth() === ecTime.getMonth() && qTime.getFullYear() === ecTime.getFullYear()
+        }
+        if (dateFilter === 'año') {
+          return qTime.getFullYear() === ecTime.getFullYear()
+        }
+        return true
+      })
+    }
+    return result
+  }, [ventas, dateFilter, selectedCity, isAdmin])
+
   // Stats calculadas
   const stats = useMemo(() => {
-    const activas = ventas.filter(v => v.estado === 'activa')
-    const anuladas = ventas.filter(v => v.estado === 'anulada')
+    const activas = dateFilteredVentas.filter(v => v.estado === 'activa')
+    const anuladas = dateFilteredVentas.filter(v => v.estado === 'anulada')
     const totalVenta = activas.reduce((acc, v) => acc + (Number(v.total) || 0), 0)
     const totalAporte = activas.reduce((acc, v) => acc + (Number(v.comision) || 0) + (Number(v.utilidad) || 0), 0)
     return { activas: activas.length, anuladas: anuladas.length, totalVenta, totalAporte }
-  }, [ventas])
+  }, [dateFilteredVentas])
 
   // Gráfico: ventas por semana/mes (agrupado por día)
   const chartData = useMemo(() => {
     const byDay = {}
-    ventas
+    dateFilteredVentas
       .filter(v => v.estado === 'activa')
       .forEach(v => {
         const day = v.created_at?.split('T')[0] || 'N/A'
@@ -106,7 +141,7 @@ export default function VentasPage() {
         ...d,
         fechaLabel: d.fecha !== 'N/A' ? format(parseISO(d.fecha), 'dd MMM', { locale: es }) : 'N/A'
       }))
-  }, [ventas])
+  }, [dateFilteredVentas])
 
   const promptAnular = (venta) => {
     setAnnulVentaModal({ venta, motivo: '' })
@@ -242,36 +277,9 @@ export default function VentasPage() {
   }
 
   const filtered = useMemo(() => {
-    let result = ventas
+    let result = dateFilteredVentas
     if (statusFilter !== 'todas') {
       result = result.filter(v => v.estado === statusFilter)
-    }
-    if (isAdmin && selectedCity !== 'todas') {
-      result = result.filter(v => v.profiles?.ciudad === selectedCity)
-    }
-    // Date Filtering
-    if (dateFilter !== 'todas') {
-      const now = new Date()
-      result = result.filter(v => {
-        if (!v.created_at) return false
-        const date = new Date(v.created_at)
-        const diffTime = Math.abs(now - date)
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-        
-        if (dateFilter === 'hoy') {
-          return date.toDateString() === now.toDateString()
-        }
-        if (dateFilter === 'semana') {
-          return diffDays <= 7
-        }
-        if (dateFilter === 'mes') {
-          return diffDays <= 30
-        }
-        if (dateFilter === 'año') {
-          return date.getFullYear() === now.getFullYear()
-        }
-        return true
-      })
     }
     if (search.trim()) {
       const s = search.toLowerCase()
@@ -331,7 +339,7 @@ export default function VentasPage() {
       })
     }
     return result
-  }, [ventas, statusFilter, selectedCity, dateFilter, search, isAdmin])
+  }, [dateFilteredVentas, statusFilter, search])
 
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage
