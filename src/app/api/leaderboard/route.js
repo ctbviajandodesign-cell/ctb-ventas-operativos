@@ -15,14 +15,19 @@ export async function GET(request) {
 
     const { searchParams } = new URL(request.url)
     const period = searchParams.get('period') || 'mes'
+    const startIso = searchParams.get('startIso')
 
-    const startDate = new Date()
-    if (period === 'mes') {
-      startDate.setDate(1)
-    } else {
-      startDate.setMonth(0, 1)
+    let startDateIso = startIso
+    if (!startDateIso) {
+      const startDate = new Date()
+      if (period === 'mes') {
+        startDate.setDate(1)
+      } else {
+        startDate.setMonth(0, 1)
+      }
+      startDate.setHours(0, 0, 0, 0)
+      startDateIso = startDate.toISOString()
     }
-    startDate.setHours(0, 0, 0, 0)
 
     // Traer todos los operativos
     const { data: allOps, error: opsErr } = await supabaseAdmin
@@ -37,7 +42,7 @@ export async function GET(request) {
       .from('ventas')
       .select('total, comision, utilidad, operativo_id')
       .eq('estado', 'activa')
-      .gte('created_at', startDate.toISOString())
+      .gte('created_at', startDateIso)
 
     if (ventErr) throw ventErr
 

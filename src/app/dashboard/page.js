@@ -159,14 +159,14 @@ export default function DashboardPage() {
         setOperatives(ops || [])
       }
 
-      const startDate = new Date()
+      const now = new Date()
+      const ecTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Guayaquil" }))
+      let startIso
       if (selectedPeriod === 'mes') {
-        startDate.setDate(1)
+        startIso = new Date(Date.UTC(ecTime.getFullYear(), ecTime.getMonth(), 1, 5, 0, 0, 0)).toISOString()
       } else {
-        startDate.setMonth(0, 1)
+        startIso = new Date(Date.UTC(ecTime.getFullYear(), 0, 1, 5, 0, 0, 0)).toISOString()
       }
-      startDate.setHours(0, 0, 0, 0)
-      const startIso = startDate.toISOString()
 
       const targetIdForIndividual = (!isAdmin || selectedOperative !== 'global') ? (isAdmin ? selectedOperative : user.id) : null
 
@@ -218,7 +218,7 @@ export default function DashboardPage() {
         pipelineQuery,
         openCountQuery,
         lostQuery,
-        fetch(`/api/leaderboard?period=${selectedPeriod}`).then(r => r.json())
+        fetch(`/api/leaderboard?period=${selectedPeriod}&startIso=${startIso}`).then(r => r.json())
       ])
 
       const totalMetaComp = ventasData?.reduce((acc, v) => acc + (Number(v.comision) || 0) + (Number(v.utilidad) || 0), 0) || 0
@@ -421,20 +421,22 @@ export default function DashboardPage() {
     const isAdmin = profile?.rol === 'admin' || profile?.rol === 'superadmin'
     if (!isAdmin && op.id !== user?.id) return
 
-    // Carga detallada de ese operativo
-    const startOfMonth = new Date(); startOfMonth.setDate(1); startOfMonth.setHours(0,0,0,0)
+    // Carga detallada de ese operativo (Usando zona horaria de Ecuador)
+    const nowPanel = new Date()
+    const ecTimePanel = new Date(nowPanel.toLocaleString("en-US", { timeZone: "America/Guayaquil" }))
+    const startOfMonthIso = new Date(Date.UTC(ecTimePanel.getFullYear(), ecTimePanel.getMonth(), 1, 5, 0, 0, 0)).toISOString()
     const [
       { data: ventas },
       { data: cots },
       { data: vouchersList }
     ] = await Promise.all([
       supabase.from('ventas').select('*, cotizaciones(*)').eq('operativo_id', op.id).order('created_at', { ascending: false }),
-      supabase.from('cotizaciones').select('*, profiles!left(nombre, ciudad), ventas(id, estado, vouchers(codigo))').eq('operativo_id', op.id).order('created_at', { ascending: false }),
-      supabase.from('vouchers').select('*, profiles!left(nombre, ciudad), ventas(id, cotizaciones(comercial))').eq('operativo_id', op.id).order('created_at', { ascending: false })
+      supabase.from('cotizaciones').select('*, profiles!left(nombre, ciudad), ventas(id, estado, vouchers(codigo))').eq('operativo_id', op.id).gte('created_at', startOfMonthIso).order('created_at', { ascending: false }),
+      supabase.from('vouchers').select('*, profiles!left(nombre, ciudad), ventas(id, cotizaciones(comercial))').eq('operativo_id', op.id).gte('created_at', startOfMonthIso).order('created_at', { ascending: false })
     ])
 
     // Filtrar para el mes actual para calcular el cumplimiento de meta
-    const ventasMes = ventas?.filter(v => v.estado === 'activa' && new Date(v.created_at) >= startOfMonth) || []
+    const ventasMes = ventas?.filter(v => v.estado === 'activa' && v.created_at >= startOfMonthIso) || []
 
     // IMPORTANTE: ganancia = comision + utilidad (aporte CTB), totalVendido = valor cliente
     const ganancia = ventasMes.reduce((a,v)=>a+(Number(v.comision)||0)+(Number(v.utilidad)||0),0)||0

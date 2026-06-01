@@ -75,11 +75,10 @@ export default function AIFloatingChat() {
         ops = opsData || []
       }
 
-      // Rango de fechas: desde inicio de año
-      const startDate = new Date()
-      startDate.setMonth(0, 1)
-      startDate.setHours(0, 0, 0, 0)
-      const startIso = startDate.toISOString()
+      // Rango de fechas: desde inicio de año (Ecuador Time)
+      const now = new Date()
+      const ecTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Guayaquil" }))
+      const startIso = new Date(Date.UTC(ecTime.getFullYear(), 0, 1, 5, 0, 0, 0)).toISOString()
 
       // Consulta del pipeline de cotizaciones
       // Usar profiles!inner si filtramos por ciudad para evitar que PostgREST ignore el filtro en cotizaciones
@@ -99,7 +98,7 @@ export default function AIFloatingChat() {
 
       const [resQuotes, resBoard] = await Promise.all([
         pipelineQuery,
-        fetch('/api/leaderboard?period=mes').then(r => r.json()).catch(() => ({ ranking: [] }))
+        fetch(`/api/leaderboard?period=mes&startIso=${startIso}`).then(r => r.json()).catch(() => ({ ranking: [] }))
       ])
 
       if (resQuotes.error) throw resQuotes.error

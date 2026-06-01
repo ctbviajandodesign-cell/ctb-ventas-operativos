@@ -38,20 +38,19 @@ export default function AnalisisPage() {
       // Determinar qué datos consultar
       const targetOp = isAdmin ? selectedOp : (user?.id || 'global')
 
-      // Filtro de rango seleccionado
-      const startDate = new Date()
+      const now = new Date()
+      const ecTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Guayaquil" }))
+      let startIso
       if (timeframe === 'mes') {
-        startDate.setDate(1)
+        startIso = new Date(Date.UTC(ecTime.getFullYear(), ecTime.getMonth(), 1, 5, 0, 0, 0)).toISOString()
       } else {
-        startDate.setMonth(0)
-        startDate.setDate(1)
+        startIso = new Date(Date.UTC(ecTime.getFullYear(), 0, 1, 5, 0, 0, 0)).toISOString()
       }
-      startDate.setHours(0, 0, 0, 0)
 
       let cotsQuery = supabase
         .from('cotizaciones')
         .select('estado, valor_total, valor_comision, valor_utilidad, destino, operativo_id, motivo_perdida')
-        .gte('created_at', startDate.toISOString())
+        .gte('created_at', startIso)
 
       if (targetOp !== 'global') {
         cotsQuery = cotsQuery.eq('operativo_id', targetOp)
