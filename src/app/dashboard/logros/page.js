@@ -31,17 +31,20 @@ export default function LogrosPage() {
       const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).single()
       setProfile(p)
 
-      // Stats personales históricas
-      const { data: cots } = await supabase.from('cotizaciones').select('estado, valor_total, created_at').eq('operativo_id', user.id)
+      const now = new Date()
+      const ecTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Guayaquil" }))
+      const startIso = new Date(Date.UTC(ecTime.getFullYear(), ecTime.getMonth(), 1, 5, 0, 0, 0)).toISOString()
+      
+      // Stats personales del mes
+      const { data: cots } = await supabase.from('cotizaciones').select('estado, valor_total, created_at').eq('operativo_id', user.id).gte('created_at', startIso)
       const { data: ventas } = await supabase.from('ventas').select('comision, utilidad, created_at').eq('operativo_id', user.id).eq('estado', 'activa')
-      const { count: vCount } = await supabase.from('vouchers').select('id', { count: 'exact', head: true }).eq('operativo_id', user.id)
+      const { count: vCount } = await supabase.from('vouchers').select('id', { count: 'exact', head: true }).eq('operativo_id', user.id).gte('created_at', startIso)
 
       // Mes actual para ventas
-      const startOfMonth = new Date(); startOfMonth.setDate(1); startOfMonth.setHours(0,0,0,0)
       const gananciaTotal = ventas?.reduce((a, v) => a + (Number(v.comision)||0) + (Number(v.utilidad)||0), 0) || 0
-      const gananciaDelMes = ventas?.filter(v => new Date(v.created_at) >= startOfMonth)
+      const gananciaDelMes = ventas?.filter(v => v.created_at >= startIso)
         .reduce((a, v) => a + (Number(v.comision)||0) + (Number(v.utilidad)||0), 0) || 0
-      const totalVendidoMes = cots?.filter(c => c.estado === 'ganada' && new Date(c.created_at) >= startOfMonth)
+      const totalVendidoMes = cots?.filter(c => c.estado === 'ganada')
         .reduce((a, c) => a + (Number(c.valor_total)||0), 0) || 0
 
       const meta = Number(p?.meta_mensual) || 5000
@@ -59,29 +62,38 @@ export default function LogrosPage() {
         cumplimiento: meta > 0 ? (gananciaDelMes / meta) * 100 : 0
       })
 
-      // Datos mensuales para gráfico (últimos 6 meses)
+      // Datos mensuales para gráfico (últimos 6 meses) basado en zona horaria local
+      let m6 = ecTime.getMonth() - 5
+      let y6 = ecTime.getFullYear()
+      if (m6 < 0) { m6 += 12; y6 -= 1; }
+      const iso6m = new Date(Date.UTC(y6, m6, 1, 5, 0, 0, 0)).toISOString()
+      const { data: allCots6m } = await supabase.from('cotizaciones').select('estado, created_at').eq('operativo_id', user.id).gte('created_at', iso6m)
+      
       const meses = []
       for (let i = 5; i >= 0; i--) {
-        const d = new Date()
-        d.setMonth(d.getMonth() - i)
-        const start = new Date(d.getFullYear(), d.getMonth(), 1)
-        const end = new Date(d.getFullYear(), d.getMonth() + 1, 0)
+        let m = ecTime.getMonth() - i
+        let y = ecTime.getFullYear()
+        if (m < 0) { m += 12; y -= 1; }
+        const startIsoMes = new Date(Date.UTC(y, m, 1, 5, 0, 0, 0)).toISOString()
+        
+        let mNext = m + 1
+        let yNext = y
+        if (mNext > 11) { mNext = 0; yNext += 1; }
+        const endIsoMes = new Date(Date.UTC(yNext, mNext, 1, 5, 0, 0, 0)).toISOString()
+
+        const d = new Date(y, m, 1)
         const label = d.toLocaleDateString('es', { month: 'short' }).toUpperCase()
-        const ventasMes = ventas?.filter(v => {
-          const dt = new Date(v.created_at)
-          return dt >= start && dt <= end
-        }) || []
+        
+        const ventasMes = ventas?.filter(v => v.created_at >= startIsoMes && v.created_at < endIsoMes) || []
         const ganMes = ventasMes.reduce((a, v) => a + (Number(v.comision)||0) + (Number(v.utilidad)||0), 0)
-        const cerradasMes = cots?.filter(c => {
-          const dt = new Date(c.created_at)
-          return c.estado === 'ganada' && dt >= start && dt <= end
-        }).length || 0
+        
+        const cerradasMes = allCots6m?.filter(c => c.estado === 'ganada' && c.created_at >= startIsoMes && c.created_at < endIsoMes).length || 0
         meses.push({ mes: label, ganancia: ganMes, cerradas: cerradasMes })
       }
       setMonthlyData(meses)
 
       // Ranking completo de operativos para comparación mediante API (salta RLS)
-      const resBoard = await fetch('/api/leaderboard')
+      const resBoard = await fetch(`/api/leaderboard?period=mes&startIso=${startIso}`)
       const boardData = await resBoard.json()
       const rawBoard = boardData.success ? boardData.leaderboard : []
       const userCity = p?.ciudad
