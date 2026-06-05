@@ -10,7 +10,8 @@ import {
   Trash2,
   Calendar,
   Clock,
-  DollarSign
+  DollarSign,
+  Users
 } from 'lucide-react'
 import { showToast } from '@/utils/toast'
 import { logActivity } from '@/utils/audit'
@@ -104,15 +105,21 @@ export default function EditarCotizacionPage() {
     setPasajeros(n)
   }
 
+  const removePasajero = (idx) => {
+    const n = pasajeros.filter((_, i) => i !== idx)
+    setPasajeros(n.length > 0 ? n : [''])
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSaving(true)
     try {
+      const filteredPasajeros = pasajeros.filter(p => p.trim() !== '')
       const payload = {
         agencia: formData.agencia,
         comercial: formData.comercial,
         destino: formData.destino,
-        numero_pasajeros: formData.numero_pasajeros || 1,
+        numero_pasajeros: Math.max(Number(formData.numero_pasajeros) || 1, filteredPasajeros.length),
         fecha_caducidad: formData.fecha_caducidad || null,
         hora_caducidad: formData.hora_caducidad || null,
         notas_iniciales: formData.notas_iniciales,
@@ -120,7 +127,7 @@ export default function EditarCotizacionPage() {
         valor_comision: Number(formData.valor_comision) || 0,
         valor_utilidad: Number(formData.valor_utilidad) || 0,
         valor_bono: Number(formData.valor_bono) || 0,
-        nombres_pasajeros: pasajeros.filter(p => p.trim() !== ''),
+        nombres_pasajeros: filteredPasajeros,
         estado: 'abierta',
         created_at: new Date().toISOString()
       }
@@ -171,15 +178,40 @@ export default function EditarCotizacionPage() {
                 <label className="label">Destino</label>
                 <input required className="input" value={formData.destino} onChange={e => setFormData({...formData, destino: e.target.value})} />
               </div>
+              <div className="col-span-2 md:col-span-1">
+                <label className="label flex items-center gap-1.5">
+                  <Users size={12} className="text-primary" /> Número de Pasajeros
+                </label>
+                <input
+                  required
+                  type="number"
+                  min="1"
+                  max="200"
+                  className="input font-black text-base"
+                  value={formData.numero_pasajeros}
+                  onChange={e => setFormData({ ...formData, numero_pasajeros: parseInt(e.target.value) || 1 })}
+                />
+              </div>
 
             </div>
           </div>
 
           <div className="card space-y-4">
             <h3 className="font-bold text-gray-800 border-b pb-2">Pasajeros</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {pasajeros.map((p, i) => (
-                <input key={i} className="input text-sm" value={p} onChange={e => handlePasajeroChange(i, e.target.value)} />
+                <div key={i} className="flex items-center gap-2">
+                  <input className="input text-sm flex-1" value={p} onChange={e => handlePasajeroChange(i, e.target.value)} />
+                  {pasajeros.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removePasajero(i)}
+                      className="p-2.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl transition-colors shrink-0"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
               ))}
             </div>
             <button type="button" onClick={() => setPasajeros([...pasajeros, ''])} className="text-xs font-bold text-primary">+ Añadir pasajero</button>

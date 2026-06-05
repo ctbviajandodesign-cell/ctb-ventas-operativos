@@ -264,7 +264,7 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, currentUser
                 <td className="py-2.5 px-4">
                   <div className="flex items-center gap-1.5 text-gray-500">
                     <div className="bg-gray-100 w-7 h-7 rounded-xl flex items-center justify-center font-black text-xs text-gray-500">
-                      {quote.numero_pasajeros || (Array.isArray(quote.nombres_pasajeros) ? quote.nombres_pasajeros.length : 0)}
+                      {Math.max(quote.numero_pasajeros || 0, Array.isArray(quote.nombres_pasajeros) ? quote.nombres_pasajeros.length : 0) || 1}
                     </div>
                   </div>
                 </td>
@@ -417,7 +417,7 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, currentUser
               <div className="space-y-4 min-w-0">
                 <div className="flex gap-4">
                   <div className="flex-1 min-w-0">
-                    <p className="text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Pasajeros ({viewingQuote.numero_pasajeros})</p>
+                    <p className="text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Pasajeros ({Math.max(viewingQuote.numero_pasajeros || 0, Array.isArray(viewingQuote.nombres_pasajeros) ? viewingQuote.nombres_pasajeros.length : 0) || 1})</p>
                     <div className="flex flex-wrap gap-1.5 sm:gap-2 max-h-32 overflow-y-auto pr-1">
                       {viewingQuote.nombres_pasajeros?.map((n, i) => (
                         <span key={i} className="text-[11px] sm:text-xs font-bold bg-white border border-gray-100 px-2 sm:px-2.5 py-1 rounded-lg text-gray-600 uppercase break-words max-w-full">{n}</span>

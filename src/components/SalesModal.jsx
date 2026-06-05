@@ -108,6 +108,8 @@ export default function SalesModal() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('No hay sesión activa')
 
+      const pasajerosArr = formData.pasajeros_voucher ? formData.pasajeros_voucher.split('\n').map(s => s.trim()).filter(Boolean) : []
+
       const payload = {
         total: Number(formData.total) || 0,
         comision: Number(formData.comision) || 0,
@@ -131,7 +133,8 @@ export default function SalesModal() {
           valor_comision: Number(formData.comision) || 0,
           valor_utilidad: Number(formData.utilidad) || 0,
           valor_bono: Number(formData.bono_counter) || 0,
-          nombres_pasajeros: formData.pasajeros_voucher ? formData.pasajeros_voucher.split('\n').map(s => s.trim()).filter(Boolean) : []
+          nombres_pasajeros: pasajerosArr,
+          numero_pasajeros: pasajerosArr.length > 0 ? pasajerosArr.length : (quote.numero_pasajeros || 1)
         }).eq('id', quote.id)
       } else {
         const { data: venta, error: vError } = await supabase
@@ -147,7 +150,8 @@ export default function SalesModal() {
           valor_comision: Number(formData.comision) || 0,
           valor_utilidad: Number(formData.utilidad) || 0,
           valor_bono: Number(formData.bono_counter) || 0,
-          nombres_pasajeros: formData.pasajeros_voucher ? formData.pasajeros_voucher.split('\n').map(s => s.trim()).filter(Boolean) : []
+          nombres_pasajeros: pasajerosArr,
+          numero_pasajeros: pasajerosArr.length > 0 ? pasajerosArr.length : (quote.numero_pasajeros || 1)
         }).eq('id', quote.id)
       }
 
@@ -192,8 +196,6 @@ export default function SalesModal() {
       } catch (notifyErr) {
         console.warn('Telegram notify error:', notifyErr)
       }
-
-      const pasajerosArr = formData.pasajeros_voucher ? formData.pasajeros_voucher.split('\n').map(s => s.trim()).filter(Boolean) : []
 
       // Solo crear voucher si es nueva venta y se marcó la opción
       if (!isEditing && formData.generar_voucher) {
