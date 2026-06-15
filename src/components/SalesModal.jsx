@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { 
   X, Calendar, DollarSign, Plus, Trash2, 
   CheckCircle2, AlertCircle, Hotel, Bus, Plane, Map,
-  QrCode, ExternalLink, Sparkles
+  QrCode, ExternalLink, Sparkles, User
 } from 'lucide-react'
 import Link from 'next/link'
 import { showToast } from '@/utils/toast'
@@ -48,7 +48,9 @@ export default function SalesModal() {
           numero_proforma: s.numero_proforma || q.codigo || '',
           fecha_viaje_desde: '', fecha_viaje_hasta: '',
           fecha_caducidad_voucher: '', notas_voucher: '',
-          pasajeros_voucher: Array.isArray(q.nombres_pasajeros) ? q.nombres_pasajeros.join('\n') : (q.nombres_pasajeros || '')
+          pasajeros_voucher: Array.isArray(q.nombres_pasajeros) ? q.nombres_pasajeros.join('\n') : (q.nombres_pasajeros || ''),
+          agencia: q.cotizaciones?.agencia || q.agencia || '',
+          destino: q.cotizaciones?.destino || q.destino || ''
         })
         if (s.plan_pagos?.length) setMilestones(s.plan_pagos)
         else setMilestones([{ id: Date.now(), label: 'Primer Pago', amount: s.total || 0, percent: 100, date: new Date().toISOString().split('T')[0], status: 'pagado', method: 'efectivo' }])
@@ -76,7 +78,9 @@ export default function SalesModal() {
           fecha_viaje_desde: q.fecha_viaje_desde || '',
           fecha_viaje_hasta: q.fecha_viaje_hasta || '',
           fecha_caducidad_voucher: '', notas_voucher: '',
-          pasajeros_voucher: Array.isArray(q.nombres_pasajeros) ? q.nombres_pasajeros.join('\n') : (q.nombres_pasajeros || '')
+          pasajeros_voucher: Array.isArray(q.nombres_pasajeros) ? q.nombres_pasajeros.join('\n') : (q.nombres_pasajeros || ''),
+          agencia: q.cotizaciones?.agencia || q.agencia || '',
+          destino: q.cotizaciones?.destino || q.destino || ''
         })
         setMilestones([
           { id: Date.now(), label: 'Primer Pago', amount: initialTotal, percent: 100, date: new Date().toISOString().split('T')[0], status: 'pagado', method: 'efectivo' }
@@ -134,12 +138,15 @@ export default function SalesModal() {
           valor_utilidad: Number(formData.utilidad) || 0,
           valor_bono: Number(formData.bono_counter) || 0,
           nombres_pasajeros: pasajerosArr,
-          numero_pasajeros: pasajerosArr.length > 0 ? pasajerosArr.length : (quote.numero_pasajeros || 1)
+          numero_pasajeros: pasajerosArr.length > 0 ? pasajerosArr.length : (quote.numero_pasajeros || 1),
+          agencia: formData.agencia,
+          destino: formData.destino,
+          codigo: formData.numero_proforma
         }).eq('id', quote.id)
       } else {
         const { data: venta, error: vError } = await supabase
           .from('ventas')
-          .insert([{ ...payload, cotizacion_id: quote.id, operativo_id: user.id, numero_proforma: quote.codigo }])
+          .insert([{ ...payload, cotizacion_id: quote.id, operativo_id: user.id, numero_proforma: formData.numero_proforma }])
           .select().single()
         if (vError) throw vError
         ventaId = venta.id
@@ -151,7 +158,10 @@ export default function SalesModal() {
           valor_utilidad: Number(formData.utilidad) || 0,
           valor_bono: Number(formData.bono_counter) || 0,
           nombres_pasajeros: pasajerosArr,
-          numero_pasajeros: pasajerosArr.length > 0 ? pasajerosArr.length : (quote.numero_pasajeros || 1)
+          numero_pasajeros: pasajerosArr.length > 0 ? pasajerosArr.length : (quote.numero_pasajeros || 1),
+          agencia: formData.agencia,
+          destino: formData.destino,
+          codigo: formData.numero_proforma
         }).eq('id', quote.id)
       }
 
@@ -308,6 +318,42 @@ export default function SalesModal() {
             </div>
           )}
 
+          {/* DATOS DE LA PROFORMA */}
+          <div>
+            <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+              <Map size={16} /> Datos de la Proforma
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                <p className="text-xs font-black text-gray-400 uppercase mb-1">Ref / Código</p>
+                <input 
+                  type="text" 
+                  className="bg-transparent border-none font-black text-gray-900 text-sm p-0 w-full outline-none" 
+                  value={formData.numero_proforma} 
+                  onChange={e => setFormData({ ...formData, numero_proforma: e.target.value })} 
+                />
+              </div>
+              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                <p className="text-xs font-black text-gray-400 uppercase mb-1">Agencia / Cliente</p>
+                <input 
+                  type="text" 
+                  className="bg-transparent border-none font-black text-gray-900 text-sm p-0 w-full outline-none" 
+                  value={formData.agencia} 
+                  onChange={e => setFormData({ ...formData, agencia: e.target.value })} 
+                />
+              </div>
+              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                <p className="text-xs font-black text-gray-400 uppercase mb-1">Destino</p>
+                <input 
+                  type="text" 
+                  className="bg-transparent border-none font-black text-gray-900 text-sm p-0 w-full outline-none" 
+                  value={formData.destino} 
+                  onChange={e => setFormData({ ...formData, destino: e.target.value })} 
+                />
+              </div>
+            </div>
+          </div>
+
           {/* VALORES FINANCIEROS */}
           <div>
             <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
@@ -342,6 +388,22 @@ export default function SalesModal() {
                   <input type="number" step="0.01" className="bg-transparent border-none font-black text-primary text-xl p-0 w-full outline-none" value={formData.bono_counter} onChange={e => setFormData({ ...formData, bono_counter: e.target.value })} />
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* NOMBRES DE PASAJEROS */}
+          <div>
+            <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+              <User size={16} /> Nombres de Pasajeros / Nombre de Grupo
+            </p>
+            <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+              <textarea 
+                className="bg-transparent border-none font-black text-gray-900 text-sm p-0 w-full outline-none resize-y min-h-[60px]" 
+                placeholder="Juan Pérez&#10;Familia García..." 
+                value={formData.pasajeros_voucher} 
+                onChange={e => setFormData({ ...formData, pasajeros_voucher: e.target.value })} 
+              />
+              <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold">Un nombre por línea. Esto actualizará la proforma original y el voucher si existe.</p>
             </div>
           </div>
 
@@ -452,10 +514,6 @@ export default function SalesModal() {
                     <div>
                       <label className="text-xs font-black text-gray-400 uppercase">Fin del viaje</label>
                       <input type="date" className="input font-bold mt-1 text-xs" value={formData.fecha_viaje_hasta} onChange={e => setFormData({ ...formData, fecha_viaje_hasta: e.target.value })} />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="text-xs font-black text-gray-400 uppercase">Nombres de Pasajeros / Grupo (Uno por línea)</label>
-                      <textarea className="input text-xs mt-1 min-h-[70px] font-mono" placeholder="Juan Pérez&#10;María García..." value={formData.pasajeros_voucher} onChange={e => setFormData({ ...formData, pasajeros_voucher: e.target.value })} />
                     </div>
                     <div className="col-span-2">
                       <label className="text-xs font-black text-gray-400 uppercase">Notas para el pasajero</label>
