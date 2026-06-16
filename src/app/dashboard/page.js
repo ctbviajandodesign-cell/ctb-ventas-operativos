@@ -23,6 +23,7 @@ import {
   BarChart3,
   PieChart as PieIcon,
   ChevronRight,
+  ChevronLeft,
   Plus,
   Download,
   AlertTriangle,
@@ -39,6 +40,9 @@ import {
   Save,
   ExternalLink
 } from 'lucide-react'
+
+import { format } from 'date-fns'
+import { es } from 'date-fns/locale'
 
 import { 
   BarChart, 
@@ -65,11 +69,79 @@ const isExpired = (q) => {
 }
 
 export default function DashboardPage() {
+  const getEcuadorTime = (date = new Date()) => {
+    return new Date(date.toLocaleString("en-US", { timeZone: "America/Guayaquil" }))
+  }
+
   const [profile, setProfile] = useState(null)
   const [selectedOperative, setSelectedOperative] = useState('global')
   const [selectedCity, setSelectedCity] = useState('global')
-  const [selectedPeriod, setSelectedPeriod] = useState('mes') // 'mes' o 'año'
+  const [selectedPeriod, setSelectedPeriod] = useState('mes') // 'dia', 'semana', 'mes', 'año'
+  const [focusDate, setFocusDate] = useState(() => getEcuadorTime())
   const [operatives, setOperatives] = useState([])
+
+  const getPeriodRange = (period, date) => {
+    const d = new Date(date)
+    let start, end
+
+    if (period === 'dia') {
+      start = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 5, 0, 0, 0))
+      end = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate() + 1, 4, 59, 59, 999))
+    } else if (period === 'semana') {
+      const day = d.getDay()
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+      const monday = new Date(d.setDate(diff))
+      start = new Date(Date.UTC(monday.getFullYear(), monday.getMonth(), monday.getDate(), 5, 0, 0, 0))
+      end = new Date(Date.UTC(monday.getFullYear(), monday.getMonth(), monday.getDate() + 7, 4, 59, 59, 999))
+    } else if (period === 'mes') {
+      start = new Date(Date.UTC(d.getFullYear(), d.getMonth(), 1, 5, 0, 0, 0))
+      end = new Date(Date.UTC(d.getFullYear(), d.getMonth() + 1, 1, 4, 59, 59, 999))
+    } else { // 'año'
+      start = new Date(Date.UTC(d.getFullYear(), 0, 1, 5, 0, 0, 0))
+      end = new Date(Date.UTC(d.getFullYear() + 1, 0, 1, 4, 59, 59, 999))
+    }
+
+    return {
+      startIso: start.toISOString(),
+      endIso: end.toISOString()
+    }
+  }
+
+  const getPeriodLabel = (period, date) => {
+    const d = new Date(date)
+    if (period === 'dia') {
+      return format(d, "d 'de' MMMM, yyyy", { locale: es })
+    } else if (period === 'semana') {
+      const day = d.getDay()
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+      const monday = new Date(new Date(d).setDate(diff))
+      const sunday = new Date(new Date(monday).setDate(monday.getDate() + 6))
+      const startStr = format(monday, "d MMM", { locale: es })
+      const endStr = format(sunday, "d MMM, yyyy", { locale: es })
+      return `${startStr} - ${endStr}`
+    } else if (period === 'mes') {
+      return format(d, "MMMM yyyy", { locale: es })
+    } else {
+      return `Año ${d.getFullYear()}`
+    }
+  }
+
+  const handleNavigatePeriod = (direction) => {
+    setFocusDate((prev) => {
+      const d = new Date(prev)
+      if (selectedPeriod === 'dia') {
+        d.setDate(d.getDate() + direction)
+      } else if (selectedPeriod === 'semana') {
+        d.setDate(d.getDate() + direction * 7)
+      } else if (selectedPeriod === 'mes') {
+        d.setMonth(d.getMonth() + direction)
+      } else if (selectedPeriod === 'año') {
+        d.setFullYear(d.getFullYear() + direction)
+      }
+      return d
+    })
+  }
+
   const [operativePanel, setOperativePanel] = useState(null) // para drill-down de admin
   const [profileTab, setProfileTab] = useState('resumen')
   const [editingVoucher, setEditingVoucher] = useState(null)
@@ -134,7 +206,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchDashboardData()
-  }, [selectedOperative, selectedCity, selectedPeriod])
+  }, [selectedOperative, selectedCity, selectedPeriod, focusDate])
 
   async function fetchDashboardData() {
     try {
@@ -152,33 +224,26 @@ export default function DashboardPage() {
       setProfile(profileData)
       const isAdmin = profileData?.rol === 'admin' || profileData?.rol === 'superadmin'
       const activeOpId = isAdmin && selectedOperative !== 'global' ? selectedOperative : user.id
-
+      
       // Si es admin, cargar lista de operativos
       if (isAdmin && operatives.length === 0) {
         const { data: ops } = await supabase.from('profiles').select('id, nombre, ciudad, meta_mensual').eq('rol', 'operativo')
         setOperatives(ops || [])
       }
 
-      const now = new Date()
-      const ecTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Guayaquil" }))
-      let startIso
-      if (selectedPeriod === 'mes') {
-        startIso = new Date(Date.UTC(ecTime.getFullYear(), ecTime.getMonth(), 1, 5, 0, 0, 0)).toISOString()
-      } else {
-        startIso = new Date(Date.UTC(ecTime.getFullYear(), 0, 1, 5, 0, 0, 0)).toISOString()
-      }
+      const { startIso, endIso } = getPeriodRange(selectedPeriod, focusDate)
 
       const targetIdForIndividual = (!isAdmin || selectedOperative !== 'global') ? (isAdmin ? selectedOperative : user.id) : null
 
       // CONSTRUIR QUERIES EN PARALELO
       const activeCityFilter = isAdmin ? selectedCity : profileData?.ciudad
 
-      let ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id').eq('estado', 'activa').gte('created_at', startIso)
-      let cotGanadasQuery = supabase.from('cotizaciones').select('valor_total').eq('estado', 'ganada').gte('created_at', startIso)
+      let ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id').eq('estado', 'activa').gte('created_at', startIso).lte('created_at', endIso)
+      let cotGanadasQuery = supabase.from('cotizaciones').select('valor_total').eq('estado', 'ganada').gte('created_at', startIso).lte('created_at', endIso)
       let quotesQuery = supabase.from('cotizaciones').select('id, operativo_id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, estado, motivo_perdida, created_at, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10)
-      let pipelineQuery = supabase.from('cotizaciones').select('operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(id, estado, vouchers(codigo))').gte('created_at', startIso)
-      let openCountQuery = supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'abierta').gte('created_at', startIso)
-      let lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, notas_iniciales, created_at, comercial, estado, profiles!left(nombre, ciudad)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).order('created_at', { ascending: false })
+      let pipelineQuery = supabase.from('cotizaciones').select('operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(id, estado, vouchers(codigo))').gte('created_at', startIso).lte('created_at', endIso)
+      let openCountQuery = supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'abierta').gte('created_at', startIso).lte('created_at', endIso)
+      let lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, notas_iniciales, created_at, comercial, estado, profiles!left(nombre, ciudad)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).lte('created_at', endIso).order('created_at', { ascending: false })
 
       if (targetIdForIndividual) {
         // MODO INDIVIDUAL: Filtrar exclusivamente por ID del operativo, sin joins complejos para evitar errores de RLS
@@ -190,16 +255,14 @@ export default function DashboardPage() {
         lostQuery = lostQuery.eq('operativo_id', targetIdForIndividual)
       } else if (activeCityFilter && activeCityFilter !== 'global') {
         // MODO GLOBAL/ADMIN: Filtrar por ciudad haciendo join manual con profiles (requiere foreign keys intactas)
-        ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id, profiles!inner(ciudad)').eq('estado', 'activa').gte('created_at', startIso).eq('profiles.ciudad', activeCityFilter)
-        cotGanadasQuery = supabase.from('cotizaciones').select('valor_total, profiles!inner(ciudad)').eq('estado', 'ganada').gte('created_at', startIso).eq('profiles.ciudad', activeCityFilter)
+        ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id, profiles!inner(ciudad)').eq('estado', 'activa').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
+        cotGanadasQuery = supabase.from('cotizaciones').select('valor_total, profiles!inner(ciudad)').eq('estado', 'ganada').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
         quotesQuery = supabase.from('cotizaciones').select('id, operativo_id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, estado, motivo_perdida, created_at, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!inner(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10).eq('profiles.ciudad', activeCityFilter)
-        pipelineQuery = supabase.from('cotizaciones').select('operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!inner(nombre, ciudad), ventas(id, estado, vouchers(codigo))').gte('created_at', startIso).eq('profiles.ciudad', activeCityFilter)
-        openCountQuery = supabase.from('cotizaciones').select('id, profiles!inner(ciudad)', { count: 'exact', head: true }).eq('estado', 'abierta').gte('created_at', startIso).eq('profiles.ciudad', activeCityFilter)
-        lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, notas_iniciales, created_at, comercial, estado, profiles!inner(nombre, ciudad)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).order('created_at', { ascending: false }).eq('profiles.ciudad', activeCityFilter)
+        pipelineQuery = supabase.from('cotizaciones').select('operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!inner(nombre, ciudad), ventas(id, estado, vouchers(codigo))').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
+        openCountQuery = supabase.from('cotizaciones').select('id, profiles!inner(ciudad)', { count: 'exact', head: true }).eq('estado', 'abierta').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
+        lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, notas_iniciales, created_at, comercial, estado, profiles!inner(nombre, ciudad)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).lte('created_at', endIso).order('created_at', { ascending: false }).eq('profiles.ciudad', activeCityFilter)
       } else {
         // MODO GLOBAL TOTAL
-        quotesQuery = supabase.from('cotizaciones').select('id, operativo_id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, estado, motivo_perdida, created_at, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10)
-        lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, notas_iniciales, created_at, comercial, estado, profiles!left(nombre, ciudad)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).order('created_at', { ascending: false })
       }
 
       // EJECUTAR PROMISE.ALL PARA MAXIMA VELOCIDAD
@@ -218,7 +281,7 @@ export default function DashboardPage() {
         pipelineQuery,
         openCountQuery,
         lostQuery,
-        fetch(`/api/leaderboard?period=${selectedPeriod}&startIso=${startIso}`).then(r => r.json())
+        fetch(`/api/leaderboard?period=${selectedPeriod}&startIso=${startIso}&endIso=${endIso}`).then(r => r.json())
       ])
 
       const totalMetaComp = ventasData?.reduce((acc, v) => acc + (Number(v.comision) || 0) + (Number(v.utilidad) || 0), 0) || 0
@@ -1171,18 +1234,66 @@ export default function DashboardPage() {
               </>
             )}
 
-            {/* Período Capsule */}
-            <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50/60 rounded-2xl border border-gray-100 hover:bg-gray-50 transition-all flex-1 sm:flex-initial">
-              <Calendar size={14} className="text-primary shrink-0" />
-              <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider">Período:</span>
-              <select 
-                value={selectedPeriod}
-                onChange={(e) => setSelectedPeriod(e.target.value)}
-                className="appearance-none bg-transparent border-none font-black text-xs text-gray-800 outline-none py-1 pr-8 pl-1 cursor-pointer focus:ring-0 w-full sm:w-auto bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%230066CC%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_2px_center] bg-[size:16px_16px]"
-              >
-                <option value="mes">Mes Actual</option>
-                <option value="año">Año Actual</option>
-              </select>
+            {/* Calendario Inteligente Capsule */}
+            <div className="flex flex-wrap items-center gap-3 bg-gray-50/60 rounded-2xl border border-gray-100 p-1 flex-1 sm:flex-initial">
+              {/* Selector de Modo */}
+              <div className="flex bg-white/80 p-0.5 rounded-xl border border-gray-200/50 shadow-sm">
+                {[
+                  { key: 'dia', label: 'Día' },
+                  { key: 'semana', label: 'Sem' },
+                  { key: 'mes', label: 'Mes' },
+                  { key: 'año', label: 'Año' }
+                ].map(mode => (
+                  <button
+                    key={mode.key}
+                    type="button"
+                    onClick={() => setSelectedPeriod(mode.key)}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                      selectedPeriod === mode.key
+                        ? 'bg-primary text-white shadow-sm'
+                        : 'text-gray-400 hover:text-gray-700'
+                    }`}
+                  >
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Navegador Temporal */}
+              <div className="flex items-center gap-1.5 px-1 py-0.5 w-full sm:w-auto justify-between sm:justify-start">
+                <button
+                  type="button"
+                  onClick={() => handleNavigatePeriod(-1)}
+                  className="p-1 hover:bg-white active:scale-95 rounded-lg border border-gray-200/40 text-gray-400 hover:text-gray-700 transition-all shadow-sm shrink-0"
+                >
+                  <ChevronLeft size={14} />
+                </button>
+
+                <div className="relative flex items-center justify-center min-w-[125px] hover:text-primary transition-colors cursor-pointer group">
+                  <input
+                    type="date"
+                    value={format(focusDate, 'yyyy-MM-dd')}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        setFocusDate(new Date(e.target.value + 'T12:00:00'))
+                      }
+                    }}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                  />
+                  <span className="text-[10px] font-black text-gray-800 uppercase tracking-widest select-none flex items-center gap-1.5 group-hover:text-primary transition-colors">
+                    <Calendar size={12} className="text-primary" />
+                    {getPeriodLabel(selectedPeriod, focusDate)}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleNavigatePeriod(1)}
+                  className="p-1 hover:bg-white active:scale-95 rounded-lg border border-gray-200/40 text-gray-400 hover:text-gray-700 transition-all shadow-sm shrink-0"
+                >
+                  <ChevronRight size={14} />
+                </button>
+              </div>
             </div>
           </div>
 

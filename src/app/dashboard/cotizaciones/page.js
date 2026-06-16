@@ -29,6 +29,8 @@ export default function CotizacionesPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('todas')
   const [selectedCity, setSelectedCity] = useState('todas')
+  const [selectedOperative, setSelectedOperative] = useState('todas')
+  const [operatives, setOperatives] = useState([])
   const [dateFilter, setDateFilter] = useState('mes')
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(15)
@@ -36,8 +38,16 @@ export default function CotizacionesPage() {
   const [errorState, setErrorState] = useState(null)
 
   useEffect(() => {
+    if (isAdmin) {
+      supabase.from('profiles').select('id, nombre, ciudad').eq('rol', 'operativo').then(({ data }) => {
+        setOperatives(data || [])
+      })
+    }
+  }, [isAdmin])
+
+  useEffect(() => {
     setCurrentPage(1)
-  }, [search, statusFilter, selectedCity, dateFilter])
+  }, [search, statusFilter, selectedCity, dateFilter, selectedOperative])
 
   useEffect(() => {
     if (!sessionLoading && user) {
@@ -199,6 +209,9 @@ export default function CotizacionesPage() {
     if (isAdmin && selectedCity !== 'todas') {
       result = result.filter(q => q.profiles?.ciudad === selectedCity)
     }
+    if (isAdmin && selectedOperative !== 'todas') {
+      result = result.filter(q => q.operativo_id === selectedOperative)
+    }
     // Date Filtering (Ecuador Timezone)
     if (dateFilter !== 'todas') {
       const now = new Date()
@@ -230,7 +243,7 @@ export default function CotizacionesPage() {
       })
     }
     return result
-  }, [enrichedQuotes, dateFilter, selectedCity, isAdmin])
+  }, [enrichedQuotes, dateFilter, selectedCity, selectedOperative, isAdmin])
 
   // Métricas para el mini-dashboard
   const stats = useMemo(() => {
@@ -530,7 +543,10 @@ export default function CotizacionesPage() {
               <select
                 className="w-full appearance-none bg-transparent border-none pr-8 pl-1 py-1 text-xs font-black text-gray-800 outline-none focus:ring-0 cursor-pointer uppercase tracking-wider bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%230066CC%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_2px_center] bg-[size:16px_16px]"
                 value={selectedCity}
-                onChange={e => setSelectedCity(e.target.value)}
+                onChange={e => {
+                  setSelectedCity(e.target.value)
+                  setSelectedOperative('todas')
+                }}
               >
                 <option value="todas">Todas las Ciudades</option>
                 <option value="Quito">Quito</option>
@@ -538,6 +554,25 @@ export default function CotizacionesPage() {
                 <option value="Cuenca">Cuenca</option>
                 <option value="Manta">Manta</option>
                 <option value="Loja">Loja</option>
+              </select>
+            </div>
+          )}
+
+          {/* Filtro por operativo (solo admin) */}
+          {isAdmin && (
+            <div className="relative w-full md:w-auto md:min-w-[13.5rem] flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2 hover:bg-gray-100/50 transition-colors animate-in fade-in duration-300">
+              <Users size={14} className="text-primary shrink-0" />
+              <select
+                className="w-full appearance-none bg-transparent border-none pr-8 pl-1 py-1 text-xs font-black text-gray-800 outline-none focus:ring-0 cursor-pointer uppercase tracking-wider bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%230066CC%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_2px_center] bg-[size:16px_16px]"
+                value={selectedOperative}
+                onChange={e => setSelectedOperative(e.target.value)}
+              >
+                <option value="todas">Todos los Operativos</option>
+                {operatives
+                  .filter(op => selectedCity === 'todas' || op.ciudad === selectedCity)
+                  .map(op => (
+                    <option key={op.id} value={op.id}>{op.nombre}</option>
+                  ))}
               </select>
             </div>
           )}

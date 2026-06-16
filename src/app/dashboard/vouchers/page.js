@@ -39,6 +39,8 @@ export default function VouchersPage() {
   const [viewingVoucher, setViewingVoucher] = useState(null)
   const [search, setSearch] = useState('')
   const [selectedCity, setSelectedCity] = useState('todas')
+  const [selectedOperative, setSelectedOperative] = useState('todas')
+  const [operatives, setOperatives] = useState([])
   const [dateFilter, setDateFilter] = useState('mes')
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(15)
@@ -46,8 +48,16 @@ export default function VouchersPage() {
   const { user, profile, isAdmin, loading: sessionLoading } = useUserSession()
 
   useEffect(() => {
+    if (isAdmin) {
+      supabase.from('profiles').select('id, nombre, ciudad').eq('rol', 'operativo').then(({ data }) => {
+        setOperatives(data || [])
+      })
+    }
+  }, [isAdmin])
+
+  useEffect(() => {
     setCurrentPage(1)
-  }, [search, selectedCity, dateFilter])
+  }, [search, selectedCity, dateFilter, selectedOperative])
 
   const copyVoucherLink = (e, codigo) => {
     if (e) e.stopPropagation()
@@ -239,6 +249,11 @@ export default function VouchersPage() {
       result = result.filter(v => v.profiles?.ciudad === selectedCity)
     }
 
+    // Filtro por operativo
+    if ((profile?.rol === 'admin' || profile?.rol === 'superadmin') && selectedOperative !== 'todas') {
+      result = result.filter(v => v.operativo_id === selectedOperative)
+    }
+
     // 3. Filtro por fecha de creación (Ecuador Timezone)
     if (dateFilter !== 'todas') {
       const now = new Date()
@@ -268,7 +283,7 @@ export default function VouchersPage() {
     }
 
     return result
-  }, [vouchers, search, selectedCity, dateFilter, profile])
+  }, [vouchers, search, selectedCity, selectedOperative, dateFilter, profile])
 
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage
@@ -358,7 +373,10 @@ export default function VouchersPage() {
               <select
                 className="w-full appearance-none bg-transparent border-none pr-8 pl-1 py-1 text-xs font-black text-gray-800 outline-none focus:ring-0 cursor-pointer uppercase tracking-wider bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%230066CC%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_2px_center] bg-[size:16px_16px]"
                 value={selectedCity}
-                onChange={e => setSelectedCity(e.target.value)}
+                onChange={e => {
+                  setSelectedCity(e.target.value)
+                  setSelectedOperative('todas')
+                }}
               >
                 <option value="todas">Todas las Ciudades</option>
                 <option value="Quito">Quito</option>
@@ -366,6 +384,24 @@ export default function VouchersPage() {
                 <option value="Cuenca">Cuenca</option>
                 <option value="Manta">Manta</option>
                 <option value="Loja">Loja</option>
+              </select>
+            </div>
+          )}
+
+          {(profile?.rol === 'admin' || profile?.rol === 'superadmin') && (
+            <div className="relative w-full sm:w-auto sm:min-w-[13.5rem] flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-2 hover:bg-gray-100/50 transition-colors animate-in fade-in duration-300">
+              <Users size={14} className="text-primary shrink-0" />
+              <select
+                className="w-full appearance-none bg-transparent border-none pr-8 pl-1 py-1 text-xs font-black text-gray-800 outline-none focus:ring-0 cursor-pointer uppercase tracking-wider bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%230066CC%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_2px_center] bg-[size:16px_16px]"
+                value={selectedOperative}
+                onChange={e => setSelectedOperative(e.target.value)}
+              >
+                <option value="todas">Todos los Operativos</option>
+                {operatives
+                  .filter(op => selectedCity === 'todas' || op.ciudad === selectedCity)
+                  .map(op => (
+                    <option key={op.id} value={op.id}>{op.nombre}</option>
+                  ))}
               </select>
             </div>
           )}
