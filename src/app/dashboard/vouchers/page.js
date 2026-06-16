@@ -42,6 +42,8 @@ export default function VouchersPage() {
   const [selectedOperative, setSelectedOperative] = useState('todas')
   const [operatives, setOperatives] = useState([])
   const [dateFilter, setDateFilter] = useState('mes')
+  const [customStartDate, setCustomStartDate] = useState('')
+  const [customEndDate, setCustomEndDate] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(15)
   const [baseUrl, setBaseUrl] = useState('')
@@ -57,7 +59,7 @@ export default function VouchersPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [search, selectedCity, dateFilter, selectedOperative])
+  }, [search, selectedCity, dateFilter, selectedOperative, customStartDate, customEndDate])
 
   const copyVoucherLink = (e, codigo) => {
     if (e) e.stopPropagation()
@@ -278,12 +280,29 @@ export default function VouchersPage() {
         if (dateFilter === 'año') {
           return qTime.getFullYear() === ecTime.getFullYear()
         }
+        if (dateFilter === 'especifica') {
+          if (!customStartDate) return true
+          const targetDateStr = new Date(customStartDate + 'T12:00:00').toDateString()
+          return qTime.toDateString() === targetDateStr
+        }
+        if (dateFilter === 'rango') {
+          const qTimeMs = new Date(qTime).setHours(0,0,0,0)
+          if (customStartDate) {
+            const startLimit = new Date(customStartDate + 'T00:00:00').setHours(0,0,0,0)
+            if (qTimeMs < startLimit) return false
+          }
+          if (customEndDate) {
+            const endLimit = new Date(customEndDate + 'T00:00:00').setHours(0,0,0,0)
+            if (qTimeMs > endLimit) return false
+          }
+          return true
+        }
         return true
       })
     }
 
     return result
-  }, [vouchers, search, selectedCity, selectedOperative, dateFilter, profile])
+  }, [vouchers, search, selectedCity, selectedOperative, dateFilter, customStartDate, customEndDate, profile])
 
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage
@@ -357,15 +376,58 @@ export default function VouchersPage() {
             <select
               className="w-full appearance-none bg-transparent border-none pr-8 pl-1 py-1 text-xs font-black text-gray-800 outline-none focus:ring-0 cursor-pointer uppercase tracking-wider bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%230066CC%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_2px_center] bg-[size:16px_16px]"
               value={dateFilter}
-              onChange={e => setDateFilter(e.target.value)}
+              onChange={e => {
+                setDateFilter(e.target.value)
+                setCustomStartDate('')
+                setCustomEndDate('')
+              }}
             >
               <option value="todas">Todas las Fechas</option>
               <option value="hoy">Hoy</option>
               <option value="semana">Esta Semana</option>
               <option value="mes">Este Mes</option>
               <option value="año">Este Año</option>
+              <option value="especifica">Fecha Específica...</option>
+              <option value="rango">Rango Personalizado...</option>
             </select>
           </div>
+
+          {/* Selector de Fecha Específica */}
+          {dateFilter === 'especifica' && (
+            <div className="relative w-full sm:w-auto flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-2 hover:bg-gray-100/50 transition-colors animate-in slide-in-from-left-2 duration-300">
+              <Calendar size={14} className="text-primary shrink-0" />
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={e => setCustomStartDate(e.target.value)}
+                className="bg-transparent border-none text-xs font-black text-gray-800 outline-none focus:ring-0 cursor-pointer"
+              />
+            </div>
+          )}
+
+          {/* Rango Personalizado */}
+          {dateFilter === 'rango' && (
+            <div className="flex flex-wrap md:flex-nowrap gap-2 items-center w-full sm:w-auto animate-in slide-in-from-left-2 duration-300">
+              <div className="relative flex-1 sm:flex-initial flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-2 hover:bg-gray-100/50 transition-colors">
+                <span className="text-[10px] font-black uppercase text-gray-400">Desde:</span>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={e => setCustomStartDate(e.target.value)}
+                  className="bg-transparent border-none text-xs font-black text-gray-800 outline-none focus:ring-0 cursor-pointer"
+                />
+              </div>
+              <div className="relative flex-1 sm:flex-initial flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-2 hover:bg-gray-100/50 transition-colors">
+                <span className="text-[10px] font-black uppercase text-gray-400">Hasta:</span>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={e => setCustomEndDate(e.target.value)}
+                  className="bg-transparent border-none text-xs font-black text-gray-800 outline-none focus:ring-0 cursor-pointer"
+                />
+              </div>
+            </div>
+          )}
 
           {(profile?.rol === 'admin' || profile?.rol === 'superadmin') && (
             <div className="relative w-full sm:w-auto sm:min-w-[13.5rem] flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-2 hover:bg-gray-100/50 transition-colors">

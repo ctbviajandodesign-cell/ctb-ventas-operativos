@@ -32,6 +32,8 @@ export default function CotizacionesPage() {
   const [selectedOperative, setSelectedOperative] = useState('todas')
   const [operatives, setOperatives] = useState([])
   const [dateFilter, setDateFilter] = useState('mes')
+  const [customStartDate, setCustomStartDate] = useState('')
+  const [customEndDate, setCustomEndDate] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(15)
   const { user, profile, isAdmin, loading: sessionLoading } = useUserSession()
@@ -47,7 +49,7 @@ export default function CotizacionesPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [search, statusFilter, selectedCity, dateFilter, selectedOperative])
+  }, [search, statusFilter, selectedCity, dateFilter, selectedOperative, customStartDate, customEndDate])
 
   useEffect(() => {
     if (!sessionLoading && user) {
@@ -239,11 +241,28 @@ export default function CotizacionesPage() {
         if (dateFilter === 'año') {
           return qTime.getFullYear() === ecTime.getFullYear()
         }
+        if (dateFilter === 'especifica') {
+          if (!customStartDate) return true
+          const targetDateStr = new Date(customStartDate + 'T12:00:00').toDateString()
+          return qTime.toDateString() === targetDateStr
+        }
+        if (dateFilter === 'rango') {
+          const qTimeMs = new Date(qTime).setHours(0,0,0,0)
+          if (customStartDate) {
+            const startLimit = new Date(customStartDate + 'T00:00:00').setHours(0,0,0,0)
+            if (qTimeMs < startLimit) return false
+          }
+          if (customEndDate) {
+            const endLimit = new Date(customEndDate + 'T00:00:00').setHours(0,0,0,0)
+            if (qTimeMs > endLimit) return false
+          }
+          return true
+        }
         return true
       })
     }
     return result
-  }, [enrichedQuotes, dateFilter, selectedCity, selectedOperative, isAdmin])
+  }, [enrichedQuotes, dateFilter, customStartDate, customEndDate, selectedCity, selectedOperative, isAdmin])
 
   // Métricas para el mini-dashboard
   const stats = useMemo(() => {
@@ -525,7 +544,11 @@ export default function CotizacionesPage() {
             <select
               className="w-full appearance-none bg-transparent border-none pr-8 pl-1 py-1 text-xs font-black text-gray-800 outline-none focus:ring-0 cursor-pointer uppercase tracking-wider bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%230066CC%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_2px_center] bg-[size:16px_16px]"
               value={dateFilter}
-              onChange={e => setDateFilter(e.target.value)}
+              onChange={e => {
+                setDateFilter(e.target.value)
+                setCustomStartDate('')
+                setCustomEndDate('')
+              }}
             >
               <option value="todas">Todas las Fechas</option>
               <option value="hoy">Hoy</option>
@@ -533,8 +556,47 @@ export default function CotizacionesPage() {
               <option value="semana">Esta Semana</option>
               <option value="mes">Este Mes</option>
               <option value="año">Este Año</option>
+              <option value="especifica">Fecha Específica...</option>
+              <option value="rango">Rango Personalizado...</option>
             </select>
           </div>
+
+          {/* Selector de Fecha Específica */}
+          {dateFilter === 'especifica' && (
+            <div className="relative w-full md:w-auto flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2 hover:bg-gray-100/50 transition-colors animate-in slide-in-from-left-2 duration-300">
+              <Calendar size={14} className="text-primary shrink-0" />
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={e => setCustomStartDate(e.target.value)}
+                className="bg-transparent border-none text-xs font-black text-gray-800 outline-none focus:ring-0 cursor-pointer"
+              />
+            </div>
+          )}
+
+          {/* Rango Personalizado */}
+          {dateFilter === 'rango' && (
+            <div className="flex flex-wrap md:flex-nowrap gap-2 items-center w-full md:w-auto animate-in slide-in-from-left-2 duration-300">
+              <div className="relative flex-1 md:flex-initial flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2 hover:bg-gray-100/50 transition-colors">
+                <span className="text-[10px] font-black uppercase text-gray-400">Desde:</span>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={e => setCustomStartDate(e.target.value)}
+                  className="bg-transparent border-none text-xs font-black text-gray-800 outline-none focus:ring-0 cursor-pointer"
+                />
+              </div>
+              <div className="relative flex-1 md:flex-initial flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2 hover:bg-gray-100/50 transition-colors">
+                <span className="text-[10px] font-black uppercase text-gray-400">Hasta:</span>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={e => setCustomEndDate(e.target.value)}
+                  className="bg-transparent border-none text-xs font-black text-gray-800 outline-none focus:ring-0 cursor-pointer"
+                />
+              </div>
+            </div>
+          )}
 
           {/* Filtro por ciudad (solo admin) */}
           {isAdmin && (
