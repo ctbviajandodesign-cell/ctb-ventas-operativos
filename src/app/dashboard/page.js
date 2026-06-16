@@ -1184,57 +1184,55 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4 w-full xl:w-auto justify-end">
-          {/* Filters Card */}
-          <div className="flex flex-wrap items-center gap-3 bg-white p-2.5 rounded-[2.2rem] shadow-xl border border-gray-100/80 w-full sm:w-auto">
-            {isAdmin && (
-              <>
-                {/* Ciudad Capsule */}
-                <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50/60 rounded-2xl border border-gray-100 hover:bg-gray-50 transition-all flex-1 sm:flex-initial">
-                  <Filter size={14} className="text-primary shrink-0" />
-                  <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider">Ciudad:</span>
-                  <select 
-                    value={selectedCity}
-                    onChange={(e) => {
-                      setSelectedCity(e.target.value)
-                      setSelectedOperative('global')
-                    }}
-                    className="appearance-none bg-transparent border-none font-black text-xs text-gray-800 outline-none py-1 pr-8 pl-1 cursor-pointer focus:ring-0 w-full sm:w-auto bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%230066CC%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_2px_center] bg-[size:16px_16px]"
-                  >
-                    <option value="global">Todas las Ciudades</option>
-                    <option value="Quito">Quito</option>
-                    <option value="Guayaquil">Guayaquil</option>
-                    <option value="Cuenca">Cuenca</option>
-                    <option value="Manta">Manta</option>
-                    <option value="Loja">Loja</option>
-                  </select>
-                </div>
+        <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto justify-end">
+          {/* Card de Filtros de Negocio (solo para Admin/Superadmin) */}
+          {isAdmin && (
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 bg-white p-2 rounded-[2rem] shadow-sm border border-gray-100/85 w-full sm:w-auto">
+              {/* Ciudad Capsule */}
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50/60 rounded-2xl border border-gray-100 hover:bg-gray-50 transition-all flex-1 sm:flex-initial">
+                <Filter size={14} className="text-primary shrink-0" />
+                <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider">Ciudad:</span>
+                <select 
+                  value={selectedCity}
+                  onChange={(e) => {
+                    setSelectedCity(e.target.value)
+                    setSelectedOperative('global')
+                  }}
+                  className="appearance-none bg-transparent border-none font-black text-xs text-gray-800 outline-none py-1 pr-8 pl-1 cursor-pointer focus:ring-0 w-full sm:w-auto bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%230066CC%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_2px_center] bg-[size:16px_16px]"
+                >
+                  <option value="global">Todas las Ciudades</option>
+                  <option value="Quito">Quito</option>
+                  <option value="Guayaquil">Guayaquil</option>
+                  <option value="Cuenca">Cuenca</option>
+                  <option value="Manta">Manta</option>
+                  <option value="Loja">Loja</option>
+                </select>
+              </div>
 
-                <div className="h-6 w-px bg-gray-200 hidden sm:block" />
+              <div className="h-6 w-px bg-gray-200 hidden sm:block" />
 
-                {/* Operativo Capsule */}
-                <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50/60 rounded-2xl border border-gray-100 hover:bg-gray-50 transition-all flex-1 sm:flex-initial">
-                  <Users size={14} className="text-primary shrink-0" />
-                  <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider">Operativo:</span>
-                  <select 
-                    value={selectedOperative}
-                    onChange={(e) => setSelectedOperative(e.target.value)}
-                    className="appearance-none bg-transparent border-none font-black text-xs text-gray-800 outline-none py-1 pr-8 pl-1 cursor-pointer focus:ring-0 w-full sm:w-auto max-w-full sm:max-w-[150px] bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%230066CC%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_2px_center] bg-[size:16px_16px]"
-                  >
-                    <option value="global">Todos</option>
-                    {operatives
-                      .filter(op => selectedCity === 'global' || op.ciudad === selectedCity)
-                      .map(op => (
-                        <option key={op.id} value={op.id}>{op.nombre}</option>
-                      ))}
-                  </select>
-                </div>
+              {/* Operativo Capsule */}
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50/60 rounded-2xl border border-gray-100 hover:bg-gray-50 transition-all flex-1 sm:flex-initial">
+                <Users size={14} className="text-primary shrink-0" />
+                <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider">Operativo:</span>
+                <select 
+                  value={selectedOperative}
+                  onChange={(e) => setSelectedOperative(e.target.value)}
+                  className="appearance-none bg-transparent border-none font-black text-xs text-gray-800 outline-none py-1 pr-8 pl-1 cursor-pointer focus:ring-0 w-full sm:w-auto max-w-full sm:max-w-[150px] bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%230066CC%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_2px_center] bg-[size:16px_16px]"
+                >
+                  <option value="global">Todos</option>
+                  {operatives
+                    .filter(op => selectedCity === 'global' || op.ciudad === selectedCity)
+                    .map(op => (
+                      <option key={op.id} value={op.id}>{op.nombre}</option>
+                    ))}
+                </select>
+              </div>
+            </div>
+          )}
 
-                <div className="h-6 w-px bg-gray-200 hidden sm:block" />
-              </>
-            )}
-
-            {/* Calendario Inteligente Capsule */}
+          {/* Card de Calendario Inteligente */}
+          <div className="flex items-center bg-white p-2 rounded-[2rem] shadow-sm border border-gray-100/85 w-full sm:w-auto">
             <div className="flex flex-wrap items-center gap-3 bg-gray-50/60 rounded-2xl border border-gray-100 p-1 flex-1 sm:flex-initial">
               {/* Selector de Modo */}
               <div className="flex bg-white/80 p-0.5 rounded-xl border border-gray-200/50 shadow-sm">
