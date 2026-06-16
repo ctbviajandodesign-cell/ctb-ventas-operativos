@@ -6,7 +6,7 @@ import { useUserSession } from '@/hooks/useUserSession'
 import { 
   TrendingUp, Search, XCircle, Trash2, Edit, DollarSign,
   CheckCircle2, BarChart3, QrCode, ExternalLink, AlertCircle, Download, AlertTriangle, RotateCcw, Share2,
-  ChevronLeft, ChevronRight, Calendar, Filter
+  ChevronLeft, ChevronRight, Calendar, Filter, Users
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
