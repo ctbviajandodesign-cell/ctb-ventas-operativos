@@ -238,7 +238,8 @@ export default function DashboardPage() {
       // CONSTRUIR QUERIES EN PARALELO
       const activeCityFilter = isAdmin ? selectedCity : profileData?.ciudad
 
-      let ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id').eq('estado', 'activa').gte('created_at', startIso).lte('created_at', endIso)
+      let ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id, faltante').eq('estado', 'activa').gte('created_at', startIso).lte('created_at', endIso)
+      let globalDebtQuery = supabase.from('ventas').select('faltante').eq('estado', 'activa').gt('faltante', 0)
       let cotGanadasQuery = supabase.from('cotizaciones').select('valor_total').eq('estado', 'ganada').gte('created_at', startIso).lte('created_at', endIso)
       let quotesQuery = supabase.from('cotizaciones').select('id, operativo_id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, estado, motivo_perdida, created_at, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10)
       let pipelineQuery = supabase.from('cotizaciones').select('operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(id, estado, vouchers(codigo))').gte('created_at', startIso).lte('created_at', endIso)
@@ -248,6 +249,7 @@ export default function DashboardPage() {
       if (targetIdForIndividual) {
         // MODO INDIVIDUAL: Filtrar exclusivamente por ID del operativo, sin joins complejos para evitar errores de RLS
         ventasQuery = ventasQuery.eq('operativo_id', targetIdForIndividual)
+        globalDebtQuery = globalDebtQuery.eq('operativo_id', targetIdForIndividual)
         cotGanadasQuery = cotGanadasQuery.eq('operativo_id', targetIdForIndividual)
         quotesQuery = quotesQuery.eq('operativo_id', targetIdForIndividual)
         pipelineQuery = pipelineQuery.eq('operativo_id', targetIdForIndividual)
@@ -255,7 +257,8 @@ export default function DashboardPage() {
         lostQuery = lostQuery.eq('operativo_id', targetIdForIndividual)
       } else if (activeCityFilter && activeCityFilter !== 'global') {
         // MODO GLOBAL/ADMIN: Filtrar por ciudad haciendo join manual con profiles (requiere foreign keys intactas)
-        ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id, profiles!inner(ciudad)').eq('estado', 'activa').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
+        ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id, faltante, profiles!inner(ciudad)').eq('estado', 'activa').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
+        globalDebtQuery = supabase.from('ventas').select('faltante, profiles!inner(ciudad)').eq('estado', 'activa').gt('faltante', 0).eq('profiles.ciudad', activeCityFilter)
         cotGanadasQuery = supabase.from('cotizaciones').select('valor_total, profiles!inner(ciudad)').eq('estado', 'ganada').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
         quotesQuery = supabase.from('cotizaciones').select('id, operativo_id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, estado, motivo_perdida, created_at, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!inner(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10).eq('profiles.ciudad', activeCityFilter)
         pipelineQuery = supabase.from('cotizaciones').select('operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!inner(nombre, ciudad), ventas(id, estado, vouchers(codigo))').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
@@ -273,7 +276,8 @@ export default function DashboardPage() {
         { data: pipelineData },
         { count: openCount },
         { data: lostData },
-        resBoard
+        resBoard,
+        { data: globalDebtData }
       ] = await Promise.all([
         ventasQuery,
         cotGanadasQuery,
@@ -281,10 +285,13 @@ export default function DashboardPage() {
         pipelineQuery,
         openCountQuery,
         lostQuery,
-        fetch(`/api/leaderboard?period=${selectedPeriod}&startIso=${startIso}&endIso=${endIso}`).then(r => r.json())
+        fetch(`/api/leaderboard?period=${selectedPeriod}&startIso=${startIso}&endIso=${endIso}`).then(r => r.json()),
+        globalDebtQuery
       ])
 
       const totalMetaComp = ventasData?.reduce((acc, v) => acc + (Number(v.comision) || 0) + (Number(v.utilidad) || 0), 0) || 0
+      const porCobrarMes = ventasData?.reduce((acc, v) => acc + (Number(v.faltante) || 0), 0) || 0
+      const porCobrarGlobal = globalDebtData?.reduce((acc, v) => acc + (Number(v.faltante) || 0), 0) || 0
       const totalV = cotGanadas?.reduce((acc, q) => acc + (Number(q.valor_total) || 0), 0) || 0
       const totalPipeline = pipelineData?.length || 0
 
@@ -406,7 +413,9 @@ export default function DashboardPage() {
         total:           totalReal,
         conversionRate:  convReal,
         conversion:      convReal.toFixed(1),
-        porcentajeMeta:  metaBase > 0 ? (totalGananciaReal / metaBase) * 100 : 0
+        porcentajeMeta:  metaBase > 0 ? (totalGananciaReal / metaBase) * 100 : 0,
+        porCobrarMes:    porCobrarMes,
+        porCobrarGlobal: porCobrarGlobal
       }))
 
     } catch (error) {
@@ -1388,8 +1397,32 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+      {/* KPI GRID FINANCIERO PRINCIPAL */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <StatsCard 
+          title="Ventas Totales (Mes Actual)"
+          value={`$${(metrics.totalVendido || 0).toLocaleString()}`} 
+          icon={DollarSign}
+          color="success"
+          description="Volumen bruto de proformas cerradas"
+        />
+        <StatsCard 
+          title="Por Cobrar (Generado este Mes)"
+          value={`$${(metrics.porCobrarMes || 0).toLocaleString()}`} 
+          icon={Target}
+          color="warning"
+          description="Deuda (faltante) de ventas de este periodo"
+        />
+        <StatsCard 
+          title="Por Cobrar GLOBAL (Histórico Total)"
+          value={`$${(metrics.porCobrarGlobal || 0).toLocaleString()}`} 
+          icon={AlertTriangle}
+          color="danger"
+          description="Toda la deuda acumulada a la fecha"
+        />
+      </div>
 
-      {/* KPI GRID */}
+      {/* KPI GRID SECUNDARIO */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <StatsCard 
           title="Total Ventas"
