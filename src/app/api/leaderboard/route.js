@@ -42,7 +42,6 @@ export async function GET(request) {
     let ventasQuery = supabaseAdmin
       .from('ventas')
       .select('total, comision, utilidad, operativo_id')
-      .eq('estado', 'activa')
       .gte('created_at', startDateIso)
 
     if (endIso) {

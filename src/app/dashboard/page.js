@@ -225,10 +225,9 @@ export default function DashboardPage() {
       const isAdmin = profileData?.rol === 'admin' || profileData?.rol === 'superadmin'
       const activeOpId = isAdmin && selectedOperative !== 'global' ? selectedOperative : user.id
       
-      // Si es admin, cargar lista de operativos
+      let initialOperatives = operatives;
       if (isAdmin && operatives.length === 0) {
-        const { data: ops } = await supabase.from('profiles').select('id, nombre, ciudad, meta_mensual').eq('rol', 'operativo')
-        setOperatives(ops || [])
+        // Will fetch in parallel later
       }
 
       const { startIso, endIso } = getPeriodRange(selectedPeriod, focusDate)
@@ -241,22 +240,16 @@ export default function DashboardPage() {
       let ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id, abono_1, abono_2, abono_tarjeta').gte('created_at', startIso).lte('created_at', endIso)
       let globalDebtQuery = supabase.from('ventas').select('total, abono_1, abono_2, abono_tarjeta')
       let vouchersQuery = supabase.from('vouchers').select('id', { count: 'exact', head: true }).eq('estado', 'activo').gte('created_at', startIso).lte('created_at', endIso)
-      let cotGanadasQuery = supabase.from('cotizaciones').select('valor_total').eq('estado', 'ganada').gte('created_at', startIso).lte('created_at', endIso)
       let quotesQuery = supabase.from('cotizaciones').select('id, operativo_id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, estado, motivo_perdida, created_at, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10)
-      let pipelineQuery = supabase.from('cotizaciones').select('operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(id, estado, vouchers(codigo))').gte('created_at', startIso).lte('created_at', endIso)
-      let openCountQuery = supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'abierta').gte('created_at', startIso).lte('created_at', endIso)
-      let lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, notas_iniciales, created_at, comercial, estado, profiles!left(nombre, ciudad)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).lte('created_at', endIso).order('created_at', { ascending: false })
+      let pipelineQuery = supabase.from('cotizaciones').select('operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, notas_seguimiento, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(id, estado, vouchers(codigo))').gte('created_at', startIso).lte('created_at', endIso)
 
       if (targetIdForIndividual) {
         // MODO INDIVIDUAL: Filtrar exclusivamente por ID del operativo, sin joins complejos para evitar errores de RLS
         ventasQuery = ventasQuery.eq('operativo_id', targetIdForIndividual)
         globalDebtQuery = globalDebtQuery.eq('operativo_id', targetIdForIndividual)
         vouchersQuery = vouchersQuery.eq('operativo_id', targetIdForIndividual)
-        cotGanadasQuery = cotGanadasQuery.eq('operativo_id', targetIdForIndividual)
         quotesQuery = quotesQuery.eq('operativo_id', targetIdForIndividual)
         pipelineQuery = pipelineQuery.eq('operativo_id', targetIdForIndividual)
-        openCountQuery = openCountQuery.eq('operativo_id', targetIdForIndividual)
-        lostQuery = lostQuery.eq('operativo_id', targetIdForIndividual)
       } else if (activeCityFilter && activeCityFilter !== 'global') {
         // MODO GLOBAL/ADMIN: Filtrar por ciudad haciendo join manual con profiles (requiere foreign keys intactas)
         ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id, abono_1, abono_2, abono_tarjeta, profiles!inner(ciudad)').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
@@ -267,49 +260,59 @@ export default function DashboardPage() {
         // Asumimos que los operativos de la ciudad se obtienen vía profiles.
         vouchersQuery = supabase.from('vouchers').select('id, profiles!inner(ciudad)', { count: 'exact', head: true }).eq('estado', 'activo').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
 
-        cotGanadasQuery = supabase.from('cotizaciones').select('valor_total, profiles!inner(ciudad)').eq('estado', 'ganada').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
         quotesQuery = supabase.from('cotizaciones').select('id, operativo_id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, estado, motivo_perdida, created_at, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!inner(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10).eq('profiles.ciudad', activeCityFilter)
-        pipelineQuery = supabase.from('cotizaciones').select('operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!inner(nombre, ciudad), ventas(id, estado, vouchers(codigo))').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
-        openCountQuery = supabase.from('cotizaciones').select('id, profiles!inner(ciudad)', { count: 'exact', head: true }).eq('estado', 'abierta').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
-        lostQuery = supabase.from('cotizaciones').select('codigo, agencia, destino, motivo_perdida, notas_seguimiento, notas_iniciales, created_at, comercial, estado, profiles!inner(nombre, ciudad)').in('estado', ['perdida', 'anulada']).gte('created_at', startIso).lte('created_at', endIso).order('created_at', { ascending: false }).eq('profiles.ciudad', activeCityFilter)
+        pipelineQuery = supabase.from('cotizaciones').select('operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, notas_seguimiento, fecha_caducidad, hora_caducidad, profiles!inner(nombre, ciudad), ventas(id, estado, vouchers(codigo))').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
       } else {
         // MODO GLOBAL TOTAL
       }
 
-      // EJECUTAR PROMISE.ALL PARA MAXIMA VELOCIDAD
+      // EJECUTAR PROMISE.ALL PARA MAXIMA VELOCIDAD Y PARALELIZACIÓN COMPLETA
+      const opsPromise = (isAdmin && operatives.length === 0) 
+        ? supabase.from('profiles').select('id, nombre, ciudad, meta_mensual').eq('rol', 'operativo')
+        : Promise.resolve({ data: operatives });
+
+      const leaderboardPromise = fetch(`/api/leaderboard?period=${selectedPeriod}&startIso=${startIso}&endIso=${endIso}`)
+        .then(r => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        })
+        .catch(err => {
+          console.error("Leaderboard fetch failed:", err);
+          return { leaderboard: [] };
+        });
+
       const [
         resVentas,
-        { data: cotGanadas },
         { data: quotesData },
         { data: pipelineData },
-        { count: openCount },
-        { data: lostData },
         resBoard,
         resGlobalDebt,
-        { count: vouchersCount }
+        { count: vouchersCount },
+        opsRes
       ] = await Promise.all([
         ventasQuery,
-        cotGanadasQuery,
         quotesQuery,
         pipelineQuery,
-        openCountQuery,
-        lostQuery,
-        fetch(`/api/leaderboard?period=${selectedPeriod}&startIso=${startIso}&endIso=${endIso}`).then(r => r.json()),
+        leaderboardPromise,
         globalDebtQuery,
-        vouchersQuery
+        vouchersQuery,
+        opsPromise
       ])
 
-      if (resVentas.error) {
-        setErrorState("Ventas Error: " + resVentas.error.message);
-        return;
-      }
-      if (resGlobalDebt.error) {
-        setErrorState("GlobalDebt Error: " + resGlobalDebt.error.message);
-        return;
+      if (opsRes?.data && isAdmin && operatives.length === 0) {
+        setOperatives(opsRes.data)
       }
 
-      const ventasData = resVentas.data;
-      const globalDebtData = resGlobalDebt.data;
+      if (resVentas.error) {
+        console.error("Ventas query failed", resVentas.error)
+        showToast.error("Error al cargar ventas: " + resVentas.error.message)
+      }
+      if (resGlobalDebt.error) {
+        console.error("GlobalDebt query failed", resGlobalDebt.error)
+      }
+
+      const ventasData = resVentas.data || [];
+      const globalDebtData = resGlobalDebt.data || [];
 
       // Función auxiliar para calcular faltante protegiéndose de los NULL (COALESCE en JS)
       const getFaltanteReal = (v) => {
@@ -323,11 +326,9 @@ export default function DashboardPage() {
       const totalMetaComp = ventasData?.reduce((acc, v) => acc + (Number(v.comision) || 0) + (Number(v.utilidad) || 0), 0) || 0
       const porCobrarMes = ventasData?.reduce((acc, v) => acc + Math.max(0, getFaltanteReal(v)), 0) || 0
       const porCobrarGlobal = globalDebtData?.reduce((acc, v) => acc + Math.max(0, getFaltanteReal(v)), 0) || 0
-      const totalV = cotGanadas?.reduce((acc, q) => acc + (Number(q.valor_total) || 0), 0) || 0
       const totalPipeline = pipelineData?.length || 0
 
       setQuotes(quotesData || [])
-      setLostQuotes(lostData || [])
       // Enriquecer pipeline con bandera isVenta antes de guardar en estado
       const pipelineEnriched = (pipelineData || []).map(q => ({
         ...q,
@@ -357,8 +358,11 @@ export default function DashboardPage() {
       // Las métricas y estadísticas del embudo se calculan en memoria a partir de pipelineEnriched al final del flujo.
 
       // Calcular motivos principales de pérdida para el periodo actual
+      const lostFromPipeline = pipelineEnriched.filter(q => q.estado === 'perdida' || q.estado === 'anulada')
+      setLostQuotes(lostFromPipeline)
+      
       const motivesMap = {}
-      lostData?.forEach(q => {
+      lostFromPipeline.forEach(q => {
         if (q.motivo_perdida) {
           motivesMap[q.motivo_perdida] = (motivesMap[q.motivo_perdida] || 0) + 1
         }
@@ -386,13 +390,14 @@ export default function DashboardPage() {
 
       setMetrics(prev => ({
         ...prev,
-        totalVendido: totalV,
-        metaComputable: totalMetaComp,
+        porCobrarMes,
+        porCobrarGlobal,
         pipeline: totalPipeline,
         topDestino: popular,
         globalGoal: metaBase,
         porcentajeMeta: metaBase > 0 ? (totalMetaComp / metaBase) * 100 : 0,
         totalAporte: totalMetaComp,
+        metaComputable: totalMetaComp,
         topMotivos: topMotivosText
       }))
 
