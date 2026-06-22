@@ -238,8 +238,8 @@ export default function DashboardPage() {
       // CONSTRUIR QUERIES EN PARALELO
       const activeCityFilter = isAdmin ? selectedCity : profileData?.ciudad
 
-      let ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id, faltante').eq('estado', 'activa').gte('created_at', startIso).lte('created_at', endIso)
-      let globalDebtQuery = supabase.from('ventas').select('faltante').eq('estado', 'activa').gt('faltante', 0)
+      let ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id, faltante, abono_1, abono_2, abono_tarjeta').eq('estado', 'activa').gte('created_at', startIso).lte('created_at', endIso)
+      let globalDebtQuery = supabase.from('ventas').select('faltante, total, abono_1, abono_2, abono_tarjeta').eq('estado', 'activa')
       let cotGanadasQuery = supabase.from('cotizaciones').select('valor_total').eq('estado', 'ganada').gte('created_at', startIso).lte('created_at', endIso)
       let quotesQuery = supabase.from('cotizaciones').select('id, operativo_id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, estado, motivo_perdida, created_at, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10)
       let pipelineQuery = supabase.from('cotizaciones').select('operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(id, estado, vouchers(codigo))').gte('created_at', startIso).lte('created_at', endIso)
@@ -257,8 +257,8 @@ export default function DashboardPage() {
         lostQuery = lostQuery.eq('operativo_id', targetIdForIndividual)
       } else if (activeCityFilter && activeCityFilter !== 'global') {
         // MODO GLOBAL/ADMIN: Filtrar por ciudad haciendo join manual con profiles (requiere foreign keys intactas)
-        ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id, faltante, profiles!inner(ciudad)').eq('estado', 'activa').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
-        globalDebtQuery = supabase.from('ventas').select('faltante, profiles!inner(ciudad)').eq('estado', 'activa').gt('faltante', 0).eq('profiles.ciudad', activeCityFilter)
+        ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id, faltante, abono_1, abono_2, abono_tarjeta, profiles!inner(ciudad)').eq('estado', 'activa').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
+        globalDebtQuery = supabase.from('ventas').select('faltante, total, abono_1, abono_2, abono_tarjeta, profiles!inner(ciudad)').eq('estado', 'activa').eq('profiles.ciudad', activeCityFilter)
         cotGanadasQuery = supabase.from('cotizaciones').select('valor_total, profiles!inner(ciudad)').eq('estado', 'ganada').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
         quotesQuery = supabase.from('cotizaciones').select('id, operativo_id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, estado, motivo_perdida, created_at, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!inner(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10).eq('profiles.ciudad', activeCityFilter)
         pipelineQuery = supabase.from('cotizaciones').select('operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!inner(nombre, ciudad), ventas(id, estado, vouchers(codigo))').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
@@ -289,9 +289,19 @@ export default function DashboardPage() {
         globalDebtQuery
       ])
 
+      // Función auxiliar para calcular faltante protegiéndose de los NULL (COALESCE en JS)
+      const getFaltanteReal = (v) => {
+        if (v.faltante !== null && v.faltante !== undefined) return Number(v.faltante)
+        const t = Number(v.total) || 0
+        const a1 = Number(v.abono_1) || 0
+        const a2 = Number(v.abono_2) || 0
+        const at = Number(v.abono_tarjeta) || 0
+        return t - (a1 + a2 + at)
+      }
+
       const totalMetaComp = ventasData?.reduce((acc, v) => acc + (Number(v.comision) || 0) + (Number(v.utilidad) || 0), 0) || 0
-      const porCobrarMes = ventasData?.reduce((acc, v) => acc + (Number(v.faltante) || 0), 0) || 0
-      const porCobrarGlobal = globalDebtData?.reduce((acc, v) => acc + (Number(v.faltante) || 0), 0) || 0
+      const porCobrarMes = ventasData?.reduce((acc, v) => acc + Math.max(0, getFaltanteReal(v)), 0) || 0
+      const porCobrarGlobal = globalDebtData?.reduce((acc, v) => acc + Math.max(0, getFaltanteReal(v)), 0) || 0
       const totalV = cotGanadas?.reduce((acc, q) => acc + (Number(q.valor_total) || 0), 0) || 0
       const totalPipeline = pipelineData?.length || 0
 
