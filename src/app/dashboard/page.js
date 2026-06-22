@@ -291,7 +291,6 @@ export default function DashboardPage() {
 
       // Función auxiliar para calcular faltante protegiéndose de los NULL (COALESCE en JS)
       const getFaltanteReal = (v) => {
-        if (v.faltante !== null && v.faltante !== undefined) return Number(v.faltante)
         const t = Number(v.total) || 0
         const a1 = Number(v.abono_1) || 0
         const a2 = Number(v.abono_2) || 0
