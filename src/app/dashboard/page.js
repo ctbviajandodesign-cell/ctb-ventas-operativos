@@ -240,6 +240,7 @@ export default function DashboardPage() {
 
       let ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id, faltante, abono_1, abono_2, abono_tarjeta').eq('estado', 'activa').gte('created_at', startIso).lte('created_at', endIso)
       let globalDebtQuery = supabase.from('ventas').select('faltante, total, abono_1, abono_2, abono_tarjeta').eq('estado', 'activa')
+      let vouchersQuery = supabase.from('vouchers').select('id', { count: 'exact', head: true }).eq('estado', 'activo').gte('created_at', startIso).lte('created_at', endIso)
       let cotGanadasQuery = supabase.from('cotizaciones').select('valor_total').eq('estado', 'ganada').gte('created_at', startIso).lte('created_at', endIso)
       let quotesQuery = supabase.from('cotizaciones').select('id, operativo_id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, estado, motivo_perdida, created_at, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10)
       let pipelineQuery = supabase.from('cotizaciones').select('operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(id, estado, vouchers(codigo))').gte('created_at', startIso).lte('created_at', endIso)
@@ -250,6 +251,7 @@ export default function DashboardPage() {
         // MODO INDIVIDUAL: Filtrar exclusivamente por ID del operativo, sin joins complejos para evitar errores de RLS
         ventasQuery = ventasQuery.eq('operativo_id', targetIdForIndividual)
         globalDebtQuery = globalDebtQuery.eq('operativo_id', targetIdForIndividual)
+        vouchersQuery = vouchersQuery.eq('operativo_id', targetIdForIndividual)
         cotGanadasQuery = cotGanadasQuery.eq('operativo_id', targetIdForIndividual)
         quotesQuery = quotesQuery.eq('operativo_id', targetIdForIndividual)
         pipelineQuery = pipelineQuery.eq('operativo_id', targetIdForIndividual)
@@ -259,6 +261,12 @@ export default function DashboardPage() {
         // MODO GLOBAL/ADMIN: Filtrar por ciudad haciendo join manual con profiles (requiere foreign keys intactas)
         ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id, faltante, abono_1, abono_2, abono_tarjeta, profiles!inner(ciudad)').eq('estado', 'activa').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
         globalDebtQuery = supabase.from('ventas').select('faltante, total, abono_1, abono_2, abono_tarjeta, profiles!inner(ciudad)').eq('estado', 'activa').eq('profiles.ciudad', activeCityFilter)
+        
+        // Vouchers no tiene foreign key directa con perfiles fácil de hacer join aquí, 
+        // pero la app asume que se verán todos o filtraremos en memoria si es necesario.
+        // Asumimos que los operativos de la ciudad se obtienen vía profiles.
+        vouchersQuery = supabase.from('vouchers').select('id, profiles!inner(ciudad)', { count: 'exact', head: true }).eq('estado', 'activo').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
+
         cotGanadasQuery = supabase.from('cotizaciones').select('valor_total, profiles!inner(ciudad)').eq('estado', 'ganada').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
         quotesQuery = supabase.from('cotizaciones').select('id, operativo_id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, estado, motivo_perdida, created_at, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!inner(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10).eq('profiles.ciudad', activeCityFilter)
         pipelineQuery = supabase.from('cotizaciones').select('operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!inner(nombre, ciudad), ventas(id, estado, vouchers(codigo))').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
@@ -277,7 +285,8 @@ export default function DashboardPage() {
         { count: openCount },
         { data: lostData },
         resBoard,
-        { data: globalDebtData }
+        { data: globalDebtData },
+        { count: vouchersCount }
       ] = await Promise.all([
         ventasQuery,
         cotGanadasQuery,
@@ -286,7 +295,8 @@ export default function DashboardPage() {
         openCountQuery,
         lostQuery,
         fetch(`/api/leaderboard?period=${selectedPeriod}&startIso=${startIso}&endIso=${endIso}`).then(r => r.json()),
-        globalDebtQuery
+        globalDebtQuery,
+        vouchersQuery
       ])
 
       // Función auxiliar para calcular faltante protegiéndose de los NULL (COALESCE en JS)
@@ -374,22 +384,15 @@ export default function DashboardPage() {
         topMotivos: topMotivosText
       }))
 
-      // ── OVERRIDE FINAL: métricas correctas desde pipeline enriquecido ──
-      // Las queries anteriores usan solo estado='ganada' pero hay ventas
-      // confirmadas que tienen estado='activa' con voucher activo.
-      // El pipeline ya tiene _esVenta calculado correctamente.
-      // IMPORTANTE: totalVendido = valor_total de cotizaciones ganadas/vendidas (Total Ventas)
-      //             metaComputable/totalAporte = comision + utilidad (Total Ganancia CTB)
-      const ganadasReal    = pipelineEnriched.filter(q => q._esVenta)
-      const ganadasCount   = ganadasReal.length
+      // ── OVERRIDE FINAL: métricas correctas desde ventasData y embudo de pipeline ──
       
-      const totalVendidoReal = ganadasReal.reduce((a, q) => a + (Number(q.valor_total) || 0), 0)
+      const ganadasCount   = ventasData?.length || 0
       
-      const totalGananciaReal = ganadasReal.reduce((a, q) => {
-        const com = Number(q.valor_comision || 0)
-        const uti = Number(q.valor_utilidad || 0)
-        return a + com + uti
-      }, 0)
+      // El total vendido debe ser la suma de la tabla ventas de este periodo
+      const totalVendidoReal = ventasData?.reduce((a, v) => a + (Number(v.total) || 0), 0) || 0
+      
+      // La ganancia real debe ser la suma de comisión + utilidad de la tabla ventas
+      const totalGananciaReal = totalMetaComp
       
       const caducadasReal  = pipelineEnriched.filter(q => !q._esVenta && q.estado !== 'perdida' && q.estado !== 'anulada' && isExpired(q)).length
       const abiertasReal   = pipelineEnriched.filter(q => !q._esVenta && q.estado !== 'perdida' && q.estado !== 'anulada' && !isExpired(q)).length
@@ -414,7 +417,7 @@ export default function DashboardPage() {
         metaComputable:  totalGananciaReal,
         totalAporte:     totalGananciaReal,
         ganadas:         ganadasCount,
-        vouchersEmitidos: ganadasCount,
+        vouchersEmitidos: vouchersCount || 0,
         abiertas:        abiertasReal,
         cotizacionesAbiertas: abiertasReal,
         cotizacionesCaducadas: caducadasReal,
