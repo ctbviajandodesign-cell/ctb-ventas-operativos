@@ -278,14 +278,14 @@ export default function DashboardPage() {
 
       // EJECUTAR PROMISE.ALL PARA MAXIMA VELOCIDAD
       const [
-        { data: ventasData },
+        resVentas,
         { data: cotGanadas },
         { data: quotesData },
         { data: pipelineData },
         { count: openCount },
         { data: lostData },
         resBoard,
-        { data: globalDebtData },
+        resGlobalDebt,
         { count: vouchersCount }
       ] = await Promise.all([
         ventasQuery,
@@ -298,6 +298,18 @@ export default function DashboardPage() {
         globalDebtQuery,
         vouchersQuery
       ])
+
+      if (resVentas.error) {
+        setErrorState("Ventas Error: " + resVentas.error.message);
+        return;
+      }
+      if (resGlobalDebt.error) {
+        setErrorState("GlobalDebt Error: " + resGlobalDebt.error.message);
+        return;
+      }
+
+      const ventasData = resVentas.data;
+      const globalDebtData = resGlobalDebt.data;
 
       // Función auxiliar para calcular faltante protegiéndose de los NULL (COALESCE en JS)
       const getFaltanteReal = (v) => {
