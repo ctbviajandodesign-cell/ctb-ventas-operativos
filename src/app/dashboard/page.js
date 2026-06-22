@@ -238,8 +238,8 @@ export default function DashboardPage() {
       // CONSTRUIR QUERIES EN PARALELO
       const activeCityFilter = isAdmin ? selectedCity : profileData?.ciudad
 
-      let ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id, faltante, abono_1, abono_2, abono_tarjeta').eq('estado', 'activa').gte('created_at', startIso).lte('created_at', endIso)
-      let globalDebtQuery = supabase.from('ventas').select('faltante, total, abono_1, abono_2, abono_tarjeta').eq('estado', 'activa')
+      let ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id, faltante, abono_1, abono_2, abono_tarjeta').gte('created_at', startIso).lte('created_at', endIso)
+      let globalDebtQuery = supabase.from('ventas').select('faltante, total, abono_1, abono_2, abono_tarjeta')
       let vouchersQuery = supabase.from('vouchers').select('id', { count: 'exact', head: true }).eq('estado', 'activo').gte('created_at', startIso).lte('created_at', endIso)
       let cotGanadasQuery = supabase.from('cotizaciones').select('valor_total').eq('estado', 'ganada').gte('created_at', startIso).lte('created_at', endIso)
       let quotesQuery = supabase.from('cotizaciones').select('id, operativo_id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, estado, motivo_perdida, created_at, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10)
@@ -259,8 +259,8 @@ export default function DashboardPage() {
         lostQuery = lostQuery.eq('operativo_id', targetIdForIndividual)
       } else if (activeCityFilter && activeCityFilter !== 'global') {
         // MODO GLOBAL/ADMIN: Filtrar por ciudad haciendo join manual con profiles (requiere foreign keys intactas)
-        ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id, faltante, abono_1, abono_2, abono_tarjeta, profiles!inner(ciudad)').eq('estado', 'activa').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
-        globalDebtQuery = supabase.from('ventas').select('faltante, total, abono_1, abono_2, abono_tarjeta, profiles!inner(ciudad)').eq('estado', 'activa').eq('profiles.ciudad', activeCityFilter)
+        ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id, faltante, abono_1, abono_2, abono_tarjeta, profiles!inner(ciudad)').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
+        globalDebtQuery = supabase.from('ventas').select('faltante, total, abono_1, abono_2, abono_tarjeta, profiles!inner(ciudad)').eq('profiles.ciudad', activeCityFilter)
         
         // Vouchers no tiene foreign key directa con perfiles fácil de hacer join aquí, 
         // pero la app asume que se verán todos o filtraremos en memoria si es necesario.
