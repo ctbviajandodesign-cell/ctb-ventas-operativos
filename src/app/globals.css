@@ -10,17 +10,28 @@
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-outfit), 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-primary text-white px-4 py-2 rounded-lg hover:opacity-90 transition-all font-medium;
+    @apply bg-primary text-white px-4 py-2 rounded-lg hover:opacity-90 transition-all font-medium shadow-md hover:shadow-lg;
   }
   .card {
-    @apply bg-white p-6 rounded-xl shadow-sm border border-gray-100;
+    @apply bg-white p-6 rounded-2xl shadow-sm border border-gray-100 transition-shadow duration-300 hover:shadow-md;
+  }
+  .glass-card {
+    @apply bg-white/70 backdrop-blur-xl p-6 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/50 transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)];
+  }
+  .metric-value {
+    @apply text-3xl font-black tracking-tight text-gray-900;
+  }
+  .metric-label {
+    @apply text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2;
   }
   .input {
-    @apply w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none;
+    @apply w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all bg-gray-50/50 hover:bg-white focus:bg-white;
   }
 }

@@ -47,17 +47,18 @@ import {
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  Cell 
-} from 'recharts'
+import dynamic from 'next/dynamic'
 import { motion, AnimatePresence } from 'framer-motion'
+
+// Lazy Loading pesado para acelerar TTI (Time to Interactive)
+const BarChart = dynamic(() => import('recharts').then(mod => mod.BarChart), { ssr: false, loading: () => <div className="h-64 animate-pulse bg-gray-100 rounded-xl" /> })
+const Bar = dynamic(() => import('recharts').then(mod => mod.Bar), { ssr: false })
+const XAxis = dynamic(() => import('recharts').then(mod => mod.XAxis), { ssr: false })
+const YAxis = dynamic(() => import('recharts').then(mod => mod.YAxis), { ssr: false })
+const CartesianGrid = dynamic(() => import('recharts').then(mod => mod.CartesianGrid), { ssr: false })
+const Tooltip = dynamic(() => import('recharts').then(mod => mod.Tooltip), { ssr: false })
+const ResponsiveContainer = dynamic(() => import('recharts').then(mod => mod.ResponsiveContainer), { ssr: false })
+const Cell = dynamic(() => import('recharts').then(mod => mod.Cell), { ssr: false })
 
 import { getPeriodRange, getPeriodLabel, getEcuadorTime, isExpired } from '@/utils/dateHelpers'
 

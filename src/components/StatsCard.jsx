@@ -43,9 +43,10 @@ export default function StatsCard({ title, value, icon: Icon, color = 'primary',
   return (
     <div 
       onClick={() => href && router.push(href)}
-      className={`backdrop-blur-md p-5 rounded-[2.2rem] border ${scheme.border} ${scheme.bg} flex flex-col justify-between gap-3 hover:scale-[1.03] shadow-lg ${scheme.glow} transition-all duration-500 ease-out group ${href ? 'cursor-pointer' : 'cursor-default'} h-full min-h-[135px]`}
+      className={`glass-card relative overflow-hidden flex flex-col justify-between gap-3 group ${href ? 'cursor-pointer' : 'cursor-default'} h-full min-h-[135px]`}
     >
-      <div className="flex items-start justify-between w-full gap-2">
+      <div className={`absolute inset-0 bg-gradient-to-br from-white/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500`}></div>
+      <div className="relative z-10 flex items-start justify-between w-full gap-2">
         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-normal group-hover:text-gray-500 transition-colors pr-2 break-words">
           {title}
         </p>
