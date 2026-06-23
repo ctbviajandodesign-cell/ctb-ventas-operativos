@@ -1,6 +1,10 @@
-import Link from 'next/link'
+'use client'
+
+import { useRouter } from 'next/navigation'
 
 export default function StatsCard({ title, value, icon: Icon, color = 'primary', description, href }) {
+  const router = useRouter()
+  
   const colorSchemes = {
     primary: {
       bg: 'bg-blue-50/60 hover:bg-blue-50/80',
@@ -36,8 +40,11 @@ export default function StatsCard({ title, value, icon: Icon, color = 'primary',
 
   const scheme = colorSchemes[color] || colorSchemes.primary
 
-  const CardContent = (
-    <div className={`backdrop-blur-md p-5 rounded-[2.2rem] border ${scheme.border} ${scheme.bg} flex flex-col justify-between gap-3 hover:scale-[1.03] shadow-lg ${scheme.glow} transition-all duration-500 ease-out group ${href ? 'cursor-pointer' : 'cursor-default'} h-full min-h-[135px]`}>
+  return (
+    <div 
+      onClick={() => href && router.push(href)}
+      className={`backdrop-blur-md p-5 rounded-[2.2rem] border ${scheme.border} ${scheme.bg} flex flex-col justify-between gap-3 hover:scale-[1.03] shadow-lg ${scheme.glow} transition-all duration-500 ease-out group ${href ? 'cursor-pointer' : 'cursor-default'} h-full min-h-[135px]`}
+    >
       <div className="flex items-start justify-between w-full gap-2">
         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-normal group-hover:text-gray-500 transition-colors pr-2 break-words">
           {title}
@@ -58,14 +65,4 @@ export default function StatsCard({ title, value, icon: Icon, color = 'primary',
       </div>
     </div>
   )
-
-  if (href) {
-    return (
-      <Link href={href} className="block h-full no-underline">
-        {CardContent}
-      </Link>
-    )
-  }
-
-  return CardContent
 }
