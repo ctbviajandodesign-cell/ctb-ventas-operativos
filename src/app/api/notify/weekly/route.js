@@ -1,12 +1,11 @@
 /**
  * GET /api/notify/weekly
- * Resumen semanal (lunes a domingo actual).
- * Cron: viernes a las 8pm Ecuador (01:00 UTC sábado)
- * Protegido por CRON_SECRET header.
+ * Resumen semanal de ventas por operativo.
+ * Cron: 12:00 UTC Sábado (07:00 AM Ecuador)
  */
 export const dynamic = 'force-dynamic'
 import { createClient } from '@supabase/supabase-js'
-import { notifyAdmin, notifyCity, formatMoney, escapeHtml, getEcuadorTime, ecToUTC } from '@/lib/telegram'
+import { notifyAdmin, notifyCity, formatMoney, progressBar, escapeHtml, getEcuadorTime, ecToUTC } from '@/lib/telegram'
 
 export async function GET(req) {
   const supabase = createClient(
@@ -24,74 +23,130 @@ export async function GET(req) {
   }
 
   try {
-    // Lunes de esta semana
     const now = new Date()
     const ecNow = getEcuadorTime(now)
-    const dayOfWeek = ecNow.getUTCDay() === 0 ? 7 : ecNow.getUTCDay()
-    // Inicio del lunes de esta semana en Ecuador
-    const ecMondayStart = new Date(Date.UTC(ecNow.getUTCFullYear(), ecNow.getUTCMonth(), ecNow.getUTCDate() - (dayOfWeek - 1), 0, 0, 0, 0))
-    const mondayUTC = ecToUTC(ecMondayStart)
+    
+    // El cron corre el Sábado en la mañana. Evaluamos los últimos 7 días (Sábado pasado a Viernes ayer).
+    // Fin de la semana evaluada = Ayer a las 23:59:59
+    const ecEnd = new Date(Date.UTC(ecNow.getUTCFullYear(), ecNow.getUTCMonth(), ecNow.getUTCDate() - 1, 23, 59, 59, 999))
+    // Inicio = Hace 7 días a las 00:00:00 (O sea, 6 días antes de ayer, total 7 días con ayer incluido)
+    const ecStart = new Date(Date.UTC(ecNow.getUTCFullYear(), ecNow.getUTCMonth(), ecNow.getUTCDate() - 7, 0, 0, 0, 0))
+    
+    const weekStartUTC = ecToUTC(ecStart)
+    const weekEndUTC = ecToUTC(ecEnd)
+    
+    // Inicio de mes para la meta
+    const ecMonthStart = new Date(Date.UTC(ecEnd.getUTCFullYear(), ecEnd.getUTCMonth(), 1, 0, 0, 0, 0))
+    const startOfMonthUTC = ecToUTC(ecMonthStart)
 
-    const { data: ventas, error: errorVentas } = await supabase
+    const labelInicio = ecStart.toLocaleDateString('es-EC', { day: 'numeric', month: 'short' })
+    const labelFin = ecEnd.toLocaleDateString('es-EC', { day: 'numeric', month: 'short' })
+
+    // --- 1. Todos los operativos ---
+    const { data: allOps, error: errorAllOps } = await supabase
+      .from('profiles')
+      .select('id, nombre, ciudad, meta_mensual')
+      .eq('rol', 'operativo')
+      .order('ciudad')
+
+    if (errorAllOps) throw new Error(`Error operativos: ${errorAllOps.message}`)
+
+    // --- 2. Ventas del mes (para % meta) ---
+    const { data: ventasMes, error: errorVentasMes } = await supabase
       .from('ventas')
-      .select('total, comision, utilidad, operativo_id, profiles!inner(nombre, ciudad, meta_mensual)')
+      .select('comision, utilidad, operativo_id')
       .eq('estado', 'activa')
-      .gte('created_at', mondayUTC.toISOString())
+      .gte('created_at', startOfMonthUTC.toISOString())
+      .lte('created_at', weekEndUTC.toISOString())
 
-    if (errorVentas) throw new Error(`Error al obtener ventas de la semana: ${errorVentas.message}`)
+    if (errorVentasMes) throw new Error(`Error ventas mes: ${errorVentasMes.message}`)
 
-    if (!ventas || ventas.length === 0) {
-      await notifyAdmin(`📋 <b>Resumen Semanal CTB</b>\n\nSin ventas registradas esta semana aún.`)
-      return Response.json({ ok: true, ventas: 0 })
+    const progresoMes = {}
+    for (const op of allOps) progresoMes[op.id] = 0
+    for (const v of (ventasMes || [])) {
+      if (progresoMes[v.operativo_id] !== undefined) {
+        progresoMes[v.operativo_id] += Number(v.comision || 0) + Number(v.utilidad || 0)
+      }
     }
 
-    // Agrupar por ciudad y operativo
-    const porCiudad = {}
-    let globalVentas = 0, globalAporte = 0
+    // --- 3. Cotizaciones Semana ---
+    const { data: cotizaciones, error: errorCotiz } = await supabase
+      .from('cotizaciones')
+      .select('operativo_id')
+      .gte('created_at', weekStartUTC.toISOString())
+      .lte('created_at', weekEndUTC.toISOString())
 
-    for (const v of ventas) {
-      const ciudad = (v.profiles?.ciudad || 'otra').toLowerCase()
-      const nombre = v.profiles?.nombre || 'N/A'
-      const total = Number(v.total || 0)
-      const aporte = (Number(v.comision || 0) + Number(v.utilidad || 0))
+    if (errorCotiz) throw new Error(`Error cotizaciones: ${errorCotiz.message}`)
 
-      if (!porCiudad[ciudad]) porCiudad[ciudad] = { ops: {}, total: 0, aporte: 0 }
-      if (!porCiudad[ciudad].ops[nombre]) porCiudad[ciudad].ops[nombre] = { total: 0, aporte: 0, count: 0 }
+    // --- 4. Ventas Semana ---
+    const { data: ventasSemana, error: errorVentas } = await supabase
+      .from('ventas')
+      .select('comision, utilidad, operativo_id')
+      .eq('estado', 'activa')
+      .gte('created_at', weekStartUTC.toISOString())
+      .lte('created_at', weekEndUTC.toISOString())
 
-      porCiudad[ciudad].ops[nombre].total += total
-      porCiudad[ciudad].ops[nombre].aporte += aporte
-      porCiudad[ciudad].ops[nombre].count += 1
-      porCiudad[ciudad].total += total
-      porCiudad[ciudad].aporte += aporte
-      globalVentas += total
-      globalAporte += aporte
+    if (errorVentas) throw new Error(`Error ventas: ${errorVentas.message}`)
+
+    const datosOperativos = {}
+    for (const op of allOps) {
+      datosOperativos[op.id] = {
+        nombre: op.nombre,
+        ciudad: (op.ciudad || 'Otra').toUpperCase(),
+        meta: Number(op.meta_mensual || 5000),
+        cots: 0,
+        ventasCount: 0,
+        ganancia: 0,
+        aporteMes: progresoMes[op.id]
+      }
     }
 
-    const semana = `${ecMondayStart.toLocaleDateString('es-EC', { day: 'numeric', month: 'short', timeZone: 'UTC' })} – ${now.toLocaleDateString('es-EC', { day: 'numeric', month: 'short', timeZone: 'America/Guayaquil' })}`
+    for (const c of (cotizaciones || [])) {
+      if (datosOperativos[c.operativo_id]) datosOperativos[c.operativo_id].cots += 1
+    }
 
-    // Resumen semanal → solo admin (los grupos solo reciben venta inmediata y morning)
+    let gananciaGlobal = 0
+    for (const v of (ventasSemana || [])) {
+      if (datosOperativos[v.operativo_id]) {
+        datosOperativos[v.operativo_id].ventasCount += 1
+        const ganancia = Number(v.comision || 0) + Number(v.utilidad || 0)
+        datosOperativos[v.operativo_id].ganancia += ganancia
+        gananciaGlobal += ganancia
+      }
+    }
 
-    // Resumen admin global
     const adminLines = [
-      `🗓 <b>RESUMEN SEMANAL GLOBAL CTB</b>`,
-      `<i>Semana del ${semana}</i>`,
+      `📅 <b>RESUMEN SEMANAL CTB</b>`,
+      `<i>Del ${labelInicio} al ${labelFin}</i>`,
       ``
     ]
-    for (const [ciudad, data] of Object.entries(porCiudad)) {
-      const topOp = Object.entries(data.ops).sort((a, b) => b[1].total - a[1].total)[0]
-      adminLines.push(`🏙 <b>${escapeHtml(ciudad.toUpperCase())}</b>: ${formatMoney(data.total)}`)
-      if (topOp) adminLines.push(`   👑 Mejor: ${escapeHtml(topOp[0])} · ${formatMoney(topOp[1].total)}`)
+
+    const porCiudad = {}
+    for (const op of allOps) {
+      const d = datosOperativos[op.id]
+      if (!porCiudad[d.ciudad]) porCiudad[d.ciudad] = []
+      porCiudad[d.ciudad].push(d)
     }
-    adminLines.push(``)
-    adminLines.push(`💼 <b>Total global: ${formatMoney(globalVentas)}</b>  |  Aporte CTB: ${formatMoney(globalAporte)}`)
-    adminLines.push(`📁 Ventas totales: ${ventas.length}`)
+
+    for (const [ciudad, ops] of Object.entries(porCiudad)) {
+      adminLines.push(`🏙 <b>${escapeHtml(ciudad)}</b>`)
+      for (const op of ops) {
+        const pct = op.meta > 0 ? (op.aporteMes / op.meta) * 100 : 0
+        adminLines.push(`👤 <b>Asesor:</b> ${escapeHtml(op.nombre)}`)
+        adminLines.push(`📝 Cotizaciones: <code>${op.cots}</code>`)
+        adminLines.push(`✅ Ventas cerradas: <code>${op.ventasCount}</code>`)
+        adminLines.push(`📊 Progreso Mes: <code>${pct.toFixed(1)}% ${progressBar(pct)}</code>`)
+        adminLines.push(`💼 Ganancia CTB Semanal: <code>${formatMoney(op.ganancia)}</code>`)
+        adminLines.push(``)
+      }
+    }
+
+    adminLines.push(`🌍 <b>GANANCIA GLOBAL SEMANA:</b> <code>${formatMoney(gananciaGlobal)}</code>`)
 
     const telRes = await notifyAdmin(adminLines.join('\n'))
-    if (!telRes || !telRes.ok) {
-      throw new Error(`Telegram error: ${JSON.stringify(telRes)}`)
-    }
+    if (!telRes || !telRes.ok) throw new Error(`Telegram error: ${JSON.stringify(telRes)}`)
 
-    return Response.json({ ok: true, ventas: ventas.length })
+    return Response.json({ ok: true, gananciaGlobal })
   } catch (err) {
     console.error('notify/weekly error:', err)
     return Response.json({ ok: false, error: err.message }, { status: 500 })

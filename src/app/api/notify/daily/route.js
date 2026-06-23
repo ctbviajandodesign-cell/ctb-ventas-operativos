@@ -1,10 +1,7 @@
 /**
  * GET /api/notify/daily
- * Resumen diario de ventas por operativo.
- * Cron: todos los días a las 9pm Ecuador (02:00 UTC)
- * Protegido por CRON_SECRET header.
- * Mejoras: operativos con 0 ventas hoy, alerta inactividad 3 días,
- *           desglose total ventas + comisiones/utilidades.
+ * Resumen diario de ventas por operativo (Briefing Matutino).
+ * Cron: 12:00 UTC (07:00 AM Ecuador)
  */
 export const dynamic = 'force-dynamic'
 import { createClient } from '@supabase/supabase-js'
@@ -29,167 +26,135 @@ export async function GET(req) {
     const now = new Date()
     const ecNow = getEcuadorTime(now)
     
-    // Inicio de hoy en Ecuador (00:00:00)
-    const ecTodayStart = new Date(Date.UTC(ecNow.getUTCFullYear(), ecNow.getUTCMonth(), ecNow.getUTCDate(), 0, 0, 0, 0))
-    const todayUTC = ecToUTC(ecTodayStart)
+    // Este CRON corre a las 7AM, así que "Ayer" es hace 1 día
+    const ecYesterday = new Date(Date.UTC(ecNow.getUTCFullYear(), ecNow.getUTCMonth(), ecNow.getUTCDate() - 1, 0, 0, 0, 0))
+    const ecYesterdayEnd = new Date(Date.UTC(ecNow.getUTCFullYear(), ecNow.getUTCMonth(), ecNow.getUTCDate() - 1, 23, 59, 59, 999))
     
-    // Hace 3 días en Ecuador (inicio del día)
-    const ecThreeDaysAgoStart = new Date(Date.UTC(ecNow.getUTCFullYear(), ecNow.getUTCMonth(), ecNow.getUTCDate() - 3, 0, 0, 0, 0))
-    const threeDaysAgoUTC = ecToUTC(ecThreeDaysAgoStart)
+    const yesterdayStartUTC = ecToUTC(ecYesterday)
+    const yesterdayEndUTC = ecToUTC(ecYesterdayEnd)
     
-    // Inicio del mes en Ecuador (00:00:00)
-    const ecMonthStart = new Date(Date.UTC(ecNow.getUTCFullYear(), ecNow.getUTCMonth(), 1, 0, 0, 0, 0))
+    // Inicio de mes (del mes de "ayer", por si es día 1 del mes y estamos evaluando el 31 del anterior)
+    const ecMonthStart = new Date(Date.UTC(ecYesterday.getUTCFullYear(), ecYesterday.getUTCMonth(), 1, 0, 0, 0, 0))
     const startOfMonthUTC = ecToUTC(ecMonthStart)
 
-    const diaHoy = now.toLocaleDateString('es-EC', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Guayaquil' })
+    const diaAyer = ecYesterday.toLocaleDateString('es-EC', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Guayaquil' })
 
-    // --- Ventas de hoy ---
-    const { data: ventasHoy, error: errorVentasHoy } = await supabase
-      .from('ventas')
-      .select('total, comision, utilidad, operativo_id, profiles!inner(nombre, ciudad, meta_mensual)')
-      .eq('estado', 'activa')
-      .gte('created_at', todayUTC.toISOString())
-
-    if (errorVentasHoy) throw new Error(`Error al obtener ventas de hoy: ${errorVentasHoy.message}`)
-
-    // --- Ventas últimos 3 días (para detectar inactividad) ---
-    const { data: ventas3dias, error: errorVentas3dias } = await supabase
-      .from('ventas')
-      .select('operativo_id')
-      .eq('estado', 'activa')
-      .gte('created_at', threeDaysAgoUTC.toISOString())
-
-    if (errorVentas3dias) throw new Error(`Error al obtener ventas de los últimos 3 días: ${errorVentas3dias.message}`)
-
-    // --- Ventas del mes (para calcular % meta) ---
-    const { data: ventasMes, error: errorVentasMes } = await supabase
-      .from('ventas')
-      .select('total, comision, utilidad, operativo_id')
-      .eq('estado', 'activa')
-      .gte('created_at', startOfMonthUTC.toISOString())
-
-    if (errorVentasMes) throw new Error(`Error al obtener ventas del mes: ${errorVentasMes.message}`)
-
-    // --- Todos los operativos ---
+    // --- 1. Todos los operativos ---
     const { data: allOps, error: errorAllOps } = await supabase
       .from('profiles')
       .select('id, nombre, ciudad, meta_mensual')
       .eq('rol', 'operativo')
+      .order('ciudad')
 
-    if (errorAllOps) throw new Error(`Error al obtener operativos: ${errorAllOps.message}`)
+    if (errorAllOps) throw new Error(`Error operativos: ${errorAllOps.message}`)
 
-    // Mapa de operativos activos últimos 3 días
-    const opsActivos3dias = new Set((ventas3dias || []).map(v => v.operativo_id))
+    // --- 2. Ventas del mes (para calcular % meta general) ---
+    const { data: ventasMes, error: errorVentasMes } = await supabase
+      .from('ventas')
+      .select('comision, utilidad, operativo_id')
+      .eq('estado', 'activa')
+      .gte('created_at', startOfMonthUTC.toISOString())
+      // Ojo: si es día 1 evaluando ayer, las ventas son hasta el final de ayer.
+      .lte('created_at', yesterdayEndUTC.toISOString())
 
-    // Mapa de aporte del mes por operativo
-    const aporteMap = {}
+    if (errorVentasMes) throw new Error(`Error ventas mes: ${errorVentasMes.message}`)
+
+    // Mapa de progreso de meta por operativo
+    const progresoMes = {}
+    for (const op of allOps) {
+      progresoMes[op.id] = 0
+    }
     for (const v of (ventasMes || [])) {
-      if (!aporteMap[v.operativo_id]) aporteMap[v.operativo_id] = 0
-      aporteMap[v.operativo_id] += Number(v.comision || 0) + Number(v.utilidad || 0)
-    }
-
-    if (!ventasHoy || ventasHoy.length === 0) {
-      // Sin ventas en ninguna ciudad → aviso silencioso solo a admin
-      const telRes = await notifyAdmin(`🌙 <b>Resumen Diario CTB</b>\n<i>${diaHoy}</i>\n\n❌ Sin ventas registradas hoy en ninguna ciudad.\n\n💪 ¡Mañana será mejor!`)
-      if (!telRes || !telRes.ok) {
-        throw new Error(`Telegram error: ${JSON.stringify(telRes)}`)
+      if (progresoMes[v.operativo_id] !== undefined) {
+        progresoMes[v.operativo_id] += Number(v.comision || 0) + Number(v.utilidad || 0)
       }
-      return Response.json({ ok: true, ventas: 0 })
     }
 
-    // Agrupar ventas de hoy por ciudad y operativo
-    const porCiudad = {}
-    let globalHoyVentas = 0, globalHoyComision = 0, globalHoyUtilidad = 0
+    // --- 3. Cotizaciones de Ayer ---
+    const { data: cotizacionesAyer, error: errorCotiz } = await supabase
+      .from('cotizaciones')
+      .select('operativo_id')
+      .gte('created_at', yesterdayStartUTC.toISOString())
+      .lte('created_at', yesterdayEndUTC.toISOString())
 
-    for (const v of ventasHoy) {
-      const ciudad = (v.profiles?.ciudad || 'otra').toLowerCase()
-      const nombre = v.profiles?.nombre || 'N/A'
-      const total = Number(v.total || 0)
-      const comision = Number(v.comision || 0)
-      const utilidad = Number(v.utilidad || 0)
-      const aporte = comision + utilidad
+    if (errorCotiz) throw new Error(`Error cotizaciones: ${errorCotiz.message}`)
 
-      if (!porCiudad[ciudad]) porCiudad[ciudad] = { ops: {}, totalVentas: 0, totalComision: 0, totalUtilidad: 0 }
-      if (!porCiudad[ciudad].ops[nombre]) porCiudad[ciudad].ops[nombre] = { ventas: 0, aporte: 0, count: 0, id: v.operativo_id }
+    // --- 4. Ventas cerradas Ayer ---
+    const { data: ventasAyer, error: errorVentas } = await supabase
+      .from('ventas')
+      .select('comision, utilidad, operativo_id')
+      .eq('estado', 'activa')
+      .gte('created_at', yesterdayStartUTC.toISOString())
+      .lte('created_at', yesterdayEndUTC.toISOString())
 
-      porCiudad[ciudad].ops[nombre].ventas += total
-      porCiudad[ciudad].ops[nombre].aporte += aporte
-      porCiudad[ciudad].ops[nombre].count += 1
-      porCiudad[ciudad].totalVentas += total
-      porCiudad[ciudad].totalComision += comision
-      porCiudad[ciudad].totalUtilidad += utilidad
-      globalHoyVentas += total
-      globalHoyComision += comision
-      globalHoyUtilidad += utilidad
+    if (errorVentas) throw new Error(`Error ventas: ${errorVentas.message}`)
+
+    // --- Agrupar datos por operativo ---
+    const datosOperativos = {}
+    for (const op of allOps) {
+      datosOperativos[op.id] = {
+        nombre: op.nombre,
+        ciudad: (op.ciudad || 'Otra').toUpperCase(),
+        meta: Number(op.meta_mensual || 5000),
+        cotsAyer: 0,
+        ventasAyerCount: 0,
+        gananciaAyer: 0,
+        aporteMes: progresoMes[op.id]
+      }
     }
 
-    // Resumen diario detallado → solo admin
+    for (const c of (cotizacionesAyer || [])) {
+      if (datosOperativos[c.operativo_id]) datosOperativos[c.operativo_id].cotsAyer += 1
+    }
 
-    // Detectar operativos sin ventas en los últimos 3 días
-    const inactivos = (allOps || []).filter(op => !opsActivos3dias.has(op.id))
+    let gananciaGlobalAyer = 0
+    for (const v of (ventasAyer || [])) {
+      if (datosOperativos[v.operativo_id]) {
+        datosOperativos[v.operativo_id].ventasAyerCount += 1
+        const ganancia = Number(v.comision || 0) + Number(v.utilidad || 0)
+        datosOperativos[v.operativo_id].gananciaAyer += ganancia
+        gananciaGlobalAyer += ganancia
+      }
+    }
 
-    // Detectar operativos sin ventas hoy
-    const opsConVentasHoy = new Set(ventasHoy.map(v => v.operativo_id))
-    const sinVentasHoy = (allOps || []).filter(op => !opsConVentasHoy.has(op.id))
-
-    // Mensaje admin global
+    // --- Construir Mensaje de Telegram ---
     const adminLines = [
-      `📊 <b>RESUMEN DIARIO GLOBAL CTB</b>`,
-      `<i>${diaHoy}</i>`,
+      `🌅 <b>BRIEFING MATUTINO CTB</b>`,
+      `📅 <i>Resumen de ayer: ${diaAyer}</i>`,
       ``
     ]
 
-    for (const [ciudad, data] of Object.entries(porCiudad)) {
-      const topOp = Object.entries(data.ops).sort((a, b) => b[1].ventas - a[1].ventas)[0]
-      adminLines.push(`🏙 <b>${escapeHtml(ciudad.toUpperCase())}</b>: ${formatMoney(data.totalVentas)} (${Object.keys(data.ops).length} asesor${Object.keys(data.ops).length > 1 ? 'es' : ''})`)
-      if (topOp) adminLines.push(`   👑 Líder: ${escapeHtml(topOp[0])} · ${formatMoney(topOp[1].ventas)}`)
+    // Agrupar por ciudad para orden
+    const porCiudad = {}
+    for (const op of allOps) {
+      const d = datosOperativos[op.id]
+      if (!porCiudad[d.ciudad]) porCiudad[d.ciudad] = []
+      porCiudad[d.ciudad].push(d)
     }
 
-    adminLines.push(``)
-    adminLines.push(`💼 <b>Total del día: ${formatMoney(globalHoyVentas)}</b>`)
-    adminLines.push(`💰 Comisiones: ${formatMoney(globalHoyComision)}  |  Utilidades: ${formatMoney(globalHoyUtilidad)}`)
-    adminLines.push(`📈 Aporte total CTB hoy: <b>${formatMoney(globalHoyComision + globalHoyUtilidad)}</b>`)
-    adminLines.push(`📁 Ventas registradas: ${ventasHoy.length}`)
-
-    // Operativos sin ventas hoy
-    if (sinVentasHoy.length > 0) {
-      const byCiudad = {}
-      sinVentasHoy.forEach(op => {
-        const c = op.ciudad || 'Sin ciudad'
-        if (!byCiudad[c]) byCiudad[c] = []
-        byCiudad[c].push(op.nombre)
-      })
-      adminLines.push(``)
-      adminLines.push(`😶 <b>Sin ventas hoy (${sinVentasHoy.length}):</b>`)
-      for (const [c, names] of Object.entries(byCiudad)) {
-        adminLines.push(`   ${escapeHtml(c)}: ${names.map(escapeHtml).join(', ')}`)
+    for (const [ciudad, ops] of Object.entries(porCiudad)) {
+      adminLines.push(`🏙 <b>${escapeHtml(ciudad)}</b>`)
+      for (const op of ops) {
+        const pct = op.meta > 0 ? (op.aporteMes / op.meta) * 100 : 0
+        adminLines.push(`👤 <b>Asesor:</b> ${escapeHtml(op.nombre)}`)
+        adminLines.push(`📝 Cotizaciones hechas: <code>${op.cotsAyer}</code>`)
+        adminLines.push(`✅ Ventas cerradas: <code>${op.ventasAyerCount}</code>`)
+        adminLines.push(`📊 Progreso Mes: <code>${pct.toFixed(1)}% ${progressBar(pct)}</code>`)
+        adminLines.push(`💼 Ganancia CTB ayer: <code>${formatMoney(op.gananciaAyer)}</code>`)
+        adminLines.push(``)
       }
     }
 
-    // Alerta inactividad 3 días
-    if (inactivos.length > 0) {
-      const byCiudad = {}
-      inactivos.forEach(op => {
-        const c = op.ciudad || 'Sin ciudad'
-        if (!byCiudad[c]) byCiudad[c] = []
-        byCiudad[c].push(op.nombre)
-      })
-      adminLines.push(``)
-      adminLines.push(`🔴 <b>ALERTA — Sin ventas hace +3 días (${inactivos.length}):</b>`)
-      for (const [c, names] of Object.entries(byCiudad)) {
-        adminLines.push(`   ${escapeHtml(c)}: ${names.map(escapeHtml).join(', ')}`)
-      }
-    }
+    adminLines.push(`🌍 <b>GANANCIA GLOBAL AYER:</b> <code>${formatMoney(gananciaGlobalAyer)}</code>`)
 
     const telRes = await notifyAdmin(adminLines.join('\n'))
     if (!telRes || !telRes.ok) {
       throw new Error(`Telegram error: ${JSON.stringify(telRes)}`)
     }
 
-    return Response.json({ ok: true, ventas: ventasHoy.length, inactivos: inactivos.length })
+    return Response.json({ ok: true, gananciaGlobalAyer })
   } catch (err) {
     console.error('notify/daily error:', err)
     return Response.json({ ok: false, error: err.message }, { status: 500 })
   }
 }
-

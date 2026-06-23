@@ -1,10 +1,7 @@
 /**
  * GET /api/notify/monthly
- * Informe mensual de cierre — último día del mes.
- * Cron: último día del mes a las 8pm Ecuador (01:00 UTC)
- * Protegido por CRON_SECRET header.
- * Mejoras: análisis de motivos de pérdida por frecuencia,
- *           tasa de conversión por operativo, desglose completo.
+ * Resumen mensual de ventas por operativo.
+ * Cron: 05:00 UTC Día 1 del mes (00:00 AM Ecuador, medianoche exacta del último día del mes)
  */
 export const dynamic = 'force-dynamic'
 import { createClient } from '@supabase/supabase-js'
@@ -28,218 +25,110 @@ export async function GET(req) {
   try {
     const now = new Date()
     const ecNow = getEcuadorTime(now)
-    // Inicio del mes en Ecuador (para consultar el mes correcto en Supabase)
-    const ecMonthStart = new Date(Date.UTC(ecNow.getUTCFullYear(), ecNow.getUTCMonth(), 1, 0, 0, 0, 0))
-    const startOfMonthUTC = ecToUTC(ecMonthStart)
-    const mesNombre = now.toLocaleDateString('es-EC', { month: 'long', year: 'numeric', timeZone: 'America/Guayaquil' })
+    
+    // Este CRON corre a las 00:00 AM del día 1 del nuevo mes.
+    // Para obtener el mes que acabamos de cerrar, retrocedemos 1 hora (23:00 PM del último día).
+    const ecLastDayOfMonth = new Date(Date.UTC(ecNow.getUTCFullYear(), ecNow.getUTCMonth(), ecNow.getUTCDate(), ecNow.getUTCHours() - 1, 0, 0, 0))
+    
+    // Inicio del mes cerrado
+    const ecStart = new Date(Date.UTC(ecLastDayOfMonth.getUTCFullYear(), ecLastDayOfMonth.getUTCMonth(), 1, 0, 0, 0, 0))
+    // Fin del mes cerrado
+    const ecEnd = new Date(Date.UTC(ecLastDayOfMonth.getUTCFullYear(), ecLastDayOfMonth.getUTCMonth() + 1, 0, 23, 59, 59, 999))
+    
+    const monthStartUTC = ecToUTC(ecStart)
+    const monthEndUTC = ecToUTC(ecEnd)
 
-    const { data: ventas, error: errorVentas } = await supabase
-      .from('ventas')
-      .select('total, comision, utilidad, operativo_id, profiles!inner(nombre, ciudad, meta_mensual)')
-      .eq('estado', 'activa')
-      .gte('created_at', startOfMonthUTC.toISOString())
+    const mesNombre = ecLastDayOfMonth.toLocaleDateString('es-EC', { month: 'long', year: 'numeric' }).toUpperCase()
 
-    if (errorVentas) throw new Error(`Error ventas: ${errorVentas.message}`)
-
-    const { data: cots, error: errorCots } = await supabase
-      .from('cotizaciones')
-      .select('estado, operativo_id, motivo_perdida, profiles!inner(nombre, ciudad)')
-      .gte('created_at', startOfMonthUTC.toISOString())
-
-    if (errorCots) throw new Error(`Error cotizaciones: ${errorCots.message}`)
-
+    // --- 1. Todos los operativos ---
     const { data: allOps, error: errorAllOps } = await supabase
       .from('profiles')
       .select('id, nombre, ciudad, meta_mensual')
       .eq('rol', 'operativo')
+      .order('ciudad')
 
     if (errorAllOps) throw new Error(`Error operativos: ${errorAllOps.message}`)
 
-    // --- Construir mapa de operativos ---
-    const ops = {}
+    // --- 2. Cotizaciones del Mes ---
+    const { data: cotizaciones, error: errorCotiz } = await supabase
+      .from('cotizaciones')
+      .select('operativo_id')
+      .gte('created_at', monthStartUTC.toISOString())
+      .lte('created_at', monthEndUTC.toISOString())
 
-    // Inicializar todos los operativos (incluso sin ventas)
-    for (const op of (allOps || [])) {
-      ops[op.id] = {
+    if (errorCotiz) throw new Error(`Error cotizaciones: ${errorCotiz.message}`)
+
+    // --- 3. Ventas del Mes ---
+    const { data: ventasMes, error: errorVentas } = await supabase
+      .from('ventas')
+      .select('comision, utilidad, operativo_id')
+      .eq('estado', 'activa')
+      .gte('created_at', monthStartUTC.toISOString())
+      .lte('created_at', monthEndUTC.toISOString())
+
+    if (errorVentas) throw new Error(`Error ventas: ${errorVentas.message}`)
+
+    const datosOperativos = {}
+    for (const op of allOps) {
+      datosOperativos[op.id] = {
         nombre: op.nombre,
-        ciudad: op.ciudad || '',
+        ciudad: (op.ciudad || 'Otra').toUpperCase(),
         meta: Number(op.meta_mensual || 5000),
-        ventas: 0, comision: 0, utilidad: 0, count: 0,
-        ganadas: 0, perdidas: 0, anuladas: 0, abiertas: 0
+        cots: 0,
+        ventasCount: 0,
+        ganancia: 0,
+        aporteMes: 0
       }
     }
 
-    // Sumar ventas
-    for (const v of (ventas || [])) {
-      const id = v.operativo_id
-      if (!ops[id]) continue
-      ops[id].ventas += Number(v.total || 0)
-      ops[id].comision += Number(v.comision || 0)
-      ops[id].utilidad += Number(v.utilidad || 0)
-      ops[id].count += 1
+    for (const c of (cotizaciones || [])) {
+      if (datosOperativos[c.operativo_id]) datosOperativos[c.operativo_id].cots += 1
     }
 
-    // Sumar cotizaciones
-    for (const c of (cots || [])) {
-      const id = c.operativo_id
-      if (!ops[id]) continue
-      if (c.estado === 'vendida' || c.estado === 'ganada') ops[id].ganadas++
-      else if (c.estado === 'perdida') ops[id].perdidas++
-      else if (c.estado === 'anulada') ops[id].anuladas++
-      else ops[id].abiertas++
-    }
-
-    // --- Análisis global de motivos de pérdida ---
-    const motivosMap = {}
-    for (const c of (cots || [])) {
-      if ((c.estado === 'perdida' || c.estado === 'anulada') && c.motivo_perdida) {
-        const m = c.motivo_perdida.trim()
-        if (m) motivosMap[m] = (motivosMap[m] || 0) + 1
+    let gananciaGlobal = 0
+    for (const v of (ventasMes || [])) {
+      if (datosOperativos[v.operativo_id]) {
+        datosOperativos[v.operativo_id].ventasCount += 1
+        const ganancia = Number(v.comision || 0) + Number(v.utilidad || 0)
+        datosOperativos[v.operativo_id].ganancia += ganancia
+        datosOperativos[v.operativo_id].aporteMes += ganancia
+        gananciaGlobal += ganancia
       }
     }
-    const motivosOrdenados = Object.entries(motivosMap)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8) // Top 8 razones
 
-    // --- Totales globales ---
-    const globalVentas = Object.values(ops).reduce((a, o) => a + o.ventas, 0)
-    const globalComision = Object.values(ops).reduce((a, o) => a + o.comision, 0)
-    const globalUtilidad = Object.values(ops).reduce((a, o) => a + o.utilidad, 0)
-    const globalAporte = globalComision + globalUtilidad
-    const globalMeta = Object.values(ops).reduce((a, o) => a + o.meta, 0)
-    const globalPct = globalMeta > 0 ? (globalAporte / globalMeta) * 100 : 0
-    const globalGanadas = Object.values(ops).reduce((a, o) => a + o.ganadas, 0)
-    const globalPerdidas = Object.values(ops).reduce((a, o) => a + o.perdidas + o.anuladas, 0)
-
-    // Agrupar por ciudad
-    const porCiudad = {}
-    for (const op of Object.values(ops)) {
-      const c = (op.ciudad || 'otra').toLowerCase()
-      if (!porCiudad[c]) porCiudad[c] = []
-      porCiudad[c].push(op)
-    }
-
-    // --- Mensaje por ciudad ---
-    for (const [ciudad, opsList] of Object.entries(porCiudad)) {
-      const sorted = opsList.sort((a, b) => b.ventas - a.ventas)
-
-      // Motivos de pérdida de esta ciudad
-      const motivosCiudad = {}
-      for (const c of (cots || [])) {
-        const op = ops[c.operativo_id]
-        if (!op || (op.ciudad || '').toLowerCase() !== ciudad) continue
-        if ((c.estado === 'perdida' || c.estado === 'anulada') && c.motivo_perdida?.trim()) {
-          const m = c.motivo_perdida.trim()
-          motivosCiudad[m] = (motivosCiudad[m] || 0) + 1
-        }
-      }
-      const top3Motivos = Object.entries(motivosCiudad)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-
-      const lines = [
-        `🏁 <b>CIERRE DE MES — ${ciudad.toUpperCase()}</b>`,
-        `<i>${mesNombre}</i>`,
-        ``
-      ]
-
-      for (const [i, op] of sorted.entries()) {
-        const aporte = op.comision + op.utilidad
-        const pct = op.meta > 0 ? (aporte / op.meta) * 100 : 0
-        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '▪️'
-        const totalCots = op.ganadas + op.perdidas + op.anuladas + op.abiertas
-        const tasaCierre = totalCots > 0 ? ((op.ganadas / totalCots) * 100).toFixed(0) : 0
-        const metaIcon = pct >= 100 ? '🏆' : pct >= 75 ? '🔥' : pct >= 50 ? '📈' : '⚠️'
-
-        lines.push(`${medal} <b>${op.nombre}</b> ${metaIcon}`)
-        lines.push(`   💰 Ventas: ${formatMoney(op.ventas)}  |  Aporte: ${formatMoney(aporte)}`)
-        lines.push(`   <code>${progressBar(pct)}</code> ${pct.toFixed(1)}% de ${formatMoney(op.meta)}`)
-        lines.push(`   ✅ ${op.ganadas} cierres · ❌ ${op.perdidas + op.anuladas} pérdidas · 📊 Cierre: ${tasaCierre}%`)
-      }
-
-      const totalVentasCiudad = opsList.reduce((a, o) => a + o.ventas, 0)
-      const totalAporteCiudad = opsList.reduce((a, o) => a + o.comision + o.utilidad, 0)
-      lines.push(``)
-      lines.push(`🏙 Total ${ciudad.toUpperCase()}: <b>${formatMoney(totalVentasCiudad)}</b>  |  Aporte: ${formatMoney(totalAporteCiudad)}`)
-
-      if (top3Motivos.length > 0) {
-        lines.push(``)
-        lines.push(`📋 <b>Por qué no cerramos:</b>`)
-        top3Motivos.forEach(([m, n], i) => {
-          lines.push(`   ${i + 1}. ${m} (${n}x)`)
-        })
-      }
-
-      // Cierre mensual detallado → solo admin, no se envía a grupos de ciudad
-    }
-
-    // --- Informe admin global completo ---
     const adminLines = [
-      `📊 <b>INFORME DE CIERRE MENSUAL CTB</b>`,
-      `<i>${mesNombre}</i>`,
-      ``,
-      `💼 <b>Total Facturado: ${formatMoney(globalVentas)}</b>`,
-      `💰 Comisiones: ${formatMoney(globalComision)}  |  Utilidades: ${formatMoney(globalUtilidad)}`,
-      `📈 <b>Aporte total CTB: ${formatMoney(globalAporte)}</b>`,
-      `🎯 Meta Global: ${formatMoney(globalMeta)}`,
-      `<code>${progressBar(globalPct)}</code> ${globalPct.toFixed(1)}%`,
+      `🏆 <b>CIERRE DE MES CTB</b>`,
+      `<i>Mes de ${mesNombre}</i>`,
       ``
     ]
 
-    // Resumen por ciudad
-    for (const [ciudad, opsList] of Object.entries(porCiudad)) {
-      const top = opsList.sort((a, b) => (b.comision + b.utilidad) - (a.comision + a.utilidad))[0]
-      const cityAporte = opsList.reduce((a, o) => a + o.comision + o.utilidad, 0)
-      const cityVentas = opsList.reduce((a, o) => a + o.ventas, 0)
-      adminLines.push(`🏙 <b>${escapeHtml(ciudad.toUpperCase())}</b>: ${formatMoney(cityVentas)} · Aporte: ${formatMoney(cityAporte)}`)
-      if (top) adminLines.push(`   MVP: ${escapeHtml(top.nombre)} · ${((top.comision + top.utilidad) / (top.meta || 1) * 100).toFixed(0)}% meta`)
+    const porCiudad = {}
+    for (const op of allOps) {
+      const d = datosOperativos[op.id]
+      if (!porCiudad[d.ciudad]) porCiudad[d.ciudad] = []
+      porCiudad[d.ciudad].push(d)
     }
 
-    adminLines.push(``)
-    adminLines.push(`✅ Cierres ganados: <b>${globalGanadas}</b>  |  ❌ Pérdidas/Anuladas: ${globalPerdidas}`)
-
-    // Quién llegó a meta y quién no
-    const allOpsList = Object.values(ops)
-    const llegaron = allOpsList.filter(o => (o.comision + o.utilidad) >= o.meta)
-    const noLlegaron = allOpsList.filter(o => (o.comision + o.utilidad) < o.meta)
-      .sort((a, b) => {
-        const pctA = (a.comision + a.utilidad) / a.meta
-        const pctB = (b.comision + b.utilidad) / b.meta
-        return pctB - pctA
-      })
-
-    if (llegaron.length > 0) {
-      adminLines.push(``)
-      adminLines.push(`🏆 <b>Cumplieron meta (${llegaron.length}):</b>`)
-      llegaron.forEach(o => adminLines.push(`   🟢 ${escapeHtml(o.nombre)} (${escapeHtml(o.ciudad)}) — ${((o.comision + o.utilidad) / o.meta * 100).toFixed(0)}%`))
-    }
-    if (noLlegaron.length > 0) {
-      adminLines.push(``)
-      adminLines.push(`⚠️ <b>No cumplieron meta (${noLlegaron.length}):</b>`)
-      noLlegaron.forEach(o => {
-        const pct = o.meta > 0 ? ((o.comision + o.utilidad) / o.meta * 100).toFixed(0) : 0
-        adminLines.push(`   🔴 ${escapeHtml(o.nombre)} (${escapeHtml(o.ciudad)}) — ${pct}% · Faltó: ${formatMoney(Math.max(0, o.meta - (o.comision + o.utilidad)))}`)
-      })
+    for (const [ciudad, ops] of Object.entries(porCiudad)) {
+      adminLines.push(`🏙 <b>${escapeHtml(ciudad)}</b>`)
+      for (const op of ops) {
+        const pct = op.meta > 0 ? (op.aporteMes / op.meta) * 100 : 0
+        adminLines.push(`👤 <b>Asesor:</b> ${escapeHtml(op.nombre)}`)
+        adminLines.push(`📝 Cotizaciones: <code>${op.cots}</code>`)
+        adminLines.push(`✅ Ventas cerradas: <code>${op.ventasCount}</code>`)
+        adminLines.push(`📊 Progreso Mes: <code>${pct.toFixed(1)}% ${progressBar(pct)}</code>`)
+        adminLines.push(`💼 Ganancia CTB Total: <code>${formatMoney(op.ganancia)}</code>`)
+        adminLines.push(``)
+      }
     }
 
-    // Motivos de pérdida globales ordenados por frecuencia
-    if (motivosOrdenados.length > 0) {
-      adminLines.push(``)
-      adminLines.push(`📋 <b>¿Por qué no se vendió? — Top razones del mes:</b>`)
-      motivosOrdenados.forEach(([m, n], i) => {
-        adminLines.push(`   ${i + 1}. ${m} — <b>${n} caso${n > 1 ? 's' : ''}</b>`)
-      })
-    } else {
-      adminLines.push(``)
-      adminLines.push(`📋 Sin motivos de pérdida registrados este mes.`)
-    }
+    adminLines.push(`🌎 <b>GANANCIA GLOBAL DEL MES:</b> <code>${formatMoney(gananciaGlobal)}</code>`)
+    adminLines.push(`🎉 ¡Gran trabajo equipo! Comienza un nuevo mes.`)
 
     const telRes = await notifyAdmin(adminLines.join('\n'))
-    if (!telRes || !telRes.ok) {
-      throw new Error(`Telegram error: ${JSON.stringify(telRes)}`)
-    }
+    if (!telRes || !telRes.ok) throw new Error(`Telegram error: ${JSON.stringify(telRes)}`)
 
-    return Response.json({ ok: true, operativos: allOpsList.length, motivosCount: motivosOrdenados.length })
+    return Response.json({ ok: true, gananciaGlobal })
   } catch (err) {
     console.error('notify/monthly error:', err)
     return Response.json({ ok: false, error: err.message }, { status: 500 })

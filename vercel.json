@@ -1,24 +1,16 @@
 {
   "crons": [
     {
-      "path": "/api/notify/operativos-dia",
-      "schedule": "13 12 * * *"
-    },
-    {
-      "path": "/api/notify/morning",
-      "schedule": "0 13 * * 1-5"
-    },
-    {
       "path": "/api/notify/daily",
-      "schedule": "0 2 * * *"
+      "schedule": "0 12 * * *"
     },
     {
       "path": "/api/notify/weekly",
-      "schedule": "0 1 * * 6"
+      "schedule": "0 12 * * 6"
     },
     {
       "path": "/api/notify/monthly",
-      "schedule": "0 1 28-31 * *"
+      "schedule": "0 5 1 * *"
     }
   ]
 }
