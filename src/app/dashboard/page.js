@@ -1434,6 +1434,7 @@ export default function DashboardPage() {
           icon={DollarSign}
           color="success"
           description="Volumen bruto de proformas cerradas"
+          href={`/dashboard/ventas?dateFilter=${selectedPeriod}`}
         />
         <StatsCard 
           title="Por Cobrar (Generado este Mes)"
@@ -1441,6 +1442,7 @@ export default function DashboardPage() {
           icon={Target}
           color="warning"
           description="Deuda (faltante) de ventas de este periodo"
+          href={`/dashboard/ventas?dateFilter=${selectedPeriod}&deuda=con_deuda`}
         />
         <StatsCard 
           title="Por Cobrar GLOBAL (Histórico Total)"
@@ -1448,6 +1450,7 @@ export default function DashboardPage() {
           icon={AlertTriangle}
           color="danger"
           description="Toda la deuda acumulada a la fecha"
+          href={`/dashboard/ventas?dateFilter=todas&deuda=con_deuda`}
         />
       </div>
 

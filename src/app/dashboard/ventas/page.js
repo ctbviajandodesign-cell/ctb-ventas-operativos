@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useUserSession } from '@/hooks/useUserSession'
+import { useSearchParams } from 'next/navigation'
 import { 
   TrendingUp, Search, XCircle, Trash2, Edit, DollarSign,
   CheckCircle2, BarChart3, QrCode, ExternalLink, AlertCircle, Download, AlertTriangle, RotateCcw, Share2,
@@ -15,14 +16,27 @@ import Link from 'next/link'
 import { showToast } from '@/utils/toast'
 
 export default function VentasPage() {
+  return (
+    <Suspense fallback={<div className="p-10 flex justify-center"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div></div>}>
+      <VentasPageContent />
+    </Suspense>
+  )
+}
+
+function VentasPageContent() {
+  const searchParams = useSearchParams()
+  const initDate = searchParams.get('dateFilter') || 'mes'
+  const initDeuda = searchParams.get('deuda') || 'todas'
+
   const [ventas, setVentas] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('activa')
+  const [deudaFilter, setDeudaFilter] = useState(initDeuda)
   const [selectedCity, setSelectedCity] = useState('todas')
   const [selectedOperative, setSelectedOperative] = useState('todas')
   const [operatives, setOperatives] = useState([])
-  const [dateFilter, setDateFilter] = useState('mes')
+  const [dateFilter, setDateFilter] = useState(initDate)
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
@@ -46,7 +60,7 @@ export default function VentasPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [search, statusFilter, selectedCity, dateFilter, selectedOperative, customStartDate, customEndDate])
+  }, [search, statusFilter, deudaFilter, selectedCity, dateFilter, selectedOperative, customStartDate, customEndDate])
 
   useEffect(() => {
     if (!sessionLoading && user) {
@@ -313,6 +327,20 @@ export default function VentasPage() {
     if (statusFilter !== 'todas') {
       result = result.filter(v => v.estado === statusFilter)
     }
+
+    if (deudaFilter !== 'todas') {
+      result = result.filter(v => {
+        const t = Number(v.total) || 0
+        const a1 = Number(v.abono_1) || 0
+        const a2 = Number(v.abono_2) || 0
+        const at = Number(v.abono_tarjeta) || 0
+        const faltante = t - (a1 + a2 + at)
+        if (deudaFilter === 'con_deuda') return faltante > 0
+        if (deudaFilter === 'pagadas') return faltante <= 0
+        return true
+      })
+    }
+
     if (search.trim()) {
       const s = search.toLowerCase()
       result = result.filter(v => {
@@ -371,7 +399,7 @@ export default function VentasPage() {
       })
     }
     return result
-  }, [dateFilteredVentas, statusFilter, search])
+  }, [dateFilteredVentas, statusFilter, deudaFilter, search])
 
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage
@@ -497,6 +525,24 @@ export default function VentasPage() {
               onClick={() => setStatusFilter(tab.key)}
               className={`px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
                 statusFilter === tab.key ? 'bg-gray-900 text-white shadow-lg' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        
+        <div className="flex flex-wrap gap-2 border-l border-gray-100 pl-4">
+          {[
+            { key: 'todas', label: 'Cobros: Todos' },
+            { key: 'con_deuda', label: '💰 Con Deuda' },
+            { key: 'pagadas', label: '✓ Pagadas' },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setDeudaFilter(tab.key)}
+              className={`px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                deudaFilter === tab.key ? 'bg-primary text-white shadow-lg' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
               }`}
             >
               {tab.label}
