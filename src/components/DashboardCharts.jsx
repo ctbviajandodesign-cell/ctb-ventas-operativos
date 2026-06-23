@@ -7,7 +7,8 @@ import {
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer, 
-  Cell 
+  Cell,
+  LabelList
 } from 'recharts'
 import { 
   BarChart3, 
@@ -183,10 +184,10 @@ export default function DashboardCharts({
               </div>
               <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData}>
+                  <BarChart data={chartData} margin={{ top: 30, right: 0, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
                     <XAxis dataKey="nombre" axisLine={false} tickLine={false} tick={{ fill: '#334155', fontSize: 12, fontWeight: 900, textTransform: 'uppercase' }} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#334155', fontSize: 12, fontWeight: 900 }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#334155', fontSize: 12, fontWeight: 900 }} tickFormatter={(val) => `$${val}`} width={65} />
 
                     <Tooltip cursor={{ fill: '#F8FAFC' }} content={({ active, payload }) => {
                       if (active && payload && payload.length) {
@@ -202,8 +203,19 @@ export default function DashboardCharts({
                       return null
                     }} />
 
-                    <Bar dataKey="total" radius={[10, 10, 10, 10]} barSize={40}>
-                      {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={index === 0 ? '#0066CC' : '#E2E8F0'} />)}
+                    <Bar dataKey="total" radius={[8, 8, 8, 8]} barSize={48}>
+                      {chartData.map((entry, index) => {
+                        const color = entry.cumplimiento >= 100 ? '#16A34A' : entry.cumplimiento >= 60 ? '#0066CC' : '#F5A623';
+                        const opacity = index === 0 ? 1 : 0.85;
+                        return <Cell key={`cell-${index}`} fill={color} fillOpacity={opacity} />;
+                      })}
+                      <LabelList 
+                        dataKey="total" 
+                        position="top" 
+                        formatter={(val) => `$${val.toLocaleString()}`} 
+                        style={{ fill: '#334155', fontSize: 11, fontWeight: 900 }} 
+                        offset={10}
+                      />
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
