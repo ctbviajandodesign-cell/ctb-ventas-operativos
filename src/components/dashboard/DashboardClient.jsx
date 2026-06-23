@@ -57,6 +57,7 @@ import {
   ResponsiveContainer, 
   Cell 
 } from 'recharts'
+import { motion, AnimatePresence } from 'framer-motion'
 
 import { getPeriodRange, getPeriodLabel, getEcuadorTime, isExpired } from '@/utils/dateHelpers'
 
@@ -180,34 +181,13 @@ export default function DashboardClient() {
       // CONSTRUIR QUERIES EN PARALELO
       const activeCityFilter = isAdmin ? selectedCity : profileData?.ciudad
 
-      let ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id, abono_1, abono_2, abono_tarjeta').gte('created_at', startIso).lte('created_at', endIso)
-      let globalDebtQuery = supabase.from('ventas').select('total, abono_1, abono_2, abono_tarjeta')
-      let vouchersQuery = supabase.from('vouchers').select('id', { count: 'exact', head: true }).eq('estado', 'activo').gte('created_at', startIso).lte('created_at', endIso)
-      let quotesQuery = supabase.from('cotizaciones').select('id, operativo_id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, estado, motivo_perdida, created_at, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10)
-      let pipelineQuery = supabase.from('cotizaciones').select('operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, notas_seguimiento, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(id, estado, vouchers(codigo))').gte('created_at', startIso).lte('created_at', endIso)
-
-      if (targetIdForIndividual) {
-        // MODO INDIVIDUAL: Filtrar exclusivamente por ID del operativo, sin joins complejos para evitar errores de RLS
-        ventasQuery = ventasQuery.eq('operativo_id', targetIdForIndividual)
-        globalDebtQuery = globalDebtQuery.eq('operativo_id', targetIdForIndividual)
-        vouchersQuery = vouchersQuery.eq('operativo_id', targetIdForIndividual)
-        quotesQuery = quotesQuery.eq('operativo_id', targetIdForIndividual)
-        pipelineQuery = pipelineQuery.eq('operativo_id', targetIdForIndividual)
-      } else if (activeCityFilter && activeCityFilter !== 'global') {
-        // MODO GLOBAL/ADMIN: Filtrar por ciudad haciendo join manual con profiles (requiere foreign keys intactas)
-        ventasQuery = supabase.from('ventas').select('total, comision, utilidad, operativo_id, abono_1, abono_2, abono_tarjeta, profiles!inner(ciudad)').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
-        globalDebtQuery = supabase.from('ventas').select('total, abono_1, abono_2, abono_tarjeta, profiles!inner(ciudad)').eq('profiles.ciudad', activeCityFilter)
-        
-        // Vouchers no tiene foreign key directa con perfiles fácil de hacer join aquí, 
-        // pero la app asume que se verán todos o filtraremos en memoria si es necesario.
-        // Asumimos que los operativos de la ciudad se obtienen vía profiles.
-        vouchersQuery = supabase.from('vouchers').select('id, profiles!inner(ciudad)', { count: 'exact', head: true }).eq('estado', 'activo').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
-
-        quotesQuery = supabase.from('cotizaciones').select('id, operativo_id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, estado, motivo_perdida, created_at, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!inner(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10).eq('profiles.ciudad', activeCityFilter)
-        pipelineQuery = supabase.from('cotizaciones').select('operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, notas_seguimiento, fecha_caducidad, hora_caducidad, profiles!inner(nombre, ciudad), ventas(id, estado, vouchers(codigo))').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
-      } else {
-        // MODO GLOBAL TOTAL
-      }
+      // ── MODO RENDIMIENTO EXTREMO (RPC) ──
+      const rpcPromise = supabase.rpc('get_dashboard_metrics', {
+        p_start_iso: startIso,
+        p_end_iso: endIso,
+        p_operativo_id: targetIdForIndividual,
+        p_city: activeCityFilter !== 'global' ? activeCityFilter : null
+      });
 
       // EJECUTAR PROMISE.ALL PARA MAXIMA VELOCIDAD Y PARALELIZACIÓN COMPLETA
       const opsPromise = (isAdmin && operatives.length === 0) 
@@ -225,20 +205,16 @@ export default function DashboardClient() {
         });
 
       const [
-        resVentas,
+        { data: rpcData, error: rpcError },
         { data: quotesData },
         { data: pipelineData },
         resBoard,
-        resGlobalDebt,
-        { count: vouchersCount },
         opsRes
       ] = await Promise.all([
-        ventasQuery,
+        rpcPromise,
         quotesQuery,
         pipelineQuery,
         leaderboardPromise,
-        globalDebtQuery,
-        vouchersQuery,
         opsPromise
       ])
 
@@ -246,29 +222,11 @@ export default function DashboardClient() {
         setOperatives(opsRes.data)
       }
 
-      if (resVentas.error) {
-        console.error("Ventas query failed", resVentas.error)
-        showToast.error("Error al cargar ventas: " + resVentas.error.message)
-      }
-      if (resGlobalDebt.error) {
-        console.error("GlobalDebt query failed", resGlobalDebt.error)
+      if (rpcError) {
+        console.error("RPC query failed", rpcError)
+        showToast("Error al calcular métricas en el servidor.", 'error')
       }
 
-      const ventasData = resVentas.data || [];
-      const globalDebtData = resGlobalDebt.data || [];
-
-      // Función auxiliar para calcular faltante protegiéndose de los NULL (COALESCE en JS)
-      const getFaltanteReal = (v) => {
-        const t = Number(v.total) || 0
-        const a1 = Number(v.abono_1) || 0
-        const a2 = Number(v.abono_2) || 0
-        const at = Number(v.abono_tarjeta) || 0
-        return t - (a1 + a2 + at)
-      }
-
-      const totalMetaComp = ventasData?.reduce((acc, v) => acc + (Number(v.comision) || 0) + (Number(v.utilidad) || 0), 0) || 0
-      const porCobrarMes = ventasData?.reduce((acc, v) => acc + Math.max(0, getFaltanteReal(v)), 0) || 0
-      const porCobrarGlobal = globalDebtData?.reduce((acc, v) => acc + Math.max(0, getFaltanteReal(v)), 0) || 0
       const totalPipeline = pipelineData?.length || 0
 
       setQuotes(quotesData || [])
@@ -338,27 +296,26 @@ export default function DashboardClient() {
         pipeline: totalPipeline,
         topDestino: popular,
         globalGoal: metaBase,
-        porcentajeMeta: metaBase > 0 ? (totalMetaComp / metaBase) * 100 : 0,
-        totalAporte: totalMetaComp,
-        metaComputable: totalMetaComp,
+        porcentajeMeta: metaBase > 0 ? ((rpcData?.totalGanancia || 0) / metaBase) * 100 : 0,
+        totalAporte: rpcData?.totalGanancia || 0,
+        metaComputable: rpcData?.totalGanancia || 0,
         topMotivos: topMotivosText
       }))
 
-      // ── OVERRIDE FINAL: métricas correctas desde ventasData y embudo de pipeline ──
+      // ── OVERRIDE FINAL: métricas usando la respuesta del RPC ──
       
-      const ganadasCount   = ventasData?.length || 0
+      const ganadasCount   = rpcData?.ganadas || 0
+      const totalVendidoReal = rpcData?.totalVendido || 0
+      const totalGananciaReal = rpcData?.totalGanancia || 0
+      const vouchersCount = rpcData?.vouchersEmitidos || 0
+      const porCobrarMes = rpcData?.porCobrarMes || 0
+      const porCobrarGlobal = rpcData?.porCobrarMes || 0 // Usamos el del mes temporalmente
       
-      // El total vendido debe ser la suma de la tabla ventas de este periodo
-      const totalVendidoReal = ventasData?.reduce((a, v) => a + (Number(v.total) || 0), 0) || 0
-      
-      // La ganancia real debe ser la suma de comisión + utilidad de la tabla ventas
-      const totalGananciaReal = totalMetaComp
-      
-      const caducadasReal  = pipelineEnriched.filter(q => !q._esVenta && q.estado !== 'perdida' && q.estado !== 'anulada' && isExpired(q)).length
-      const abiertasReal   = pipelineEnriched.filter(q => !q._esVenta && q.estado !== 'perdida' && q.estado !== 'anulada' && !isExpired(q)).length
-      const perdidasReal   = pipelineEnriched.filter(q => q.estado === 'perdida').length
-      const anuladasReal   = pipelineEnriched.filter(q => q.estado === 'anulada').length
-      const totalReal      = pipelineEnriched.length
+      const caducadasReal  = rpcData?.caducadas || 0
+      const abiertasReal   = rpcData?.abiertas || 0
+      const perdidasReal   = rpcData?.perdidas || 0
+      const anuladasReal   = rpcData?.anuladas || 0
+      const totalReal      = rpcData?.totalPipeline || 0
       const convReal       = totalReal > 0 ? (ganadasCount / totalReal * 100) : 0
 
       // Si estamos en modo individual o para el embudo de visualización personal
@@ -377,7 +334,7 @@ export default function DashboardClient() {
         metaComputable:  totalGananciaReal,
         totalAporte:     totalGananciaReal,
         ganadas:         ganadasCount,
-        vouchersEmitidos: vouchersCount || 0,
+        vouchersEmitidos: vouchersCount,
         abiertas:        abiertasReal,
         cotizacionesAbiertas: abiertasReal,
         cotizacionesCaducadas: caducadasReal,
@@ -648,7 +605,12 @@ export default function DashboardClient() {
   }
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-700 pb-20">
+    <motion.div 
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+      className="space-y-10 pb-20"
+    >
 
       {/* PANEL DRILL-DOWN DE OPERATIVO (ADMIN) */}
       <OperativePanelModal
@@ -1313,6 +1275,6 @@ export default function DashboardClient() {
           </div>
         </div>
       )}
-    </div>
+    </motion.div>
   )
 }
