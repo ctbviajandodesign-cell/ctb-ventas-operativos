@@ -1,4 +1,5 @@
-import fs from 'fs'
+const fs = require('fs')
+const { createClient } = require('@supabase/supabase-js')
 
 const envFile = fs.readFileSync('.env.local', 'utf8')
 const env = {}
@@ -11,21 +12,10 @@ envFile.split('\n').forEach(line => {
   }
 })
 
-const url = env.NEXT_PUBLIC_SUPABASE_URL
-const key = env.SUPABASE_SERVICE_ROLE_KEY
-
-async function fetchSupabase(path) {
-  const res = await fetch(`${url}/rest/v1/${path}`, {
-    headers: {
-      'apikey': key,
-      'Authorization': `Bearer ${key}`
-    }
-  })
-  return res.json()
-}
+const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
 
 async function main() {
-  const ventas = await fetchSupabase('ventas?select=*&limit=1')
-  console.log('Ventas columns:', Object.keys(ventas[0]))
+  const { data, error } = await supabase.from('ventas').select('*').limit(1)
+  console.log(error || Object.keys(data[0]))
 }
 main()
