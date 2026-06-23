@@ -8,9 +8,11 @@ import {
   QrCode, ExternalLink, Sparkles, User
 } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { showToast } from '@/utils/toast'
 
 export default function SalesModal() {
+  const router = useRouter()
   const [quote, setQuote] = useState(null)
   const [loading, setLoading] = useState(false)
   const [existingVoucher, setExistingVoucher] = useState(null)
@@ -302,9 +304,13 @@ export default function SalesModal() {
                 <span className={`text-xs font-black px-2.5 py-1 rounded-full uppercase ${existingVoucher.estado === 'activo' ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'}`}>
                   {existingVoucher.estado}
                 </span>
-                <Link href="/dashboard/vouchers" className="flex items-center gap-1.5 text-xs font-black text-primary bg-primary/10 px-3 py-1.5 rounded-xl hover:bg-primary/20 transition-colors">
+                <button 
+                  type="button"
+                  onClick={() => router.push('/dashboard/vouchers')}
+                  className="flex items-center gap-1.5 text-xs font-black text-primary bg-primary/10 px-3 py-1.5 rounded-xl hover:bg-primary/20 transition-colors"
+                >
                   Ver Voucher <ExternalLink size={12} />
-                </Link>
+                </button>
               </div>
             </div>
 

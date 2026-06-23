@@ -42,6 +42,7 @@ const isExpired = (q) => {
 
 export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, currentUserId, onUpdate }) {
   const { user } = useUserSession()
+  const router = useRouter()
   // Prefer currentUserId prop (passed from parent) to avoid async timing issues
   const effectiveUserId = currentUserId || user?.id
   const [viewingQuote, setViewingQuote] = useState(null)
@@ -347,7 +348,16 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, currentUser
                     })()}
 
                     {(isSuperAdmin || quote.operativo_id === effectiveUserId) && (
-                      <Link href={`/dashboard/cotizaciones/editar/${quote.id}`} className="p-1.5 text-gray-400 hover:text-primary rounded-lg" title="Editar"><Edit size={16}/></Link>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          router.push(`/dashboard/cotizaciones/editar/${quote.id}`)
+                        }} 
+                        className="p-1.5 text-gray-400 hover:text-primary rounded-lg" 
+                        title="Editar"
+                      >
+                        <Edit size={16}/>
+                      </button>
                     )}
                     {isSuperAdmin && (
                       <>

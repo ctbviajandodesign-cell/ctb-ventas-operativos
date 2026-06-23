@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useUserSession } from '@/hooks/useUserSession'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { 
   TrendingUp, Search, XCircle, Trash2, Edit, DollarSign,
   CheckCircle2, BarChart3, QrCode, ExternalLink, AlertCircle, Download, AlertTriangle, RotateCcw, Share2,
@@ -25,6 +25,7 @@ export default function VentasPage() {
 
 function VentasPageContent() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const initDate = searchParams.get('dateFilter') || 'mes'
   const initDeuda = searchParams.get('deuda') || 'todas'
 
@@ -935,9 +936,15 @@ function VentasPageContent() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Link href="/dashboard/vouchers" onClick={() => setSelectedVenta(null)} className="flex items-center gap-1.5 text-xs font-black text-primary bg-primary/10 px-3 py-2 rounded-xl hover:bg-primary/20 transition-colors">
+                      <button 
+                        onClick={() => {
+                          setSelectedVenta(null)
+                          router.push('/dashboard/vouchers')
+                        }} 
+                        className="flex items-center gap-1.5 text-xs font-black text-primary bg-primary/10 px-3 py-2 rounded-xl hover:bg-primary/20 transition-colors"
+                      >
                         Ver Voucher <ExternalLink size={12} />
-                      </Link>
+                      </button>
                       <button 
                         onClick={() => {
                           const url = `${window.location.origin}/v/${selectedVoucher.codigo}`
