@@ -161,12 +161,14 @@ export async function POST(req) {
       if (estadoActual === 'anulada' || estadoActual === 'perdida') agenciasMap[agencia].canceladas++
 
       // ACUMULADORES COMERCIALES
-      if (!comercialesMap[comercial]) comercialesMap[comercial] = { total: 0, cotizado: 0, vendido: 0, ganadas: 0, canceladas: 0 }
+      if (!comercialesMap[comercial]) comercialesMap[comercial] = { total: 0, cotizado: 0, vendido: 0, ganadas: 0, canceladas: 0, caducadas: 0, agencias: new Set() }
       comercialesMap[comercial].total++
       comercialesMap[comercial].cotizado += valorCotizado
       comercialesMap[comercial].vendido += valorVendido
+      comercialesMap[comercial].agencias.add(agencia)
       if (estadoActual === 'vendida') comercialesMap[comercial].ganadas++
-      if (estadoActual === 'anulada' || estadoActual === 'perdida') comercialesMap[comercial].canceladas++
+      else if (estadoActual === 'anulada' || estadoActual === 'perdida') comercialesMap[comercial].canceladas++
+      else if (estadoActual === 'caducada') comercialesMap[comercial].caducadas++
 
       // ACUMULADORES CERO-BUY (AGENCIA + COMERCIAL)
       const agCom = `${agencia} (Comercial: ${comercial})`
@@ -399,6 +401,25 @@ export async function POST(req) {
         // Opcional: fondo rojo clarito
         // sheetDash.getRow(rowIndex).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE4E6' } }
       }
+      rowIndex++
+    })
+
+    // REPORTE GENERAL POR COMERCIAL
+    const todosLosComerciales = Object.entries(comercialesMap)
+      .sort((a, b) => b[1].total - a[1].total)
+
+    rowIndex += 2
+    sheetDash.getCell(`B${rowIndex}`).value = 'REPORTE GENERAL POR COMERCIAL (Ordenado por Volumen de Trabajo)'
+    sheetDash.getCell(`B${rowIndex}`).font = { bold: true, size: 12 }
+    rowIndex++
+    sheetDash.getRow(rowIndex).values = [null, 'Nombre Comercial', 'N° Agencias Distintas', 'Total Cotizaciones Pedidas', 'Total Vendidas', 'Total Perdidas/Caducadas']
+    sheetDash.getRow(rowIndex).font = { bold: true, color: { argb: 'FFFFFFFF' } }
+    sheetDash.getRow(rowIndex).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000000' } }
+    
+    rowIndex++
+    todosLosComerciales.forEach(([comercial, d]) => {
+      sheetDash.getRow(rowIndex).values = [null, comercial, d.agencias.size, d.total, d.ganadas, d.canceladas + d.caducadas]
+      sheetDash.getCell(`B${rowIndex}`).alignment = { wrapText: true, vertical: 'middle' }
       rowIndex++
     })
 
