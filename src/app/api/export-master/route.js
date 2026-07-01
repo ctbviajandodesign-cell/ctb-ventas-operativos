@@ -303,27 +303,27 @@ export async function POST(req) {
     // Tablas de Ranking
     sheetDash.getCell('B17').value = 'RANKING TOP 10 AGENCIAS (Por Venta)'
     sheetDash.getCell('B17').font = { bold: true, size: 12 }
-    sheetDash.getRow(18).values = [null, 'Agencia', 'Valor Vendido ($)', 'Cotizaciones Ganadas', 'Cotizaciones Canceladas']
+    sheetDash.getRow(18).values = [null, 'Agencia', 'Valor Vendido ($)', 'Total Cotizadas', 'Cotizaciones Ganadas', 'En Espera (Vivas)', 'Cotizaciones Perdidas/Caducadas']
     sheetDash.getRow(18).font = { bold: true, color: { argb: 'FFFFFFFF' } }
     sheetDash.getRow(18).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000000' } }
     
     let rowIndex = 19
     topAgencias.forEach(([agencia, d]) => {
-      sheetDash.getRow(rowIndex).values = [null, agencia, d.vendido, d.ganadas, d.canceladas]
+      sheetDash.getRow(rowIndex).values = [null, agencia, d.vendido, d.total, d.ganadas, d.enEspera, d.canceladas + d.caducadas]
       rowIndex++
     })
 
     rowIndex += 2
-    sheetDash.getCell(`B${rowIndex}`).value = 'DESEMPEÑO COMERCIALES'
+    sheetDash.getCell(`B${rowIndex}`).value = 'DESEMPEÑO TOP 10 COMERCIALES (Por Venta)'
     sheetDash.getCell(`B${rowIndex}`).font = { bold: true, size: 12 }
     rowIndex++
-    sheetDash.getRow(rowIndex).values = [null, 'Comercial', 'Valor Vendido ($)', 'Cotizaciones Ganadas', 'Cotizaciones Canceladas']
+    sheetDash.getRow(rowIndex).values = [null, 'Comercial', 'Valor Vendido ($)', 'Total Cotizadas', 'Cotizaciones Ganadas', 'En Espera (Vivas)', 'Cotizaciones Perdidas/Caducadas']
     sheetDash.getRow(rowIndex).font = { bold: true, color: { argb: 'FFFFFFFF' } }
     sheetDash.getRow(rowIndex).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000000' } }
     
     rowIndex++
     topComerciales.forEach(([comercial, d]) => {
-      sheetDash.getRow(rowIndex).values = [null, comercial, d.vendido, d.ganadas, d.canceladas]
+      sheetDash.getRow(rowIndex).values = [null, comercial, d.vendido, d.total, d.ganadas, d.enEspera, d.canceladas + d.caducadas]
       rowIndex++
     })
 
