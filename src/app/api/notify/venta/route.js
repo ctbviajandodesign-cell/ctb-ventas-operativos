@@ -9,7 +9,7 @@
  */
 export const dynamic = 'force-dynamic'
 import { createClient } from '@supabase/supabase-js'
-import { notifyAll, formatMoney, progressBar } from '@/lib/telegram'
+import { notifyAll, notifyGlobal, formatMoney, progressBar } from '@/lib/telegram'
 
 export async function POST(req) {
   const supabase = createClient(
@@ -114,6 +114,8 @@ export async function POST(req) {
           ``,
           `<b>¡Felicitaciones ${operativo}, bien merecido!</b>`,
           ``,
+          `🎁 <i>Consulta tu incentivo con Admin por llegar primero a la meta a nivel nacional.</i>`,
+          ``,
           `— Gerencia CTB`
         ].join('\n')
 
@@ -136,7 +138,11 @@ export async function POST(req) {
         ].join('\n')
       }
 
-      await notifyAll(ciudad, motivMsg)
+      if (esPrimero) {
+        await notifyGlobal(motivMsg)
+      } else {
+        await notifyAll(ciudad, motivMsg)
+      }
     }
 
     return Response.json({ ok: true, telegram_debug: tgRes })

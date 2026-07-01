@@ -101,6 +101,21 @@ export async function notifyAll(ciudad, text) {
 }
 
 /**
+ * Envía a TODOS los grupos de ciudad y admin (Global)
+ */
+export async function notifyGlobal(text) {
+  const map = getChatMap()
+  const ids = [
+    process.env.TELEGRAM_CHAT_ADMIN,
+    map.quito,
+    map.guayaquil,
+    map.cuenca
+  ]
+  const uniqueIds = [...new Set(ids.filter(Boolean))]
+  return Promise.all(uniqueIds.map(id => sendTelegram(id, text)))
+}
+
+/**
  * Envía solo al grupo de ciudad (sin admin)
  */
 export async function notifyCity(ciudad, text) {

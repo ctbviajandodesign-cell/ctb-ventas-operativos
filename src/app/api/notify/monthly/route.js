@@ -97,7 +97,7 @@ export async function GET(req) {
     }
 
     const adminLines = [
-      `🏆 <b>CIERRE DE MES CTB</b>`,
+      `🏆 <b>CIERRE DE MES CTB (GLOBAL)</b>`,
       `<i>Mes de ${mesNombre}</i>`,
       ``
     ]
@@ -111,14 +111,39 @@ export async function GET(req) {
 
     for (const [ciudad, ops] of Object.entries(porCiudad)) {
       adminLines.push(`🏙 <b>${escapeHtml(ciudad)}</b>`)
+      
+      const cityLines = [
+        `🏆 <b>CIERRE DE MES CTB — ${escapeHtml(ciudad)}</b>`,
+        `<i>Mes de ${mesNombre}</i>`,
+        ``
+      ]
+      let cityGanancia = 0;
+
       for (const op of ops) {
         const pct = op.meta > 0 ? (op.aporteMes / op.meta) * 100 : 0
-        adminLines.push(`👤 <b>Asesor:</b> ${escapeHtml(op.nombre)}`)
-        adminLines.push(`📝 Cotizaciones: <code>${op.cots}</code>`)
-        adminLines.push(`✅ Ventas cerradas: <code>${op.ventasCount}</code>`)
-        adminLines.push(`📊 Progreso Mes: <code>${pct.toFixed(1)}% ${progressBar(pct)}</code>`)
-        adminLines.push(`💼 Ganancia CTB Total: <code>${formatMoney(op.ganancia)}</code>`)
+        const opStr = [
+          `👤 <b>Asesor:</b> ${escapeHtml(op.nombre)}`,
+          `📝 Cotizaciones: <code>${op.cots}</code>`,
+          `✅ Ventas cerradas: <code>${op.ventasCount}</code>`,
+          `📊 Progreso Mes: <code>${pct.toFixed(1)}% ${progressBar(pct)}</code>`,
+          `💼 Ganancia CTB Total: <code>${formatMoney(op.ganancia)}</code>`
+        ].join('\n')
+        
+        adminLines.push(opStr)
         adminLines.push(``)
+        
+        cityLines.push(opStr)
+        cityLines.push(``)
+        cityGanancia += op.ganancia
+      }
+      
+      cityLines.push(`🌎 <b>GANANCIA TOTAL ${escapeHtml(ciudad)}:</b> <code>${formatMoney(cityGanancia)}</code>`)
+      cityLines.push(`🎉 ¡Gran trabajo equipo! Comienza un nuevo mes.`)
+      
+      try {
+        await notifyCity(ciudad, cityLines.join('\n'))
+      } catch (err) {
+        console.error(`Error enviando reporte a ciudad ${ciudad}:`, err)
       }
     }
 

@@ -16,7 +16,8 @@ import {
   Star,
   Sparkles,
   Menu,
-  X
+  X,
+  Database
 } from 'lucide-react'
 import SalesModal from '@/components/SalesModal'
 import AIFloatingChat from '@/components/AIFloatingChat'
@@ -152,6 +153,20 @@ export default function DashboardLayout({ children }) {
               <div className="pt-3 pb-1">
                 <p className="text-xs font-black text-gray-300 uppercase tracking-[0.2em] px-4">Administración</p>
               </div>
+
+              <Link
+                href="/dashboard/reportes"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-black text-xs uppercase tracking-widest group relative ${
+                  isActive('/dashboard/reportes')
+                    ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                    : 'text-gray-400 hover:bg-gray-50 hover:text-gray-700'
+                }`}
+              >
+                <Database size={17} className={isActive('/dashboard/reportes') ? 'text-white' : 'text-gray-300 group-hover:text-gray-500 transition-colors'} />
+                Data & Reportes
+                {isActive('/dashboard/reportes') && <ChevronRight size={12} className="ml-auto text-white/60" />}
+              </Link>
 
               <Link
                 href="/dashboard/usuarios"
