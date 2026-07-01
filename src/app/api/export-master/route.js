@@ -98,6 +98,7 @@ export async function POST(req) {
     
     const agenciasMap = {}
     const comercialesMap = {}
+    const agenciaComercialMap = {}
     const destinosMap = {}
     const motivosPerdidaMap = {}
 
@@ -167,6 +168,14 @@ export async function POST(req) {
       if (estadoActual === 'vendida') comercialesMap[comercial].ganadas++
       if (estadoActual === 'anulada' || estadoActual === 'perdida') comercialesMap[comercial].canceladas++
 
+      // ACUMULADORES CERO-BUY (AGENCIA + COMERCIAL)
+      const agCom = `${agencia} (Comercial: ${comercial})`
+      if (!agenciaComercialMap[agCom]) agenciaComercialMap[agCom] = { total: 0, ganadas: 0, canceladas: 0, caducadas: 0 }
+      agenciaComercialMap[agCom].total++
+      if (estadoActual === 'vendida') agenciaComercialMap[agCom].ganadas++
+      else if (estadoActual === 'anulada' || estadoActual === 'perdida') agenciaComercialMap[agCom].canceladas++
+      else if (estadoActual === 'caducada') agenciaComercialMap[agCom].caducadas++
+
       // ACUMULADORES DESTINOS
       const dest = destino || 'N/A'
       if (!destinosMap[dest]) destinosMap[dest] = { total: 0, cotizado: 0, vendido: 0 }
@@ -198,9 +207,9 @@ export async function POST(req) {
       .sort((a, b) => b[1].vendido - a[1].vendido)
       .slice(0, 10)
 
-    const agenciasSinCompras = Object.entries(agenciasMap)
-      .filter(([_, d]) => d.vendido === 0 && d.cotizado > 0)
-      .sort((a, b) => b[1].cotizado - a[1].cotizado)
+    const agenciasSinCompras = Object.entries(agenciaComercialMap)
+      .filter(([_, d]) => d.ganadas === 0 && d.total > 0)
+      .sort((a, b) => b[1].total - a[1].total)
       .slice(0, 10)
 
     const topDestinos = Object.entries(destinosMap)
@@ -308,16 +317,18 @@ export async function POST(req) {
     })
 
     rowIndex += 2
-    sheetDash.getCell(`B${rowIndex}`).value = 'ALERTA: AGENCIAS "ZERO-BUY" (Cotizan mucho pero compran $0)'
-    sheetDash.getCell(`B${rowIndex}`).font = { bold: true, size: 12, color: { argb: 'FFDC2626' } } // Rojo Alerta
+    sheetDash.getCell(`B${rowIndex}`).value = 'ALERTA: CLIENTES "ZERO-BUY" (Agencias que piden cotizar mucho pero NO compran)'
+    sheetDash.getCell(`B${rowIndex}`).font = { bold: true, size: 12, color: { argb: 'FFDC2626' } } 
     rowIndex++
-    sheetDash.getRow(rowIndex).values = [null, 'Agencia', 'Valor Cotizado ($)', 'Cotizaciones Hechas', 'Cotizaciones Canceladas']
+    sheetDash.getRow(rowIndex).values = [null, 'Agencia (y su Comercial)', 'Cotizaciones Pedidas (Volumen)', 'Cotizaciones Caducadas (Por Abandono)', 'Cotizaciones Canceladas/Perdidas']
     sheetDash.getRow(rowIndex).font = { bold: true, color: { argb: 'FFFFFFFF' } }
     sheetDash.getRow(rowIndex).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000000' } }
     
     rowIndex++
     agenciasSinCompras.forEach(([agencia, d]) => {
-      sheetDash.getRow(rowIndex).values = [null, agencia, d.cotizado, d.total, d.canceladas]
+      const cellAgencia = sheetDash.getCell(`C${rowIndex}`)
+      sheetDash.getRow(rowIndex).values = [null, agencia, d.total, d.caducadas, d.canceladas]
+      sheetDash.getCell(`B${rowIndex}`).alignment = { wrapText: true, vertical: 'middle' }
       rowIndex++
     })
 
