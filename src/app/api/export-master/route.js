@@ -345,11 +345,13 @@ export async function POST(req) {
     
     rowIndex++
     topMotivos.forEach(([motivo, d]) => {
+      const cellMotivo = sheetDash.getCell(`C${rowIndex}`)
       sheetDash.getRow(rowIndex).values = [null, motivo, d.cantidad, d.valorPerdido, null]
+      sheetDash.getCell(`C${rowIndex}`).alignment = { wrapText: true, vertical: 'middle' }
       rowIndex++
     })
 
-    sheetDash.getColumn('B').width = 32
+    sheetDash.getColumn('B').width = 40 // Ajustado para nombres largos
     sheetDash.getColumn('C').width = 25
     sheetDash.getColumn('D').width = 25
     sheetDash.getColumn('E').width = 25
@@ -407,8 +409,18 @@ export async function POST(req) {
     totalRow.getCell('M').value = { formula: `SUBTOTAL(9, M2:M${endRow})` } 
     totalRow.getCell('N').value = { formula: `SUBTOTAL(9, N2:N${endRow})` } 
     
-    totalRow.font = { bold: true }
-    totalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDDDDD' } }
+    // Auto-ajuste de columnas y wrap text para Data Maestra
+    sheetData.columns.forEach(col => {
+      let maxLen = col.header ? col.header.length : 10
+      col.eachCell({ includeEmpty: true }, cell => {
+        if (cell.value && cell.address !== 'A1') { // Ignore row 1 for max length if it's merged or super long, but we just use typical
+          const len = cell.value.toString().length
+          if (len > maxLen) maxLen = len
+        }
+      })
+      col.width = Math.min(Math.max(maxLen + 2, 12), 50) // Mínimo 12, Máximo 50 caracteres de ancho
+      col.alignment = { vertical: 'middle', wrapText: true }
+    })
 
     const buffer = await workbook.xlsx.writeBuffer()
     
