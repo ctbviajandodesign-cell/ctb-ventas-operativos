@@ -214,7 +214,6 @@ export async function POST(req) {
 
     const topDestinos = Object.entries(destinosMap)
       .sort((a, b) => b[1].total - a[1].total)
-      .slice(0, 10)
 
     const topMotivos = Object.entries(motivosPerdidaMap)
       .sort((a, b) => b[1].cantidad - a[1].cantidad)
@@ -348,7 +347,7 @@ export async function POST(req) {
     sheetDash.getRow(rowIndex).height = 30
     
     rowIndex += 2
-    sheetDash.getCell(`B${rowIndex}`).value = 'RANKING TOP 10 DESTINOS (Por Volumen de Cotizaciones)'
+    sheetDash.getCell(`B${rowIndex}`).value = 'RANKING DE TODOS LOS DESTINOS (Por Volumen de Cotizaciones)'
     sheetDash.getCell(`B${rowIndex}`).font = { bold: true, size: 12 }
     rowIndex++
     sheetDash.getRow(rowIndex).values = [null, 'Destino', 'Total Cotizaciones', 'Valor Cotizado Bruto ($)', 'Valor Vendido Real ($)']
