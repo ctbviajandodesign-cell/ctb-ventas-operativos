@@ -161,7 +161,7 @@ export async function POST(req) {
       if (estadoActual === 'anulada' || estadoActual === 'perdida') agenciasMap[agencia].canceladas++
 
       // ACUMULADORES COMERCIALES
-      if (!comercialesMap[comercial]) comercialesMap[comercial] = { total: 0, cotizado: 0, vendido: 0, ganadas: 0, canceladas: 0, caducadas: 0, agencias: new Set() }
+      if (!comercialesMap[comercial]) comercialesMap[comercial] = { total: 0, cotizado: 0, vendido: 0, ganadas: 0, canceladas: 0, caducadas: 0, enEspera: 0, agencias: new Set() }
       comercialesMap[comercial].total++
       comercialesMap[comercial].cotizado += valorCotizado
       comercialesMap[comercial].vendido += valorVendido
@@ -169,14 +169,16 @@ export async function POST(req) {
       if (estadoActual === 'vendida') comercialesMap[comercial].ganadas++
       else if (estadoActual === 'anulada' || estadoActual === 'perdida') comercialesMap[comercial].canceladas++
       else if (estadoActual === 'caducada') comercialesMap[comercial].caducadas++
+      else comercialesMap[comercial].enEspera++
 
       // ACUMULADORES CERO-BUY (AGENCIA + COMERCIAL)
       const agCom = `${agencia} (Comercial: ${comercial})`
-      if (!agenciaComercialMap[agCom]) agenciaComercialMap[agCom] = { total: 0, ganadas: 0, canceladas: 0, caducadas: 0 }
+      if (!agenciaComercialMap[agCom]) agenciaComercialMap[agCom] = { total: 0, ganadas: 0, canceladas: 0, caducadas: 0, enEspera: 0 }
       agenciaComercialMap[agCom].total++
       if (estadoActual === 'vendida') agenciaComercialMap[agCom].ganadas++
       else if (estadoActual === 'anulada' || estadoActual === 'perdida') agenciaComercialMap[agCom].canceladas++
       else if (estadoActual === 'caducada') agenciaComercialMap[agCom].caducadas++
+      else agenciaComercialMap[agCom].enEspera++
 
       // ACUMULADORES DESTINOS
       const dest = destino || 'N/A'
@@ -391,13 +393,13 @@ export async function POST(req) {
     sheetDash.getCell(`B${rowIndex}`).value = 'REPORTE GENERAL DE TODAS LAS AGENCIAS (Ordenado por Volumen de Cotización)'
     sheetDash.getCell(`B${rowIndex}`).font = { bold: true, size: 12 }
     rowIndex++
-    sheetDash.getRow(rowIndex).values = [null, 'Agencia (y su Comercial)', 'Cotizaciones Pedidas (Volumen)', 'Cotizaciones Ganadas (Ventas)', 'Cotizaciones Caducadas/Canceladas']
+    sheetDash.getRow(rowIndex).values = [null, 'Agencia (y su Comercial)', 'Cotizaciones Pedidas (Volumen)', 'Cotizaciones Ganadas (Ventas)', 'Cotizaciones En Espera (Vivas)', 'Cotizaciones Perdidas/Caducadas']
     sheetDash.getRow(rowIndex).font = { bold: true, color: { argb: 'FFFFFFFF' } }
     sheetDash.getRow(rowIndex).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000000' } }
     
     rowIndex++
     todasLasAgencias.forEach(([agencia, d]) => {
-      sheetDash.getRow(rowIndex).values = [null, agencia, d.total, d.ganadas, d.caducadas + d.canceladas]
+      sheetDash.getRow(rowIndex).values = [null, agencia, d.total, d.ganadas, d.enEspera, d.caducadas + d.canceladas]
       sheetDash.getCell(`B${rowIndex}`).alignment = { wrapText: true, vertical: 'middle' }
       
       const winRateAg = d.total > 0 ? (d.ganadas / d.total) : 0
@@ -416,13 +418,13 @@ export async function POST(req) {
     sheetDash.getCell(`B${rowIndex}`).value = 'REPORTE GENERAL POR COMERCIAL (Ordenado por Volumen de Trabajo)'
     sheetDash.getCell(`B${rowIndex}`).font = { bold: true, size: 12 }
     rowIndex++
-    sheetDash.getRow(rowIndex).values = [null, 'Nombre Comercial', 'N° Agencias Distintas', 'Total Cotizaciones Pedidas', 'Total Vendidas', 'Total Perdidas/Caducadas']
+    sheetDash.getRow(rowIndex).values = [null, 'Nombre Comercial', 'N° Agencias Distintas', 'Total Cotizaciones Pedidas', 'Total Vendidas', 'Total En Espera', 'Total Perdidas/Caducadas']
     sheetDash.getRow(rowIndex).font = { bold: true, color: { argb: 'FFFFFFFF' } }
     sheetDash.getRow(rowIndex).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000000' } }
     
     rowIndex++
     todosLosComerciales.forEach(([comercial, d]) => {
-      sheetDash.getRow(rowIndex).values = [null, comercial, d.agencias.size, d.total, d.ganadas, d.canceladas + d.caducadas]
+      sheetDash.getRow(rowIndex).values = [null, comercial, d.agencias.size, d.total, d.ganadas, d.enEspera, d.canceladas + d.caducadas]
       sheetDash.getCell(`B${rowIndex}`).alignment = { wrapText: true, vertical: 'middle' }
       
       const winRateCom = d.total > 0 ? (d.ganadas / d.total) : 0
