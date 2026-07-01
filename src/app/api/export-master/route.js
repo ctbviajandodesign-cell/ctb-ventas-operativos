@@ -102,14 +102,20 @@ export async function POST(req) {
     const destinosMap = {}
     const motivosPerdidaMap = {}
 
+    // Función helper para normalizar (quita espacios, acentos y pone en mayúscula)
+    const normalizeText = (text) => {
+      if (!text) return 'N/A'
+      return String(text).trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    }
+
     const rowsData = filteredData.map(q => {
       const codigo = q.codigo || 'N/A'
       const fecha = q.created_at ? new Date(q.created_at).toLocaleString('es-EC') : 'N/A'
-      const agencia = (q.agencia || 'Directo').trim()
-      const comercial = (q.comercial || 'N/A').trim()
-      const ciudad = q.profiles?.ciudad || 'N/A'
-      const operativo = q.profiles?.nombre || 'N/A'
-      const destino = q.destino || 'N/A'
+      const agencia = normalizeText(q.agencia || 'Directo')
+      const comercial = normalizeText(q.comercial || 'N/A')
+      const ciudad = normalizeText(q.profiles?.ciudad || 'N/A')
+      const operativo = normalizeText(q.profiles?.nombre || 'N/A')
+      const destino = normalizeText(q.destino || 'N/A')
       const numPasajeros = Number(q.numero_pasajeros) || 0
       
       const passengerNames = Array.isArray(q.nombres_pasajeros) 
@@ -136,7 +142,7 @@ export async function POST(req) {
       const tieneVoucher = voucher ? 'Sí' : 'No'
       const voucherCodigo = voucher ? voucher.codigo : 'N/A'
       
-      const motivoPerdida = q.motivo_perdida || ''
+      const motivoPerdida = normalizeText(q.motivo_perdida || '')
       const notas = q.notas_iniciales || ''
 
       // ACUMULADORES GLOBALES
