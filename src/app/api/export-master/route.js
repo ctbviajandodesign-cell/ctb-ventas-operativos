@@ -215,7 +215,12 @@ export async function POST(req) {
       .slice(0, 10)
 
     const topDestinos = Object.entries(destinosMap)
-      .sort((a, b) => b[1].total - a[1].total)
+      .sort((a, b) => {
+        const aVendio = a[1].vendido > 0 ? 1 : 0;
+        const bVendio = b[1].vendido > 0 ? 1 : 0;
+        if (aVendio !== bVendio) return bVendio - aVendio;
+        return b[1].total - a[1].total;
+      })
 
     const todasLasAgencias = Object.entries(agenciaComercialMap)
       .sort((a, b) => b[1].total - a[1].total)
