@@ -152,13 +152,15 @@ export async function POST(req) {
 
       if (voucher) stats.vouchersEmitidos++
 
-      // ACUMULADORES AGENCIAS
-      if (!agenciasMap[agencia]) agenciasMap[agencia] = { total: 0, cotizado: 0, vendido: 0, ganadas: 0, canceladas: 0 }
+      // ACUMULADORES AGENCIAS (TOP 10)
+      if (!agenciasMap[agencia]) agenciasMap[agencia] = { cotizado: 0, vendido: 0, total: 0, ganadas: 0, canceladas: 0, caducadas: 0, enEspera: 0 }
       agenciasMap[agencia].total++
       agenciasMap[agencia].cotizado += valorCotizado
       agenciasMap[agencia].vendido += valorVendido
       if (estadoActual === 'vendida') agenciasMap[agencia].ganadas++
-      if (estadoActual === 'anulada' || estadoActual === 'perdida') agenciasMap[agencia].canceladas++
+      else if (estadoActual === 'anulada' || estadoActual === 'perdida') agenciasMap[agencia].canceladas++
+      else if (estadoActual === 'caducada') agenciasMap[agencia].caducadas++
+      else agenciasMap[agencia].enEspera++
 
       // ACUMULADORES COMERCIALES
       if (!comercialesMap[comercial]) comercialesMap[comercial] = { total: 0, cotizado: 0, vendido: 0, ganadas: 0, canceladas: 0, caducadas: 0, enEspera: 0, agencias: new Set() }
