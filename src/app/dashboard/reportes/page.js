@@ -90,7 +90,8 @@ export default function ReportesPage() {
           endDate: endDate ? endDate.toISOString() : null,
           selectedOperative,
           selectedCity,
-          dateFilterText
+          dateFilterText,
+          operativeName
         })
       })
 

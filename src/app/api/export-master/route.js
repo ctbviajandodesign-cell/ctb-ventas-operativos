@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import ExcelJS from 'exceljs'
 
-// Intentar extender el límite de Vercel si la cuenta lo permite
 export const maxDuration = 60; 
 
 const isExpired = (q) => {
@@ -25,7 +24,8 @@ export async function POST(req) {
       endDate, 
       selectedOperative, 
       selectedCity,
-      dateFilterText
+      dateFilterText,
+      operativeName
     } = body
 
     const supabase = createClient(
@@ -34,12 +34,11 @@ export async function POST(req) {
     )
 
     let filteredData = []
-    let step = 2000 // Pedimos bloques más grandes para que sea más rápido
+    let step = 2000 
     let from = 0
     let to = step - 1
     let hasMore = true
 
-    // Extraer datos con paginación optimizada
     while (hasMore) {
       let query = supabase
         .from('cotizaciones')
@@ -81,14 +80,12 @@ export async function POST(req) {
       return Response.json({ error: 'No data found' }, { status: 404 })
     }
 
-    // ==========================================
-    // CÁLCULOS
-    // ==========================================
     const workbook = new ExcelJS.Workbook()
     workbook.creator = 'CTB Intelligence Backend'
     workbook.created = new Date()
 
     let stats = {
+      totalCotizaciones: 0,
       totalCotizadoBruto: 0,
       totalVendidoReal: 0,
       ingresoCTBTotal: 0,
@@ -140,6 +137,7 @@ export async function POST(req) {
       const notas = q.notas_iniciales || ''
 
       // ACUMULADORES GLOBALES
+      stats.totalCotizaciones++
       stats.totalCotizadoBruto += valorCotizado
       stats.totalVendidoReal += valorVendido
       stats.ingresoCTBTotal += ingresoCTB
@@ -181,24 +179,34 @@ export async function POST(req) {
       .sort((a, b) => b[1].vendido - a[1].vendido)
       .slice(0, 10)
 
+    // Calculos de Tasas
+    const winRate = stats.totalCotizaciones > 0 ? (stats.vendidas / stats.totalCotizaciones) * 100 : 0
+    const ticketPromedio = stats.vendidas > 0 ? (stats.totalVendidoReal / stats.vendidas) : 0
+
     // ==========================================
     // PESTAÑA 1: DASHBOARD RESUMEN
     // ==========================================
-    const sheetDash = workbook.addWorksheet('Resumen Dashboard', { views: [{ showGridLines: false }] })
+    const sheetDash = workbook.addWorksheet('Dashboard Gerencial', { views: [{ showGridLines: false }] })
     
-    // Titulo
+    // Titulo principal
     sheetDash.mergeCells('B2:H3')
     const titleCell = sheetDash.getCell('B2')
-    titleCell.value = 'CTB INTELLIGENCE - REPORTE GERENCIAL B2B (BACKEND)'
+    titleCell.value = 'CTB INTELLIGENCE - DASHBOARD GERENCIAL B2B'
     titleCell.font = { name: 'Arial', size: 16, bold: true, color: { argb: 'FFFFFFFF' } }
-    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0066CC' } }
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000000' } }
     titleCell.alignment = { vertical: 'middle', horizontal: 'center' }
 
+    // Capa 1: Contexto Global
     sheetDash.getCell('B4').value = 'Generado el:'
     sheetDash.getCell('C4').value = new Date().toLocaleString('es-EC')
     sheetDash.getCell('B5').value = 'Filtro Período:'
     sheetDash.getCell('C5').value = dateFilterText
     
+    sheetDash.getCell('E4').value = 'Sede Analizada:'
+    sheetDash.getCell('F4').value = selectedCity === 'todas' ? 'TODAS LAS SEDES' : selectedCity.toUpperCase()
+    sheetDash.getCell('E5').value = 'Asesor Analizado:'
+    sheetDash.getCell('F5').value = operativeName ? operativeName.toUpperCase() : 'TODOS'
+
     const kpiBox = (cellRef, label, value, color) => {
       const cell = sheetDash.getCell(cellRef)
       cell.value = `${label}\n${value}`
@@ -208,25 +216,46 @@ export async function POST(req) {
       cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
     }
 
-    sheetDash.getRow(7).height = 40
-    kpiBox('B7', 'TOTAL COTIZADO', `$${stats.totalCotizadoBruto.toLocaleString()}`, 'FF334155')
-    kpiBox('D7', 'TOTAL VENDIDO', `$${stats.totalVendidoReal.toLocaleString()}`, 'FF16A34A')
-    kpiBox('F7', 'INGRESO CTB', `$${stats.ingresoCTBTotal.toLocaleString()}`, 'FF059669')
+    // Capa 2: Volumetría y Esfuerzo
+    sheetDash.mergeCells('B7:H7')
+    sheetDash.getCell('B7').value = 'CAPA 1: VOLUMETRÍA Y ESFUERZO COMERCIAL'
+    sheetDash.getCell('B7').font = { bold: true, size: 10, color: { argb: 'FF666666' } }
     
-    sheetDash.getRow(9).height = 40
-    kpiBox('B9', 'COTIZACIONES EN ESPERA', stats.enEspera, 'FF3B82F6')
-    kpiBox('C9', 'COTIZACIONES VENDIDAS', stats.vendidas, 'FF16A34A')
-    kpiBox('D9', 'COTIZACIONES CANCELADAS', stats.canceladas, 'FFDC2626')
-    kpiBox('E9', 'COTIZACIONES CADUCADAS', stats.caducadas, 'FFF59E0B')
-    kpiBox('F9', 'VOUCHERS EMITIDOS', stats.vouchersEmitidos, 'FF8B5CF6')
+    sheetDash.getRow(8).height = 45
+    kpiBox('B8', 'TOTAL COTIZACIONES CREADAS', stats.totalCotizaciones, 'FF334155')
+    kpiBox('C8', 'COTIZACIONES VENDIDAS', stats.vendidas, 'FF0284C7') // Azul
+    kpiBox('D8', 'TASA EFECTIVIDAD (WIN RATE)', `${winRate.toFixed(1)}%`, winRate >= 20 ? 'FF16A34A' : 'FFF59E0B') // Verde o Ambar
 
-    sheetDash.getCell('B12').value = 'RANKING TOP 10 AGENCIAS (Por Venta)'
-    sheetDash.getCell('B12').font = { bold: true, size: 12 }
-    sheetDash.getRow(13).values = [null, 'Agencia', 'Valor Vendido ($)', 'Cotizaciones Ganadas', 'Cotizaciones Canceladas']
-    sheetDash.getRow(13).font = { bold: true, color: { argb: 'FFFFFFFF' } }
-    sheetDash.getRow(13).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }
+    // Capa 3: Salud Financiera
+    sheetDash.mergeCells('B10:H10')
+    sheetDash.getCell('B10').value = 'CAPA 2: SALUD FINANCIERA Y RENTABILIDAD'
+    sheetDash.getCell('B10').font = { bold: true, size: 10, color: { argb: 'FF666666' } }
+
+    sheetDash.getRow(11).height = 45
+    kpiBox('B11', 'TOTAL COTIZADO BRUTO', `$${stats.totalCotizadoBruto.toLocaleString()}`, 'FF64748B')
+    kpiBox('C11', 'TOTAL VENDIDO REAL', `$${stats.totalVendidoReal.toLocaleString()}`, 'FF16A34A')
+    kpiBox('D11', 'INGRESO NETO CTB', `$${stats.ingresoCTBTotal.toLocaleString()}`, 'FF059669')
+    kpiBox('E11', 'TICKET PROMEDIO POR VENTA', `$${ticketPromedio.toLocaleString(undefined, {maximumFractionDigits:2})}`, 'FF4F46E5')
+
+    // Capa 4: Estados Secundarios
+    sheetDash.mergeCells('B13:H13')
+    sheetDash.getCell('B13').value = 'CAPA 3: ESTADOS SECUNDARIOS DEL EMBUDO'
+    sheetDash.getCell('B13').font = { bold: true, size: 10, color: { argb: 'FF666666' } }
+
+    sheetDash.getRow(14).height = 35
+    kpiBox('B14', 'EN ESPERA', stats.enEspera, 'FF94A3B8')
+    kpiBox('C14', 'CANCELADAS / PERDIDAS', stats.canceladas, 'FFDC2626')
+    kpiBox('D14', 'CADUCADAS', stats.caducadas, 'FFEA580C')
+    kpiBox('E14', 'VOUCHERS EMITIDOS', stats.vouchersEmitidos, 'FF8B5CF6')
+
+    // Tablas de Ranking
+    sheetDash.getCell('B17').value = 'RANKING TOP 10 AGENCIAS (Por Venta)'
+    sheetDash.getCell('B17').font = { bold: true, size: 12 }
+    sheetDash.getRow(18).values = [null, 'Agencia', 'Valor Vendido ($)', 'Cotizaciones Ganadas', 'Cotizaciones Canceladas']
+    sheetDash.getRow(18).font = { bold: true, color: { argb: 'FFFFFFFF' } }
+    sheetDash.getRow(18).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000000' } }
     
-    let rowIndex = 14
+    let rowIndex = 19
     topAgencias.forEach(([agencia, d]) => {
       sheetDash.getRow(rowIndex).values = [null, agencia, d.vendido, d.ganadas, d.canceladas]
       rowIndex++
@@ -238,7 +267,7 @@ export async function POST(req) {
     rowIndex++
     sheetDash.getRow(rowIndex).values = [null, 'Comercial', 'Valor Vendido ($)', 'Cotizaciones Ganadas', 'Cotizaciones Canceladas']
     sheetDash.getRow(rowIndex).font = { bold: true, color: { argb: 'FFFFFFFF' } }
-    sheetDash.getRow(rowIndex).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }
+    sheetDash.getRow(rowIndex).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000000' } }
     
     rowIndex++
     topComerciales.forEach(([comercial, d]) => {
@@ -246,8 +275,8 @@ export async function POST(req) {
       rowIndex++
     })
 
-    sheetDash.getColumn('B').width = 30
-    sheetDash.getColumn('C').width = 20
+    sheetDash.getColumn('B').width = 32
+    sheetDash.getColumn('C').width = 25
     sheetDash.getColumn('D').width = 25
     sheetDash.getColumn('E').width = 25
     sheetDash.getColumn('F').width = 20
@@ -280,7 +309,7 @@ export async function POST(req) {
     sheetData.columns = columns
     
     sheetData.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } }
-    sheetData.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0066CC' } }
+    sheetData.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000000' } }
     sheetData.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' }
     
     sheetData.addRows(rowsData)
