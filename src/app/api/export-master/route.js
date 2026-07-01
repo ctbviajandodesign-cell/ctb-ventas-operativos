@@ -332,6 +332,21 @@ export async function POST(req) {
       rowIndex++
     })
 
+    // Observación automatizada
+    rowIndex++
+    sheetDash.mergeCells(`B${rowIndex}:E${rowIndex}`)
+    const obsCell = sheetDash.getCell(`B${rowIndex}`)
+    if (agenciasSinCompras.length > 0) {
+      const topZero = agenciasSinCompras[0]
+      obsCell.value = `💡 OBSERVACIÓN DE AUDITORÍA: El cliente ${topZero[0]} representó la mayor fuga de tiempo operativo, habiendo exigido ${topZero[1].total} cotizaciones sin cerrar ninguna venta.`
+      obsCell.font = { italic: true, color: { argb: 'FFDC2626' }, bold: true }
+    } else {
+      obsCell.value = `💡 OBSERVACIÓN DE AUDITORÍA: Excelente. No se detectaron fugas de tiempo por clientes "Zero-Buy" en este periodo.`
+      obsCell.font = { italic: true, color: { argb: 'FF16A34A' }, bold: true }
+    }
+    obsCell.alignment = { wrapText: true, vertical: 'middle' }
+    sheetDash.getRow(rowIndex).height = 30
+    
     rowIndex += 2
     sheetDash.getCell(`B${rowIndex}`).value = 'RANKING TOP 10 DESTINOS (Por Volumen de Cotizaciones)'
     sheetDash.getCell(`B${rowIndex}`).font = { bold: true, size: 12 }
