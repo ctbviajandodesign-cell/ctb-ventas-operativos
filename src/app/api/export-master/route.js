@@ -215,6 +215,9 @@ export async function POST(req) {
     const topDestinos = Object.entries(destinosMap)
       .sort((a, b) => b[1].total - a[1].total)
 
+    const todasLasAgencias = Object.entries(agenciaComercialMap)
+      .sort((a, b) => b[1].total - a[1].total)
+
     const topMotivos = Object.entries(motivosPerdidaMap)
       .sort((a, b) => b[1].cantidad - a[1].cantidad)
       .slice(0, 10)
@@ -373,6 +376,29 @@ export async function POST(req) {
       const cellMotivo = sheetDash.getCell(`C${rowIndex}`)
       sheetDash.getRow(rowIndex).values = [null, motivo, d.cantidad, d.valorPerdido, null]
       sheetDash.getCell(`C${rowIndex}`).alignment = { wrapText: true, vertical: 'middle' }
+      rowIndex++
+    })
+
+    // TODAS LAS AGENCIAS (REPORTE GENERAL)
+    rowIndex += 2
+    sheetDash.getCell(`B${rowIndex}`).value = 'REPORTE GENERAL DE TODAS LAS AGENCIAS (Ordenado por Volumen de Cotización)'
+    sheetDash.getCell(`B${rowIndex}`).font = { bold: true, size: 12 }
+    rowIndex++
+    sheetDash.getRow(rowIndex).values = [null, 'Agencia (y su Comercial)', 'Cotizaciones Pedidas (Volumen)', 'Cotizaciones Ganadas (Ventas)', 'Cotizaciones Caducadas/Canceladas']
+    sheetDash.getRow(rowIndex).font = { bold: true, color: { argb: 'FFFFFFFF' } }
+    sheetDash.getRow(rowIndex).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000000' } }
+    
+    rowIndex++
+    todasLasAgencias.forEach(([agencia, d]) => {
+      sheetDash.getRow(rowIndex).values = [null, agencia, d.total, d.ganadas, d.caducadas + d.canceladas]
+      sheetDash.getCell(`B${rowIndex}`).alignment = { wrapText: true, vertical: 'middle' }
+      
+      // Pintar de rojo (texto rojo oscuro o fondo rojo claro)
+      if (d.ganadas === 0 && d.total > 0) {
+        sheetDash.getRow(rowIndex).font = { color: { argb: 'FFDC2626' }, bold: true } // Letra roja
+        // Opcional: fondo rojo clarito
+        // sheetDash.getRow(rowIndex).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE4E6' } }
+      }
       rowIndex++
     })
 
