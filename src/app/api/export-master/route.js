@@ -98,6 +98,7 @@ export async function POST(req) {
     
     const agenciasMap = {}
     const comercialesMap = {}
+    const destinosMap = {}
 
     const rowsData = filteredData.map(q => {
       const codigo = q.codigo || 'N/A'
@@ -150,18 +151,27 @@ export async function POST(req) {
       if (voucher) stats.vouchersEmitidos++
 
       // ACUMULADORES AGENCIAS
-      if (!agenciasMap[agencia]) agenciasMap[agencia] = { cotizado: 0, vendido: 0, ganadas: 0, canceladas: 0 }
+      if (!agenciasMap[agencia]) agenciasMap[agencia] = { total: 0, cotizado: 0, vendido: 0, ganadas: 0, canceladas: 0 }
+      agenciasMap[agencia].total++
       agenciasMap[agencia].cotizado += valorCotizado
       agenciasMap[agencia].vendido += valorVendido
       if (estadoActual === 'vendida') agenciasMap[agencia].ganadas++
       if (estadoActual === 'anulada' || estadoActual === 'perdida') agenciasMap[agencia].canceladas++
 
       // ACUMULADORES COMERCIALES
-      if (!comercialesMap[comercial]) comercialesMap[comercial] = { cotizado: 0, vendido: 0, ganadas: 0, canceladas: 0 }
+      if (!comercialesMap[comercial]) comercialesMap[comercial] = { total: 0, cotizado: 0, vendido: 0, ganadas: 0, canceladas: 0 }
+      comercialesMap[comercial].total++
       comercialesMap[comercial].cotizado += valorCotizado
       comercialesMap[comercial].vendido += valorVendido
       if (estadoActual === 'vendida') comercialesMap[comercial].ganadas++
       if (estadoActual === 'anulada' || estadoActual === 'perdida') comercialesMap[comercial].canceladas++
+
+      // ACUMULADORES DESTINOS
+      const dest = destino || 'N/A'
+      if (!destinosMap[dest]) destinosMap[dest] = { total: 0, cotizado: 0, vendido: 0 }
+      destinosMap[dest].total++
+      destinosMap[dest].cotizado += valorCotizado
+      destinosMap[dest].vendido += valorVendido
 
       return [
         q.id, codigo, fecha, agencia, comercial, ciudad, operativo, destino,
@@ -177,6 +187,15 @@ export async function POST(req) {
 
     const topComerciales = Object.entries(comercialesMap)
       .sort((a, b) => b[1].vendido - a[1].vendido)
+      .slice(0, 10)
+
+    const agenciasSinCompras = Object.entries(agenciasMap)
+      .filter(([_, d]) => d.vendido === 0 && d.cotizado > 0)
+      .sort((a, b) => b[1].cotizado - a[1].cotizado)
+      .slice(0, 10)
+
+    const topDestinos = Object.entries(destinosMap)
+      .sort((a, b) => b[1].total - a[1].total)
       .slice(0, 10)
 
     // Calculos de Tasas
@@ -272,6 +291,34 @@ export async function POST(req) {
     rowIndex++
     topComerciales.forEach(([comercial, d]) => {
       sheetDash.getRow(rowIndex).values = [null, comercial, d.vendido, d.ganadas, d.canceladas]
+      rowIndex++
+    })
+
+    rowIndex += 2
+    sheetDash.getCell(`B${rowIndex}`).value = 'ALERTA: AGENCIAS "ZERO-BUY" (Cotizan mucho pero compran $0)'
+    sheetDash.getCell(`B${rowIndex}`).font = { bold: true, size: 12, color: { argb: 'FFDC2626' } } // Rojo Alerta
+    rowIndex++
+    sheetDash.getRow(rowIndex).values = [null, 'Agencia', 'Valor Cotizado ($)', 'Cotizaciones Hechas', 'Cotizaciones Canceladas']
+    sheetDash.getRow(rowIndex).font = { bold: true, color: { argb: 'FFFFFFFF' } }
+    sheetDash.getRow(rowIndex).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000000' } }
+    
+    rowIndex++
+    agenciasSinCompras.forEach(([agencia, d]) => {
+      sheetDash.getRow(rowIndex).values = [null, agencia, d.cotizado, d.total, d.canceladas]
+      rowIndex++
+    })
+
+    rowIndex += 2
+    sheetDash.getCell(`B${rowIndex}`).value = 'RANKING TOP 10 DESTINOS (Por Volumen de Cotizaciones)'
+    sheetDash.getCell(`B${rowIndex}`).font = { bold: true, size: 12 }
+    rowIndex++
+    sheetDash.getRow(rowIndex).values = [null, 'Destino', 'Total Cotizaciones', 'Valor Cotizado Bruto ($)', 'Valor Vendido Real ($)']
+    sheetDash.getRow(rowIndex).font = { bold: true, color: { argb: 'FFFFFFFF' } }
+    sheetDash.getRow(rowIndex).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000000' } }
+    
+    rowIndex++
+    topDestinos.forEach(([destino, d]) => {
+      sheetDash.getRow(rowIndex).values = [null, destino, d.total, d.cotizado, d.vendido]
       rowIndex++
     })
 
