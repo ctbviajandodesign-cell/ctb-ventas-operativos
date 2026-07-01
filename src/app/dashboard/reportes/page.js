@@ -78,26 +78,42 @@ export default function ReportesPage() {
         if (customEndDate) endDate = new Date(customEndDate + 'T23:59:59')
       }
 
-      let query = supabase
-        .from('cotizaciones')
-        .select(`
-          id, codigo, agencia, comercial, destino, numero_pasajeros, nombres_pasajeros,
-          valor_total, valor_comision, valor_utilidad, estado, motivo_perdida, notas_iniciales,
-          fecha_caducidad, hora_caducidad,
-          created_at, operativo_id,
-          profiles!left(nombre, ciudad),
-          ventas(id, total, comision, utilidad, estado, vouchers(codigo, estado))
-        `)
-        .order('created_at', { ascending: false })
+      let filteredData = []
+      let step = 1000
+      let from = 0
+      let to = step - 1
+      let hasMore = true
 
-      if (startDate) query = query.gte('created_at', startDate.toISOString())
-      if (endDate) query = query.lte('created_at', endDate.toISOString())
-      if (selectedOperative !== 'todas') query = query.eq('operativo_id', selectedOperative)
+      while (hasMore) {
+        let query = supabase
+          .from('cotizaciones')
+          .select(`
+            id, codigo, agencia, comercial, destino, numero_pasajeros, nombres_pasajeros,
+            valor_total, valor_comision, valor_utilidad, estado, motivo_perdida, notas_iniciales,
+            fecha_caducidad, hora_caducidad,
+            created_at, operativo_id,
+            profiles!left(nombre, ciudad),
+            ventas(id, total, comision, utilidad, estado, vouchers(codigo, estado))
+          `)
+          .order('created_at', { ascending: false })
+          .range(from, to)
 
-      const { data, error } = await query
-      if (error) throw error
+        if (startDate) query = query.gte('created_at', startDate.toISOString())
+        if (endDate) query = query.lte('created_at', endDate.toISOString())
+        if (selectedOperative !== 'todas') query = query.eq('operativo_id', selectedOperative)
 
-      let filteredData = data || []
+        const { data, error } = await query
+        if (error) throw error
+
+        if (data && data.length > 0) {
+          filteredData = [...filteredData, ...data]
+          from += step
+          to += step
+          if (data.length < step) hasMore = false
+        } else {
+          hasMore = false
+        }
+      }
       
       if (selectedCity !== 'todas') {
         filteredData = filteredData.filter(q => q.profiles?.ciudad === selectedCity)
@@ -109,7 +125,20 @@ export default function ReportesPage() {
         return
       }
 
-      await generateExcel(filteredData, { startDate, endDate })
+      let dateFilterText = dateFilter.toUpperCase()
+      if (dateFilter === 'rango') {
+        dateFilterText = `RANGO: ${customStartDate || 'Inicio'} al ${customEndDate || 'Fin'}`
+      } else if (dateFilter === 'especifica') {
+        dateFilterText = `FECHA: ${customStartDate}`
+      }
+
+      let operativeName = 'Todos'
+      if (selectedOperative !== 'todas') {
+        const op = operatives.find(o => o.id === selectedOperative)
+        if (op) operativeName = op.nombre.replace(/\s+/g, '_')
+      }
+
+      await generateExcel(filteredData, { dateFilterText, operativeName })
       showToast('Reporte Inteligente generado con éxito.')
     } catch (err) {
       console.error(err)
@@ -119,7 +148,7 @@ export default function ReportesPage() {
     }
   }
 
-  const generateExcel = async (data, { startDate, endDate }) => {
+  const generateExcel = async (data, { dateFilterText, operativeName }) => {
     const workbook = new ExcelJS.Workbook()
     workbook.creator = 'CTB Intelligence'
     workbook.created = new Date()
@@ -241,7 +270,7 @@ export default function ReportesPage() {
     sheetDash.getCell('B4').value = 'Generado el:'
     sheetDash.getCell('C4').value = new Date().toLocaleString('es-EC')
     sheetDash.getCell('B5').value = 'Filtro Período:'
-    sheetDash.getCell('C5').value = dateFilter.toUpperCase()
+    sheetDash.getCell('C5').value = dateFilterText
     
     // Cajas de KPIs
     const kpiBox = (cellRef, label, value, color) => {
@@ -370,7 +399,7 @@ export default function ReportesPage() {
     // Descargar
     const buffer = await workbook.xlsx.writeBuffer()
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    saveAs(blob, `DataLake_Inteligente_CTB_${new Date().toISOString().split('T')[0]}.xlsx`)
+    saveAs(blob, `DataLake_CTB_${operativeName}_${new Date().toISOString().split('T')[0]}.xlsx`)
   }
 
   if (sessionLoading) {
