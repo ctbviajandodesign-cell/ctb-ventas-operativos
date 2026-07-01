@@ -256,7 +256,7 @@ export async function POST(req) {
       const cell = sheetDash.getCell(cellRef)
       cell.value = `${label}\n${value}`
       cell.alignment = { wrapText: true, vertical: 'middle', horizontal: 'center' }
-      cell.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } }
+      cell.font = { name: 'Arial', size: 12, bold: true, color: { argb: 'FFFFFFFF' } }
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: color } }
       cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
     }
@@ -266,7 +266,7 @@ export async function POST(req) {
     sheetDash.getCell('B7').value = 'CAPA 1: VOLUMETRÍA Y ESFUERZO COMERCIAL'
     sheetDash.getCell('B7').font = { bold: true, size: 10, color: { argb: 'FF666666' } }
     
-    sheetDash.getRow(8).height = 45
+    sheetDash.getRow(8).height = 60
     kpiBox('B8', 'TOTAL COTIZACIONES CREADAS', stats.totalCotizaciones, 'FF334155')
     kpiBox('C8', 'COTIZACIONES VENDIDAS', stats.vendidas, 'FF0284C7') // Azul
     kpiBox('D8', 'TASA EFECTIVIDAD (WIN RATE)', `${winRate.toFixed(1)}%`, winRate >= 20 ? 'FF16A34A' : 'FFF59E0B') // Verde o Ambar
@@ -276,7 +276,7 @@ export async function POST(req) {
     sheetDash.getCell('B10').value = 'CAPA 2: SALUD FINANCIERA Y RENTABILIDAD'
     sheetDash.getCell('B10').font = { bold: true, size: 10, color: { argb: 'FF666666' } }
 
-    sheetDash.getRow(11).height = 45
+    sheetDash.getRow(11).height = 60
     kpiBox('B11', 'TOTAL COTIZADO BRUTO', `$${stats.totalCotizadoBruto.toLocaleString()}`, 'FF64748B')
     kpiBox('C11', 'TOTAL VENDIDO REAL', `$${stats.totalVendidoReal.toLocaleString()}`, 'FF16A34A')
     kpiBox('D11', 'INGRESO NETO CTB', `$${stats.ingresoCTBTotal.toLocaleString()}`, 'FF059669')
@@ -287,7 +287,7 @@ export async function POST(req) {
     sheetDash.getCell('B13').value = 'CAPA 3: ESTADOS SECUNDARIOS DEL EMBUDO'
     sheetDash.getCell('B13').font = { bold: true, size: 10, color: { argb: 'FF666666' } }
 
-    sheetDash.getRow(14).height = 35
+    sheetDash.getRow(14).height = 50
     kpiBox('B14', 'EN ESPERA', stats.enEspera, 'FF94A3B8')
     kpiBox('C14', 'CANCELADAS / PERDIDAS', stats.canceladas, 'FFDC2626')
     kpiBox('D14', 'CADUCADAS', stats.caducadas, 'FFEA580C')
@@ -423,10 +423,10 @@ export async function POST(req) {
       rowIndex++
     })
 
-    sheetDash.getColumn('B').width = 40 // Ajustado para nombres largos
-    sheetDash.getColumn('C').width = 25
-    sheetDash.getColumn('D').width = 25
-    sheetDash.getColumn('E').width = 25
+    sheetDash.getColumn('B').width = 45 // Ajustado para nombres largos
+    sheetDash.getColumn('C').width = 30
+    sheetDash.getColumn('D').width = 30
+    sheetDash.getColumn('E').width = 30
     sheetDash.getColumn('F').width = 20
     sheetDash.getColumn('G').width = 20
 
