@@ -395,11 +395,10 @@ export async function POST(req) {
       sheetDash.getRow(rowIndex).values = [null, agencia, d.total, d.ganadas, d.caducadas + d.canceladas]
       sheetDash.getCell(`B${rowIndex}`).alignment = { wrapText: true, vertical: 'middle' }
       
-      // Pintar de rojo (texto rojo oscuro o fondo rojo claro)
-      if (d.ganadas === 0 && d.total > 0) {
-        sheetDash.getRow(rowIndex).font = { color: { argb: 'FFDC2626' }, bold: true } // Letra roja
-        // Opcional: fondo rojo clarito
-        // sheetDash.getRow(rowIndex).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE4E6' } }
+      const winRateAg = d.total > 0 ? (d.ganadas / d.total) : 0
+      // Pintar de rojo si la agencia es ineficiente: Pide mucho (>=3) y compra 0, o pide mucho (>=7) y su win rate es pésimo (< 10%)
+      if ((d.ganadas === 0 && d.total >= 3) || (winRateAg <= 0.10 && d.total >= 7)) {
+        sheetDash.getRow(rowIndex).font = { color: { argb: 'FFDC2626' }, bold: true } 
       }
       rowIndex++
     })
@@ -421,8 +420,10 @@ export async function POST(req) {
       sheetDash.getRow(rowIndex).values = [null, comercial, d.agencias.size, d.total, d.ganadas, d.canceladas + d.caducadas]
       sheetDash.getCell(`B${rowIndex}`).alignment = { wrapText: true, vertical: 'middle' }
       
-      // Pintar de rojo si el comercial hizo cotizar pero vendió 0 (El que tiene más problemas)
-      if (d.ganadas === 0 && d.total > 0) {
+      const winRateCom = d.total > 0 ? (d.ganadas / d.total) : 0
+      // Pintar de rojo a los comerciales que son un agujero de tiempo:
+      // Tienen una tasa de cierre bajísima (<= 15%) y exigen un volumen de al menos 5 cotizaciones.
+      if (winRateCom <= 0.15 && d.total >= 5) {
         sheetDash.getRow(rowIndex).font = { color: { argb: 'FFDC2626' }, bold: true }
       }
       rowIndex++
