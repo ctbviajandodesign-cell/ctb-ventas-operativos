@@ -99,6 +99,7 @@ export async function POST(req) {
     const agenciasMap = {}
     const comercialesMap = {}
     const destinosMap = {}
+    const motivosPerdidaMap = {}
 
     const rowsData = filteredData.map(q => {
       const codigo = q.codigo || 'N/A'
@@ -173,6 +174,14 @@ export async function POST(req) {
       destinosMap[dest].cotizado += valorCotizado
       destinosMap[dest].vendido += valorVendido
 
+      // ACUMULADORES MOTIVOS PÉRDIDA
+      if (estadoActual === 'anulada' || estadoActual === 'perdida') {
+        const m = motivoPerdida.trim() || 'Sin Especificar'
+        if (!motivosPerdidaMap[m]) motivosPerdidaMap[m] = { cantidad: 0, valorPerdido: 0 }
+        motivosPerdidaMap[m].cantidad++
+        motivosPerdidaMap[m].valorPerdido += valorCotizado
+      }
+
       return [
         q.id, codigo, fecha, agencia, comercial, ciudad, operativo, destino,
         numPasajeros, passengerNames, estadoActual.toUpperCase(), 
@@ -196,6 +205,10 @@ export async function POST(req) {
 
     const topDestinos = Object.entries(destinosMap)
       .sort((a, b) => b[1].total - a[1].total)
+      .slice(0, 10)
+
+    const topMotivos = Object.entries(motivosPerdidaMap)
+      .sort((a, b) => b[1].cantidad - a[1].cantidad)
       .slice(0, 10)
 
     // Calculos de Tasas
@@ -319,6 +332,20 @@ export async function POST(req) {
     rowIndex++
     topDestinos.forEach(([destino, d]) => {
       sheetDash.getRow(rowIndex).values = [null, destino, d.total, d.cotizado, d.vendido]
+      rowIndex++
+    })
+
+    rowIndex += 2
+    sheetDash.getCell(`B${rowIndex}`).value = 'RAZONES DE PÉRDIDA MÁS COMUNES (Cotizaciones Canceladas/Perdidas)'
+    sheetDash.getCell(`B${rowIndex}`).font = { bold: true, size: 12, color: { argb: 'FFDC2626' } }
+    rowIndex++
+    sheetDash.getRow(rowIndex).values = [null, 'Motivo Registrado', 'Cant. Cotizaciones Perdidas', 'Valor Monetario Perdido ($)', '']
+    sheetDash.getRow(rowIndex).font = { bold: true, color: { argb: 'FFFFFFFF' } }
+    sheetDash.getRow(rowIndex).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000000' } }
+    
+    rowIndex++
+    topMotivos.forEach(([motivo, d]) => {
+      sheetDash.getRow(rowIndex).values = [null, motivo, d.cantidad, d.valorPerdido, null]
       rowIndex++
     })
 
