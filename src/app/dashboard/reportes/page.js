@@ -24,6 +24,7 @@ const isExpired = (q) => {
 export default function ReportesPage() {
   const { user, profile, isAdmin, loading: sessionLoading } = useUserSession()
   const [loading, setLoading] = useState(false)
+  const [progressText, setProgressText] = useState('')
   const [operatives, setOperatives] = useState([])
   
   // Filters
@@ -48,6 +49,7 @@ export default function ReportesPage() {
     }
 
     setLoading(true)
+    setProgressText('Iniciando conexión con la base de datos...')
     try {
       // 1. Rango de Fechas
       const now = new Date()
@@ -106,7 +108,14 @@ export default function ReportesPage() {
         if (error) throw error
 
         if (data && data.length > 0) {
-          filteredData = [...filteredData, ...data]
+          // Usamos push en lugar de spread operator para no saturar la memoria RAM del navegador
+          for (let i = 0; i < data.length; i++) {
+            filteredData.push(data[i])
+          }
+          
+          setProgressText(`Descargando datos... (${filteredData.length.toLocaleString()} registros)`)
+          await new Promise(resolve => setTimeout(resolve, 30)) // Libera el hilo principal
+
           from += step
           to += step
           if (data.length < step) hasMore = false
@@ -138,6 +147,9 @@ export default function ReportesPage() {
         if (op) operativeName = op.nombre.replace(/\s+/g, '_')
       }
 
+      setProgressText('Generando archivo Excel (puede tomar unos segundos)...')
+      await new Promise(resolve => setTimeout(resolve, 50))
+      
       await generateExcel(filteredData, { dateFilterText, operativeName })
       showToast('Reporte Inteligente generado con éxito.')
     } catch (err) {
@@ -561,8 +573,11 @@ export default function ReportesPage() {
           >
             {loading ? (
               <>
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                Creando Archivo XLSX...
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin shrink-0"></div>
+                <div className="flex flex-col text-left">
+                  <span>Procesando...</span>
+                  {progressText && <span className="text-[10px] text-white/70 font-normal normal-case tracking-normal">{progressText}</span>}
+                </div>
               </>
             ) : (
               <>
