@@ -420,6 +420,11 @@ export async function POST(req) {
     todosLosComerciales.forEach(([comercial, d]) => {
       sheetDash.getRow(rowIndex).values = [null, comercial, d.agencias.size, d.total, d.ganadas, d.canceladas + d.caducadas]
       sheetDash.getCell(`B${rowIndex}`).alignment = { wrapText: true, vertical: 'middle' }
+      
+      // Pintar de rojo si el comercial hizo cotizar pero vendió 0 (El que tiene más problemas)
+      if (d.ganadas === 0 && d.total > 0) {
+        sheetDash.getRow(rowIndex).font = { color: { argb: 'FFDC2626' }, bold: true }
+      }
       rowIndex++
     })
 
