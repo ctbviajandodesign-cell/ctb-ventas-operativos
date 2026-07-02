@@ -20,6 +20,16 @@ export default function NuevaCotizacionPage() {
   const [loading, setLoading] = useState(false)
   const [pasajeros, setPasajeros] = useState([''])
   
+  const [comerciales, setComerciales] = useState([])
+  const [tipoComercial, setTipoComercial] = useState('')
+  const [comercialManual, setComercialManual] = useState('')
+
+  useEffect(() => {
+    supabase.from('comerciales').select('id, nombre, ciudad').then(({ data }) => {
+      setComerciales(data || [])
+    })
+  }, [])
+  
   const [formData, setFormData] = useState({
     agencia: '',
     destino: '',
@@ -123,13 +133,39 @@ export default function NuevaCotizacionPage() {
 
               <div>
                 <label className="label">Comercial</label>
-                <input
+                <select
                   required
                   className="input mt-1"
-                  placeholder="Ej: Nombre del Comercial..."
-                  value={formData.comercial}
-                  onChange={e => setFormData({ ...formData, comercial: e.target.value })}
-                />
+                  value={tipoComercial}
+                  onChange={e => {
+                    const val = e.target.value
+                    setTipoComercial(val)
+                    if (val === 'sin_comercial') {
+                      setFormData({ ...formData, comercial: 'Sin comercial' })
+                    } else if (val === 'otro') {
+                      setFormData({ ...formData, comercial: comercialManual })
+                    } else {
+                      setFormData({ ...formData, comercial: val })
+                    }
+                  }}
+                >
+                  <option value="" disabled>Seleccione un comercial...</option>
+                  
+                  {Object.entries(
+                    comerciales.reduce((acc, c) => {
+                      acc[c.ciudad || 'Otras'] = [...(acc[c.ciudad || 'Otras'] || []), c]
+                      return acc
+                    }, {})
+                  ).map(([ciudad, list]) => (
+                    <optgroup key={ciudad} label={ciudad}>
+                      {list.map(c => (
+                        <option key={c.id} value={c.nombre}>{c.nombre}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+
+                  <option value="sin_comercial">Sin comercial</option>
+                </select>
               </div>
 
               <div>

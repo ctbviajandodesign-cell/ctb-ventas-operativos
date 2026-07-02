@@ -37,6 +37,8 @@ export default function EditarCotizacionPage() {
   })
 
   const [profile, setProfile] = useState(null)
+  const [comerciales, setComerciales] = useState([])
+  const [tipoComercial, setTipoComercial] = useState('')
 
   useEffect(() => {
     async function checkAuthAndFetch() {
@@ -75,6 +77,17 @@ export default function EditarCotizacionPage() {
           router.push('/dashboard/cotizaciones')
           return
         }
+        
+        const { data: comercialesData } = await supabase.from('comerciales').select('id, nombre, ciudad')
+        const coms = comercialesData || []
+        setComerciales(coms)
+        
+        const quoteComercial = quoteData.comercial || ''
+        if (quoteComercial === 'Sin comercial') {
+          setTipoComercial('sin_comercial')
+        } else {
+          setTipoComercial(quoteComercial)
+        }
 
         setFormData({
           agencia: quoteData.agencia || '',
@@ -87,7 +100,7 @@ export default function EditarCotizacionPage() {
           valor_comision: quoteData.valor_comision || 0,
           valor_utilidad: quoteData.valor_utilidad || 0,
           valor_bono: quoteData.valor_bono || 0,
-          comercial: quoteData.comercial || ''
+          comercial: quoteComercial
         })
         setPasajeros(quoteData.nombres_pasajeros || [''])
         setLoading(false)
@@ -172,7 +185,37 @@ export default function EditarCotizacionPage() {
               </div>
               <div className="col-span-2 md:col-span-1">
                 <label className="label">Comercial</label>
-                <input required className="input" value={formData.comercial} onChange={e => setFormData({...formData, comercial: e.target.value})} />
+                <select
+                  required
+                  className="input mt-1"
+                  value={tipoComercial}
+                  onChange={e => {
+                    const val = e.target.value
+                    setTipoComercial(val)
+                    if (val === 'sin_comercial') {
+                      setFormData({ ...formData, comercial: 'Sin comercial' })
+                    } else {
+                      setFormData({ ...formData, comercial: val })
+                    }
+                  }}
+                >
+                  <option value="" disabled>Seleccione un comercial...</option>
+                  
+                  {Object.entries(
+                    comerciales.reduce((acc, c) => {
+                      acc[c.ciudad || 'Otras'] = [...(acc[c.ciudad || 'Otras'] || []), c]
+                      return acc
+                    }, {})
+                  ).map(([ciudad, list]) => (
+                    <optgroup key={ciudad} label={ciudad}>
+                      {list.map(c => (
+                        <option key={c.id} value={c.nombre}>{c.nombre}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+
+                  <option value="sin_comercial">Sin comercial</option>
+                </select>
               </div>
               <div className="col-span-2 md:col-span-1">
                 <label className="label">Destino</label>

@@ -310,6 +310,7 @@ export default function UsuariosPage() {
                     value={formData.ciudad}
                     onChange={e => setFormData({...formData, ciudad: e.target.value})}
                   >
+                    <option value="Nacional">Nacional (Todo el país)</option>
                     <option value="Quito">Quito</option>
                     <option value="Guayaquil">Guayaquil</option>
                     <option value="Cuenca">Cuenca</option>
