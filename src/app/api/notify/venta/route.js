@@ -40,7 +40,7 @@ export async function POST(req) {
       ``,
       `👤 <b>Asesor:</b> ${operativo}`,
       `✈️ <b>Destino:</b> ${destino || 'N/A'}  |  🏢 <b>Agencia:</b> ${agencia || 'Directo'}`,
-      `💵 <b>Aporte CTB:</b> ${formatMoney(thisAporte)}`,
+      `💵 <b>Utilidad de CTB:</b> ${formatMoney(thisAporte)}`,
       `💰 <b>Valor Total:</b> ${formatMoney(valorTotal)}`,
       ``,
       `📊 <b>Meta del mes:</b> ${pct.toFixed(1)}% (${formatMoney((pct / 100) * metaAmount)} de ${formatMoney(metaAmount)})`,

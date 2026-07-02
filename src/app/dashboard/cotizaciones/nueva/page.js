@@ -235,7 +235,7 @@ export default function NuevaCotizacionPage() {
               </div>
 
               <div>
-                <label className="label text-success">Utilidad ($)</label>
+                <label className="label text-success">Margen ($)</label>
                 <input
                   type="number"
                   step="0.01"

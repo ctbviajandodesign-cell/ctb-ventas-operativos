@@ -237,7 +237,7 @@ export default function EditarCotizacionPage() {
                 <input type="number" step="0.01" className="input font-bold" value={formData.valor_total === 0 && formData.valor_total !== '' ? 0 : formData.valor_total || ''} onChange={e => setFormData({...formData, valor_total: e.target.value === '' ? '' : parseFloat(e.target.value)})} />
               </div>
               <div>
-                <label className="label">Utilidad ($)</label>
+                <label className="label">Margen ($)</label>
                 <input type="number" step="0.01" className="input text-success font-bold" value={formData.valor_utilidad === 0 && formData.valor_utilidad !== '' ? 0 : formData.valor_utilidad || ''} onChange={e => setFormData({...formData, valor_utilidad: e.target.value === '' ? '' : parseFloat(e.target.value)})} />
               </div>
               <div>

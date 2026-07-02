@@ -96,7 +96,7 @@ export async function POST(req) {
           ``,
           `👤 <b>Asesor:</b> ${venta.profiles?.nombre}`,
           `✈️ <b>Destino:</b> ${venta.cotizaciones?.destino || 'N/A'}  |  🏢 <b>Agencia:</b> ${venta.cotizaciones?.agencia || 'Directo'}`,
-          `📉 <b>Descuento Aporte:</b> -${formatMoney(cancellationAporte)}`,
+          `📉 <b>Descuento Utilidad de CTB:</b> -${formatMoney(cancellationAporte)}`,
           `💰 <b>Descuento Total:</b> -${formatMoney(cancellationTotal)}`,
           `💬 <b>Motivo:</b> ${motivo || 'No especificado'}`,
           ``,

@@ -18,7 +18,7 @@ export async function POST(request) {
  
 Datos Globales del Equipo:
 - Meta Global del Equipo: $${metricas.globalGoal || 0}
-- Aporte/Utilidad Actual: $${metricas.totalAporte || 0}
+- Utilidad de CTB Actual: $${metricas.totalAporte || 0}
 - Cumplimiento de Meta: ${metricas.porcentajeMeta ? Number(metricas.porcentajeMeta).toFixed(1) : 0}%
 - Restante para Meta: $${Math.max(0, (metricas.globalGoal || 0) - (metricas.totalAporte || 0))}
 - Cotizaciones Perdidas (No cerraron): ${metricas.perdidas || 0}
@@ -32,7 +32,7 @@ Responde SOLO con el consejo en 2 oraciones. Sin títulos ni bullets.`
 
 Datos del Asesor B2B (${metricas.nombreAsesor || 'Seleccionado'}):
 - Meta Mensual: $${metricas.meta || 0}
-- Ganancia Generada: $${metricas.totalAporte || 0}
+- Utilidad de CTB Generada: $${metricas.totalAporte || 0}
 - Cumplimiento: ${metricas.cumplimiento ? Number(metricas.cumplimiento).toFixed(1) : 0}%
 - Tasa de Cierre con Agencias: ${metricas.conversion || 0}%
 - Cotizaciones (Ganadas: ${metricas.ganadas || 0}, En Espera: ${metricas.abiertas || 0}, Perdidas: ${metricas.perdidas || 0}, Anuladas post-venta: ${metricas.anuladas || 0})
@@ -52,7 +52,7 @@ Tus Datos Actuales de Ventas B2B:
 - No concretadas / Perdidas por Objeción: ${metricas.perdidas || 0}
 - Principales Motivos de Pérdida (Objeciones de Agencias): ${metricas.topMotivos || 'Ninguno registrado'}
 - Tasa de Cierre: ${metricas.conversion || 0}%
-- Ganancia/Aporte Acumulado: $${metricas.totalAporte || 0}
+- Utilidad de CTB Acumulada: $${metricas.totalAporte || 0}
 - Destino más cotizado: ${metricas.topDestino || 'N/A'}
 
 Responde SOLO con el consejo directo en 2 oraciones. Sin títulos ni bullets.`

@@ -126,7 +126,7 @@ export async function GET(req) {
           `📝 Cotizaciones: <code>${op.cots}</code>`,
           `✅ Ventas cerradas: <code>${op.ventasCount}</code>`,
           `📊 Progreso Mes: <code>${pct.toFixed(1)}% ${progressBar(pct)}</code>`,
-          `💼 Ganancia CTB Total: <code>${formatMoney(op.ganancia)}</code>`
+          `💼 Utilidad de CTB Total: <code>${formatMoney(op.ganancia)}</code>`
         ].join('\n')
         
         adminLines.push(opStr)
@@ -137,7 +137,7 @@ export async function GET(req) {
         cityGanancia += op.ganancia
       }
       
-      cityLines.push(`🌎 <b>GANANCIA TOTAL ${escapeHtml(ciudad)}:</b> <code>${formatMoney(cityGanancia)}</code>`)
+      cityLines.push(`🌎 <b>UTILIDAD TOTAL ${escapeHtml(ciudad)}:</b> <code>${formatMoney(cityGanancia)}</code>`)
       cityLines.push(`🎉 ¡Gran trabajo equipo! Comienza un nuevo mes.`)
       
       try {
@@ -147,7 +147,7 @@ export async function GET(req) {
       }
     }
 
-    adminLines.push(`🌎 <b>GANANCIA GLOBAL DEL MES:</b> <code>${formatMoney(gananciaGlobal)}</code>`)
+    adminLines.push(`🌎 <b>UTILIDAD GLOBAL DEL MES:</b> <code>${formatMoney(gananciaGlobal)}</code>`)
     adminLines.push(`🎉 ¡Gran trabajo equipo! Comienza un nuevo mes.`)
 
     const telRes = await notifyAdmin(adminLines.join('\n'))

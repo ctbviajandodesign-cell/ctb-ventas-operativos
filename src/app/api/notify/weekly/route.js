@@ -136,12 +136,12 @@ export async function GET(req) {
         adminLines.push(`📝 Cotizaciones: <code>${op.cots}</code>`)
         adminLines.push(`✅ Ventas cerradas: <code>${op.ventasCount}</code>`)
         adminLines.push(`📊 Progreso Mes: <code>${pct.toFixed(1)}% ${progressBar(pct)}</code>`)
-        adminLines.push(`💼 Ganancia CTB Semanal: <code>${formatMoney(op.ganancia)}</code>`)
+        adminLines.push(`💼 Utilidad de CTB Semanal: <code>${formatMoney(op.ganancia)}</code>`)
         adminLines.push(``)
       }
     }
 
-    adminLines.push(`🌍 <b>GANANCIA GLOBAL SEMANA:</b> <code>${formatMoney(gananciaGlobal)}</code>`)
+    adminLines.push(`🌍 <b>UTILIDAD GLOBAL SEMANA:</b> <code>${formatMoney(gananciaGlobal)}</code>`)
 
     const telRes = await notifyAdmin(adminLines.join('\n'))
     if (!telRes || !telRes.ok) throw new Error(`Telegram error: ${JSON.stringify(telRes)}`)

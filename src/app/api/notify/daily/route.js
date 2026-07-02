@@ -140,12 +140,12 @@ export async function GET(req) {
         adminLines.push(`📝 Cotizaciones hechas: <code>${op.cotsAyer}</code>`)
         adminLines.push(`✅ Ventas cerradas: <code>${op.ventasAyerCount}</code>`)
         adminLines.push(`📊 Progreso Mes: <code>${pct.toFixed(1)}% ${progressBar(pct)}</code>`)
-        adminLines.push(`💼 Ganancia CTB ayer: <code>${formatMoney(op.gananciaAyer)}</code>`)
+        adminLines.push(`💼 Utilidad de CTB ayer: <code>${formatMoney(op.gananciaAyer)}</code>`)
         adminLines.push(``)
       }
     }
 
-    adminLines.push(`🌍 <b>GANANCIA GLOBAL AYER:</b> <code>${formatMoney(gananciaGlobalAyer)}</code>`)
+    adminLines.push(`🌍 <b>UTILIDAD GLOBAL AYER:</b> <code>${formatMoney(gananciaGlobalAyer)}</code>`)
 
     const telRes = await notifyAdmin(adminLines.join('\n'))
     if (!telRes || !telRes.ok) {

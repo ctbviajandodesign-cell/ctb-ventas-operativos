@@ -437,9 +437,9 @@ export default function CotizacionesPage() {
           <p className="text-xs text-success/60 mt-2 font-bold">{stats.conversion}% de conversión</p>
         </div>
         <div className="bg-gray-900 p-6 rounded-[2rem] text-white flex flex-col justify-between col-span-2 md:col-span-1">
-          <p className="text-xs font-black text-primary uppercase tracking-widest">Mi Ganancia Total</p>
+          <p className="text-xs font-black text-primary uppercase tracking-widest">Mi Utilidad de CTB</p>
           <p className="text-2xl font-black mt-2">${stats.totalAporte.toLocaleString()}</p>
-          <p className="text-xs text-gray-400 mt-2 font-bold">Comisiones + Utilidades</p>
+          <p className="text-xs text-gray-400 mt-2 font-bold">Comisión + Margen</p>
         </div>
       </div>
 

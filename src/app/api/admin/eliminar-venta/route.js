@@ -70,7 +70,7 @@ export async function POST(req) {
       usuario_nombre: profile?.nombre || 'Desconocido',
       usuario_email: user.email || profile?.email || '',
       accion: 'ELIMINAR_PERMANENTE_venta',
-      detalles: `⚠️ ELIMINACIÓN PERMANENTE: Venta ID ${ventaId} | Total: $${venta?.total || 0} | Aporte: $${(Number(venta?.comision || 0) + Number(venta?.utilidad || 0)).toFixed(2)} — Voucher eliminado. Cotización devuelta a estado abierta.`
+      detalles: `⚠️ ELIMINACIÓN PERMANENTE: Venta ID ${ventaId} | Total: $${venta?.total || 0} | Utilidad de CTB: $${(Number(venta?.comision || 0) + Number(venta?.utilidad || 0)).toFixed(2)} — Voucher eliminado. Cotización devuelta a estado abierta.`
     }])
 
     return Response.json({ ok: true })

@@ -201,9 +201,9 @@ export default function LogrosPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'Total Vendido (Mes)', val: `$${stats.totalVendido.toLocaleString()}`, sub: 'De cotizaciones ganadas', color: 'bg-primary/5 border-primary/10', text: 'text-primary', icon: DollarSign },
-          { label: 'Mi Ganancia (Mes)', val: `$${stats.ganancia.toLocaleString()}`, sub: 'Comisión + utilidad', color: 'bg-success/5 border-success/10', text: 'text-success', icon: TrendingUp },
+          { label: 'Mi Utilidad de CTB (Mes)', val: `$${stats.ganancia.toLocaleString()}`, sub: 'Comisión + margen', color: 'bg-success/5 border-success/10', text: 'text-success', icon: TrendingUp },
           { label: 'Vouchers Emitidos', val: stats.vouchers, sub: 'Total histórico', color: 'bg-white border-gray-100', text: 'text-gray-900', icon: Award },
-          { label: 'Ganancia Histórica', val: `$${stats.gananciaTotal.toLocaleString()}`, sub: 'Desde el inicio', color: 'bg-gray-900 border-transparent', text: 'text-white', icon: Star, darkMode: true },
+          { label: 'Utilidad Histórica de CTB', val: `$${stats.gananciaTotal.toLocaleString()}`, sub: 'Desde el inicio', color: 'bg-gray-900 border-transparent', text: 'text-white', icon: Star, darkMode: true },
         ].map(kpi => (
           <div key={kpi.label} className={`p-6 rounded-[2rem] border shadow-sm ${kpi.color}`}>
             <div className="flex items-center gap-2 mb-3">
@@ -265,7 +265,7 @@ export default function LogrosPage() {
         {/* TENDENCIA DE GANANCIA ÚLTIMOS 6 MESES */}
         <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-gray-50">
           <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-6 flex items-center gap-2">
-            <TrendingUp size={16} className="text-primary" /> Mi Ganancia — Últimos 6 Meses
+            <TrendingUp size={16} className="text-primary" /> Mi Utilidad de CTB — Últimos 6 Meses
           </h3>
           <div className="h-[260px]">
             <ResponsiveContainer width="100%" height="100%">

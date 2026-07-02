@@ -234,7 +234,7 @@ export async function POST(request) {
 - "destino": Lugar turístico del viaje.
 - "ciudad" o "país" en contexto CTB = sede del operativo (Quito, Guayaquil, Cuenca, etc.).
 - Venta confirmada = "es_venta: true" en el dataset.
-- "Ingreso de CTB" o "Aporte CTB": Es el margen de ganancia real para la empresa (CTB Viajando), calculado como la suma de comisión + utilidad (comision + utilidad). Es distinto al "monto de venta" (que representa el costo cobrado al cliente).
+- "Utilidad de CTB": Es la utilidad real para la empresa (CTB Viajando), calculada como la suma de comisión + margen (comision + utilidad). Es distinto al "monto de venta" (que representa el costo cobrado al cliente).
 
 === TOTALES DEL PERÍODO ===
 - Total cotizaciones: ${cleanDataset.length}
@@ -285,7 +285,7 @@ ${JSON.stringify(cleanLeaderboard, null, 2)}
 3. Usa negrita para nombres, destinos, porcentajes y montos: **DREAMS**, **Karla Freire**, **Cancún**, **15%**, **$1,035 USD**.
 4. **Agrupación Obligatoria**: Si un mismo asesor/operativo tiene múltiples cotizaciones o ventas en el subconjunto de datos de un día en específico, debes **agruparlas y sumarlas** en un único total para ese asesor. NUNCA listes al mismo asesor más de una vez en el mismo resumen o desglose (ej: en lugar de mostrar "Eva Freire: 1 venta por $1,940 USD; Eva Freire: 1 venta por $582 USD", debes consolidarlo en "Eva Freire: **2** ventas por **$2,522 USD** | Ingreso CTB: **$429.88 USD**").
 5. **Escalabilidad de Ventas**: NUNCA listes transacciones individuales una por una (agencia por agencia, monto por monto) en resúmenes generales o preguntas de rendimiento. Solo haz un listado detallado (ej: "Asesor vendió a Agencia con destino...") si el usuario pregunta explícitamente por detalles detallados o listados específicos (ej: "a quién no más vendieron", "lista las ventas de hoy", "a qué agencias se vendió").
-6. **Resúmenes y Rendimiento**: Para preguntas sobre quién vendió más/menos, quién cotizó más/menos, resúmenes del día/mes o rendimiento general, agrupa y resume los datos por operativo/asesor mostrando: **Asesor**: **X** cotizaciones | **Y** ventas (**$Z USD** de monto total, con un Ingreso de CTB de **$I USD** [comisión + utilidad]) | **W%** de conversión (ventas / cotizaciones).
+6. **Resúmenes y Rendimiento**: Para preguntas sobre quién vendió más/menos, quién cotizó más/menos, resúmenes del día/mes o rendimiento general, agrupa y resume los datos por operativo/asesor mostrando: **Asesor**: **X** cotizaciones | **Y** ventas (**$Z USD** de monto total, con una Utilidad de CTB de **$I USD** [comisión + margen]) | **W%** de conversión (ventas / cotizaciones).
 7. **Comparaciones de Ventas (Monto vs Cantidad)**: Al determinar "quién vendió más" o "quién vendió menos":
    - Si la cantidad de ventas es diferente (ej: 2 ventas vs 1 venta), el mayor vendedor es quien tenga más ventas cerradas.
    - Si la cantidad de ventas es igual (ej: empate con 1 venta cada uno), el mayor vendedor se define por el monto facturado: el de mayor valor en dólares ($) vendió más, y el de menor valor vendió menos.
@@ -297,7 +297,7 @@ ${JSON.stringify(cleanLeaderboard, null, 2)}
 12. Si algo no tiene datos, responde: "No se registran datos para [Nombre] en este período."
 13. Si la pregunta es abierta o ambigua ("quién vendió", "qué se vendió", "resumen de hoy"), da siempre un desglose sintetizado en un formato de lista muy limpio y unificado de máximo 3 puntos:
 - **Cotizaciones totales**: [Total, y de forma inline el desglose por asesor. Ej: "Total de **21** cotizaciones (Eva Freire: **11**, Karla Freire: **9**)"].
-- **Resumen de Ventas**: [Monto total vendido e inline el desglose resumido por asesor, indicando siempre el Ingreso de CTB (comisión + utilidad) para cada uno. Ej: "Total de **$1,822 USD** en **2** ventas con un Ingreso de CTB de **$320 USD** (Karla Freire: **1** venta por **$1,240 USD** | Ingreso CTB: **$210 USD**; Eva Freire: **1** venta por **$582 USD** | Ingreso CTB: **$110 USD**)"].
+- **Resumen de Ventas**: [Monto total vendido e inline el desglose resumido por asesor, indicando siempre la Utilidad de CTB (comisión + margen) para cada uno. Ej: "Total de **$1,822 USD** en **2** ventas con una Utilidad de CTB de **$320 USD** (Karla Freire: **1** venta por **$1,240 USD** | Utilidad CTB: **$210 USD**; Eva Freire: **1** venta por **$582 USD** | Utilidad CTB: **$110 USD**)"].
 - **Asesores sin ventas**: [Nombres con sus respectivas cotizaciones].
 14. En caso de empate, menciona a todos los empatados.
 
