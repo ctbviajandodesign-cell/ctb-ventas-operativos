@@ -244,6 +244,10 @@ export default function EditarCotizacionPage() {
                 <label className="label">Comisión ($)</label>
                 <input type="number" step="0.01" className="input text-success font-bold" value={formData.valor_comision === 0 && formData.valor_comision !== '' ? 0 : formData.valor_comision || ''} onChange={e => setFormData({...formData, valor_comision: e.target.value === '' ? '' : parseFloat(e.target.value)})} />
               </div>
+              <div>
+                <label className="label text-primary">Bono Counter ($)</label>
+                <input type="number" step="0.01" className="input text-primary font-bold" value={formData.valor_bono === 0 && formData.valor_bono !== '' ? 0 : formData.valor_bono || ''} onChange={e => setFormData({...formData, valor_bono: e.target.value === '' ? '' : parseFloat(e.target.value)})} />
+              </div>
             </div>
             <button type="submit" disabled={saving} className="btn-primary w-full py-4 shadow-xl">
               {saving ? 'Guardando...' : 'Actualizar Cotización'}
