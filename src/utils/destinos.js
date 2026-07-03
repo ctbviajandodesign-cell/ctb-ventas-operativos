@@ -1,20 +1,25 @@
 import airportsData from '@/data/airports.json'
 
 export const cityIataMap = {
-  'EZE': 'BUE', // Ezeiza -> Buenos Aires
-  'AEP': 'BUE', // Aeroparque -> Buenos Aires
-  'JFK': 'NYC', // JFK -> New York
-  'LGA': 'NYC',
-  'EWR': 'NYC',
-  'LHR': 'LON', // Heathrow -> London
-  'LGW': 'LON',
-  'CDG': 'PAR', // Charles de Gaulle -> Paris
-  'ORY': 'PAR',
-  'GRU': 'SAO', // Guarulhos -> Sao Paulo
+  // Argentina
+  'EZE': 'BUE',
+  'AEP': 'BUE',
+  // Brazil
+  'GIG': 'RIO',
+  'SDU': 'RIO',
+  'GRU': 'SAO',
   'CGH': 'SAO',
   'VCP': 'SAO',
-  'GIG': 'RIO', // Galeao -> Rio de Janeiro
-  'SDU': 'RIO'
+  // USA
+  'JFK': 'NYC',
+  'LGA': 'NYC',
+  'EWR': 'NYC',
+  'MCO': 'ORL',
+  // Europe
+  'LHR': 'LON',
+  'LGW': 'LON',
+  'CDG': 'PAR',
+  'ORY': 'PAR'
 }
 
 export const reverseCityIataMap = {

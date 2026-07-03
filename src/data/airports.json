@@ -2194,5 +2194,47 @@
     "name": "Yaundé",
     "city": "Yaundé",
     "country": "Camerún"
+  },
+  {
+    "iata": "SDU",
+    "name": "Santos Dumont",
+    "city": "Rio de Janeiro",
+    "country": "Brazil"
+  },
+  {
+    "iata": "SAO",
+    "name": "Sao Paulo",
+    "city": "Sao Paulo",
+    "country": "Brazil"
+  },
+  {
+    "iata": "CGH",
+    "name": "Congonhas",
+    "city": "Sao Paulo",
+    "country": "Brazil"
+  },
+  {
+    "iata": "BUE",
+    "name": "Buenos Aires",
+    "city": "Buenos Aires",
+    "country": "Argentina"
+  },
+  {
+    "iata": "AEP",
+    "name": "Aeroparque",
+    "city": "Buenos Aires",
+    "country": "Argentina"
+  },
+  {
+    "iata": "LON",
+    "name": "London",
+    "city": "London",
+    "country": "United Kingdom"
+  },
+  {
+    "iata": "ORL",
+    "name": "Orlando",
+    "city": "Orlando",
+    "country": "United States"
   }
 ]
