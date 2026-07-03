@@ -14,11 +14,15 @@ import {
   DollarSign
 } from 'lucide-react'
 import { showToast } from '@/utils/toast'
+import IataSelector from '@/components/IataSelector'
 
 export default function NuevaCotizacionPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [pasajeros, setPasajeros] = useState([''])
+  
+  const [iatas, setIatas] = useState([''])
+  const [destinoNombre, setDestinoNombre] = useState('')
   
   const [comerciales, setComerciales] = useState([])
   const [tipoComercial, setTipoComercial] = useState('')
@@ -61,12 +65,19 @@ export default function NuevaCotizacionPage() {
       if (!user) throw new Error('No hay sesión de usuario activa.')
 
       const filteredPasajeros = pasajeros.filter(p => p.trim() !== '')
+      
+      const filteredIatas = iatas.filter(i => i.trim() !== '')
+      if (filteredIatas.length === 0 && !destinoNombre.trim()) {
+        throw new Error('Debe ingresar al menos un destino (IATA o Nombre).')
+      }
+      
+      const destinoCombined = `${filteredIatas.join(',')}${destinoNombre.trim() ? '|' + destinoNombre.trim() : ''}`
 
       const { error } = await supabase
         .from('cotizaciones')
         .insert([{
           agencia: formData.agencia,
-          destino: formData.destino,
+          destino: destinoCombined,
           numero_pasajeros: formData.numero_pasajeros,
           notas_iniciales: formData.notas_iniciales,
           comercial: formData.comercial,
@@ -168,16 +179,61 @@ export default function NuevaCotizacionPage() {
                 </select>
               </div>
 
-              <div>
+              <div className="col-span-1 md:col-span-2 space-y-3">
+                <label className="label flex items-center gap-1.5 border-b pb-2">
+                  <MapPin size={12} className="text-primary" /> Códigos IATA (Destinos / Conexiones)
+                </label>
+                
+                <div className="space-y-3">
+                  {iatas.map((iata, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <IataSelector 
+                          value={iata}
+                          onChange={(val) => {
+                            const newIatas = [...iatas]
+                            newIatas[idx] = val
+                            setIatas(newIatas)
+                          }}
+                          placeholder={`Ej: Quito, Colombia o UIO... (Destino #${idx + 1})`}
+                        />
+                      </div>
+                      <div className="flex items-center shrink-0">
+                        {idx === iatas.length - 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setIatas([...iatas, ''])}
+                            className="p-3 bg-primary/10 text-primary hover:bg-primary/20 rounded-xl transition-colors shrink-0"
+                            title="Añadir otro destino"
+                          >
+                            <Plus size={16} />
+                          </button>
+                        )}
+                        {iatas.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setIatas(iatas.filter((_, i) => i !== idx))}
+                            className={`p-3 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl transition-colors shrink-0 ${idx === iatas.length - 1 ? 'ml-2' : ''}`}
+                            title="Eliminar destino"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="col-span-1 md:col-span-2">
                 <label className="label flex items-center gap-1.5">
-                  <MapPin size={12} className="text-primary" /> Destino del Viaje
+                  <FileText size={12} className="text-primary" /> Nombre del Destino (Opcional)
                 </label>
                 <input
-                  required
                   className="input mt-1"
-                  placeholder="Ej: Galápagos, Cancún, París..."
-                  value={formData.destino}
-                  onChange={e => setFormData({ ...formData, destino: e.target.value })}
+                  placeholder="Ej: Tour Mágico por Colombia, Crucero Bahamas..."
+                  value={destinoNombre}
+                  onChange={e => setDestinoNombre(e.target.value)}
                 />
               </div>
 

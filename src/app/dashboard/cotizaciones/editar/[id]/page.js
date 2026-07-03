@@ -11,10 +11,14 @@ import {
   Calendar,
   Clock,
   DollarSign,
-  Users
+  Users,
+  MapPin,
+  FileText,
+  Plus
 } from 'lucide-react'
 import { showToast } from '@/utils/toast'
 import { logActivity } from '@/utils/audit'
+import IataSelector from '@/components/IataSelector'
 
 export default function EditarCotizacionPage() {
   const router = useRouter()
@@ -22,6 +26,8 @@ export default function EditarCotizacionPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [pasajeros, setPasajeros] = useState([''])
+  const [iatas, setIatas] = useState([''])
+  const [destinoNombre, setDestinoNombre] = useState('')
   const [formData, setFormData] = useState({
     agencia: '',
     destino: '',
@@ -89,9 +95,22 @@ export default function EditarCotizacionPage() {
           setTipoComercial(quoteComercial)
         }
 
+        const rawDestino = quoteData.destino || ''
+        if (rawDestino.includes('|')) {
+          const [iataStr, nameStr] = rawDestino.split('|')
+          setIatas(iataStr ? iataStr.split(',') : [''])
+          setDestinoNombre(nameStr || '')
+        } else if (rawDestino.includes(',')) {
+          setIatas(rawDestino.split(','))
+          setDestinoNombre('')
+        } else {
+          setIatas([rawDestino])
+          setDestinoNombre('')
+        }
+
         setFormData({
           agencia: quoteData.agencia || '',
-          destino: quoteData.destino || '',
+          destino: rawDestino,
           numero_pasajeros: quoteData.numero_pasajeros || 1,
           fecha_caducidad: quoteData.fecha_caducidad || '',
           hora_caducidad: quoteData.hora_caducidad || '',
@@ -128,10 +147,17 @@ export default function EditarCotizacionPage() {
     setSaving(true)
     try {
       const filteredPasajeros = pasajeros.filter(p => p.trim() !== '')
+      
+      const filteredIatas = iatas.filter(i => i.trim() !== '')
+      if (filteredIatas.length === 0 && !destinoNombre.trim()) {
+        throw new Error('Debe ingresar al menos un destino (IATA o Nombre).')
+      }
+      const destinoCombined = `${filteredIatas.join(',')}${destinoNombre.trim() ? '|' + destinoNombre.trim() : ''}`
+
       const payload = {
         agencia: formData.agencia,
         comercial: formData.comercial,
-        destino: formData.destino,
+        destino: destinoCombined,
         numero_pasajeros: Math.max(Number(formData.numero_pasajeros) || 1, filteredPasajeros.length),
         fecha_caducidad: formData.fecha_caducidad || null,
         hora_caducidad: formData.hora_caducidad || null,
@@ -217,9 +243,62 @@ export default function EditarCotizacionPage() {
                   <option value="sin_comercial">Sin comercial</option>
                 </select>
               </div>
+              <div className="col-span-2 space-y-3 mt-2">
+                <label className="label flex items-center gap-1.5 border-b pb-2">
+                  <MapPin size={12} className="text-primary" /> Códigos IATA (Destinos / Conexiones)
+                </label>
+                
+                <div className="space-y-3">
+                  {iatas.map((iata, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <IataSelector 
+                          value={iata}
+                          onChange={(val) => {
+                            const newIatas = [...iatas]
+                            newIatas[idx] = val
+                            setIatas(newIatas)
+                          }}
+                          placeholder={`Ej: Quito, Colombia o UIO... (Destino #${idx + 1})`}
+                        />
+                      </div>
+                      <div className="flex items-center shrink-0">
+                        {idx === iatas.length - 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setIatas([...iatas, ''])}
+                            className="p-3 bg-primary/10 text-primary hover:bg-primary/20 rounded-xl transition-colors shrink-0"
+                            title="Añadir otro destino"
+                          >
+                            <Plus size={16} />
+                          </button>
+                        )}
+                        {iatas.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setIatas(iatas.filter((_, i) => i !== idx))}
+                            className={`p-3 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl transition-colors shrink-0 ${idx === iatas.length - 1 ? 'ml-2' : ''}`}
+                            title="Eliminar destino"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div className="col-span-2 md:col-span-1">
-                <label className="label">Destino</label>
-                <input required className="input" value={formData.destino} onChange={e => setFormData({...formData, destino: e.target.value})} />
+                <label className="label flex items-center gap-1.5">
+                  <FileText size={12} className="text-primary" /> Nombre del Destino (Opcional)
+                </label>
+                <input
+                  className="input mt-1"
+                  placeholder="Ej: Tour Mágico por Colombia, Crucero Bahamas..."
+                  value={destinoNombre}
+                  onChange={e => setDestinoNombre(e.target.value)}
+                />
               </div>
               <div className="col-span-2 md:col-span-1">
                 <label className="label flex items-center gap-1.5">
