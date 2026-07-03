@@ -90,7 +90,7 @@ export default function OperativePanelModal({
           {[
             { id: 'resumen', label: 'Resumen', count: null },
             { id: 'cotizaciones', label: 'Cotizaciones', count: operativePanel.cotizacionesList?.length },
-            { id: 'proformas', label: 'Proformas', count: operativePanel.ventasList?.length },
+            { id: 'proformas', label: 'Vendidas', count: operativePanel.ventasList?.length },
             { id: 'vouchers', label: 'Vouchers', count: operativePanel.vouchersList?.length }
           ].map(tab => (
             <button
@@ -290,7 +290,7 @@ export default function OperativePanelModal({
 
           {profileTab === 'proformas' && (
             <div className="space-y-4">
-              <h3 className="font-black text-sm uppercase tracking-widest text-gray-400">Proformas / Ventas Activas</h3>
+              <h3 className="font-black text-sm uppercase tracking-widest text-gray-400">Vendidas Activas</h3>
               <div className="overflow-x-auto border border-gray-100 rounded-2xl">
                 <table className="w-full text-left">
                   <thead>

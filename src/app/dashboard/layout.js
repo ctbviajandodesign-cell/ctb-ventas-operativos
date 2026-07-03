@@ -69,7 +69,7 @@ export default function DashboardLayout({ children }) {
   const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/dashboard/cotizaciones', label: 'Cotizaciones', icon: FileText },
-    { href: '/dashboard/ventas', label: 'Proformas', icon: DollarSign },
+    { href: '/dashboard/ventas', label: 'Vendidas', icon: DollarSign },
     { href: '/dashboard/vouchers', label: 'Vouchers', icon: QrCode },
     { href: '/dashboard/logros', label: 'Mis Logros', icon: Star },
     { href: '/dashboard/analisis', label: 'IA Comercial', icon: Sparkles },

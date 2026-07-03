@@ -87,7 +87,7 @@ export default function GlobalSearch() {
             {results.quotes.length > 0 && (
               <div className="p-4 border-b border-gray-50 last:border-0">
                 <h4 className="px-4 text-xs font-black text-gray-300 uppercase tracking-widest mb-3 flex items-center gap-2">
-                  <FileText size={14} /> Cotizaciones / Proformas
+                  <FileText size={14} /> Cotizaciones / Vendidas
                 </h4>
                 <div className="space-y-1">
                   {results.quotes.map(q => (

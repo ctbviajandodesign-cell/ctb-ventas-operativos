@@ -699,7 +699,7 @@ export default function DashboardClient() {
         <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col justify-between h-full">
           <div className="mb-4">
             <h4 className="text-sm font-black text-gray-905 uppercase tracking-tighter italic">Buscador CTB</h4>
-            <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mt-1">Busca cotizaciones, proformas o vouchers por código o pasajero</p>
+            <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mt-1">Busca cotizaciones, vendidas o vouchers por código o pasajero</p>
           </div>
           <div className="w-full flex-1 flex items-center">
             <GlobalSearch />
@@ -773,7 +773,7 @@ export default function DashboardClient() {
           value={`$${(metrics.totalVendido || 0).toLocaleString()}`} 
           icon={DollarSign}
           color="success"
-          description="Volumen bruto de proformas cerradas"
+          description="Volumen bruto de vendidas"
           href={`/dashboard/ventas?dateFilter=${selectedPeriod}`}
         />
         <StatsCard 
@@ -804,7 +804,7 @@ export default function DashboardClient() {
           description="Volumen bruto cliente"
         />
         <StatsCard 
-          title="Proformas Vendidas"
+          title="Vendidas"
           value={(metrics.ganadas || 0).toLocaleString()} 
           icon={Trophy}
           color="accent"

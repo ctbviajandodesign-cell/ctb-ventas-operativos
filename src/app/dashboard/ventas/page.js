@@ -278,7 +278,7 @@ function VentasPageContent() {
       })
       const result = await res.json()
       if (!result.ok) throw new Error(result.error || 'Error al eliminar la venta')
-      showToast('Venta/Proforma eliminada permanentemente de la base de datos.')
+      showToast('Venta/Vendida eliminada permanentemente de la base de datos.')
       setDeleteConfirmVenta(null)
       fetchVentas()
     } catch (err) {
@@ -432,7 +432,7 @@ function VentasPageContent() {
 
       {/* ENCABEZADO */}
       <div>
-        <h1 className="text-3xl font-black text-gray-900 tracking-tighter uppercase italic">Mis Proformas</h1>
+        <h1 className="text-3xl font-black text-gray-900 tracking-tighter uppercase italic">Mis Vendidas</h1>
         <p className="text-gray-400 text-xs font-black uppercase tracking-widest mt-1">Cotizaciones aprobadas y convertidas en venta</p>
       </div>
 
