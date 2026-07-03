@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { QRCodeSVG } from 'qrcode.react'
+import airportsData from '@/data/airports.json'
 
 import { 
   CheckCircle2, 
@@ -117,14 +118,37 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, currentUser
 
   const formatDestino = (raw) => {
     if (!raw) return 'S/D'
+
+    const formatIataWithCountry = (iataStr) => {
+      if (!iataStr) return ''
+      const iatas = iataStr.split(',')
+      return iatas.map(code => {
+        const cleanCode = code.trim().toUpperCase()
+        const apt = airportsData.find(a => a.iata.toUpperCase() === cleanCode)
+        if (apt && apt.country) {
+          const cCode = apt.country.substring(0, 3).toUpperCase()
+          return `${cleanCode} (${cCode})`
+        }
+        return cleanCode
+      }).filter(Boolean).join(' + ')
+    }
+
     if (raw.includes('|')) {
       const [iatas, name] = raw.split('|')
-      const formattedIatas = iatas.replace(/,/g, ', ')
-      if (name && formattedIatas) return `${name} (${formattedIatas})`
+      const formattedIatas = formatIataWithCountry(iatas)
+      
+      if (name && formattedIatas) {
+        return (
+          <div className="flex flex-col gap-0.5">
+            <span>{formattedIatas}</span>
+            <span className="text-gray-600">{name}</span>
+          </div>
+        )
+      }
       if (name) return name
       return formattedIatas
     }
-    return raw.replace(/,/g, ', ')
+    return formatIataWithCountry(raw)
   }
 
 
@@ -432,7 +456,7 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, currentUser
                 </div>
                 <div className="bg-gray-50 p-3 sm:p-4 rounded-2xl border border-gray-100 min-w-0">
                   <p className="text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-widest mb-1 truncate">Destino</p>
-                  <p className="text-xs sm:text-sm font-black text-gray-800 leading-tight uppercase truncate" title={viewingQuote.destino}>{formatDestino(viewingQuote.destino)}</p>
+                  <div className="text-xs sm:text-sm font-black text-gray-800 leading-tight uppercase truncate" title={viewingQuote.destino}>{formatDestino(viewingQuote.destino)}</div>
                 </div>
               </div>
 
@@ -617,7 +641,7 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, currentUser
               <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
                 <p className="text-xs font-black text-red-600 uppercase tracking-widest mb-1">Se eliminará permanentemente:</p>
                 <p className="font-black text-gray-900 text-sm">#{deleteConfirmQuote.codigo} — {deleteConfirmQuote.agencia || 'Directo'}</p>
-                <p className="text-xs text-gray-500 mt-1">{formatDestino(deleteConfirmQuote.destino)}</p>
+                <div className="text-xs text-gray-500 mt-1 uppercase">{formatDestino(deleteConfirmQuote.destino)}</div>
               </div>
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-800 font-bold space-y-1">
                 <p>⚠️ Se borrarán también todas las <b>ventas</b> y <b>vouchers</b> asociados.</p>
