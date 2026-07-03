@@ -97,13 +97,15 @@ export default function DashboardLayout({ children }) {
         {/* Logo and Close Button */}
         <div className="px-6 py-6 border-b border-gray-50 relative">
           <div className="flex items-center justify-center py-2">
-            <Image
-              src="/logo.png"
-              alt="CTB Viajando"
-              width={140}
-              height={50}
-              className="object-contain"
-            />
+            <Link href="/dashboard">
+              <Image
+                src="/logo.png"
+                alt="CTB Viajando"
+                width={140}
+                height={50}
+                className="object-contain hover:scale-105 transition-transform"
+              />
+            </Link>
           </div>
           
           <button 
