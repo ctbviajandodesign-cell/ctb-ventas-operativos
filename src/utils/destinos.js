@@ -5,7 +5,12 @@ export const formatIataWithCountry = (iataStr) => {
   const iatas = iataStr.split(',')
   return iatas.map(code => {
     const cleanCode = code.trim().toUpperCase()
-    const apt = airportsData.find(a => a.iata.toUpperCase() === cleanCode)
+    
+    let apt = airportsData.find(a => a.iata.toUpperCase() === cleanCode)
+    if (!apt) {
+      apt = airportsData.find(a => a.city.toUpperCase() === cleanCode)
+    }
+
     if (apt && apt.country) {
       const cCode = apt.country.substring(0, 3).toUpperCase()
       const displayName = apt.city ? apt.city.toUpperCase() : cleanCode

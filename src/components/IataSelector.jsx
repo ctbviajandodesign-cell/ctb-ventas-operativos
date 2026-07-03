@@ -46,7 +46,8 @@ export default function IataSelector({ value = '', onChange, placeholder = 'Busc
   }, [query])
 
   const handleSelect = (airport) => {
-    const newVal = airport.iata
+    // Show city name instead of IATA code in the input
+    const newVal = airport.city.toUpperCase()
     setQuery(newVal)
     onChange(newVal)
     setIsOpen(false)
