@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { MapPin, X } from 'lucide-react'
 import airportsData from '@/data/airports.json'
+import { cityIataMap } from '@/utils/destinos'
 
 export default function IataSelector({ value = '', onChange, placeholder = 'Buscar ciudad o IATA...' }) {
   const [query, setQuery] = useState(value)
@@ -46,8 +47,8 @@ export default function IataSelector({ value = '', onChange, placeholder = 'Busc
   }, [query])
 
   const handleSelect = (airport) => {
-    // Show city name instead of IATA code in the input
-    const newVal = airport.city.toUpperCase()
+    // Show city IATA code if one exists, otherwise the airport IATA
+    const newVal = cityIataMap[airport.iata.toUpperCase()] || airport.iata.toUpperCase()
     setQuery(newVal)
     onChange(newVal)
     setIsOpen(false)

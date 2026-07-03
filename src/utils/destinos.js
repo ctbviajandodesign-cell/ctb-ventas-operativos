@@ -1,20 +1,48 @@
 import airportsData from '@/data/airports.json'
 
+export const cityIataMap = {
+  'EZE': 'BUE', // Ezeiza -> Buenos Aires
+  'AEP': 'BUE', // Aeroparque -> Buenos Aires
+  'JFK': 'NYC', // JFK -> New York
+  'LGA': 'NYC',
+  'EWR': 'NYC',
+  'LHR': 'LON', // Heathrow -> London
+  'LGW': 'LON',
+  'CDG': 'PAR', // Charles de Gaulle -> Paris
+  'ORY': 'PAR',
+  'GRU': 'SAO', // Guarulhos -> Sao Paulo
+  'CGH': 'SAO',
+  'VCP': 'SAO',
+  'GIG': 'RIO', // Galeao -> Rio de Janeiro
+  'SDU': 'RIO'
+}
+
+export const reverseCityIataMap = {
+  'BUE': 'EZE',
+  'NYC': 'JFK',
+  'LON': 'LHR',
+  'PAR': 'CDG',
+  'SAO': 'GRU',
+  'RIO': 'GIG'
+}
+
 export const formatIataWithCountry = (iataStr) => {
   if (!iataStr) return ''
   const iatas = iataStr.split(',')
   return iatas.map(code => {
     const cleanCode = code.trim().toUpperCase()
     
-    let apt = airportsData.find(a => a.iata.toUpperCase() === cleanCode)
+    // Look up via airport if it's a known city code
+    const lookupCode = reverseCityIataMap[cleanCode] || cleanCode
+    
+    let apt = airportsData.find(a => a.iata.toUpperCase() === lookupCode)
     if (!apt) {
       apt = airportsData.find(a => a.city.toUpperCase() === cleanCode)
     }
 
     if (apt && apt.country) {
       const cCode = apt.country.substring(0, 3).toUpperCase()
-      const displayName = apt.city ? apt.city.toUpperCase() : cleanCode
-      return `${displayName} (${cCode})`
+      return `${cleanCode} (${cCode})`
     }
     return cleanCode
   }).filter(Boolean).join(' + ')
