@@ -2278,5 +2278,35 @@
     "name": "Viracopos",
     "city": "Sao Paulo",
     "country": "Brazil"
+  },
+  {
+    "iata": "ROM",
+    "name": "Rome",
+    "city": "Rome",
+    "country": "Italy"
+  },
+  {
+    "iata": "MIL",
+    "name": "Milan",
+    "city": "Milan",
+    "country": "Italy"
+  },
+  {
+    "iata": "WAS",
+    "name": "Washington",
+    "city": "Washington",
+    "country": "United States"
+  },
+  {
+    "iata": "YMQ",
+    "name": "Montreal",
+    "city": "Montreal",
+    "country": "Canada"
+  },
+  {
+    "iata": "YTO",
+    "name": "Toronto",
+    "city": "Toronto",
+    "country": "Canada"
   }
 ]
