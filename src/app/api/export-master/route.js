@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import ExcelJS from 'exceljs'
+import { formatDestinoString, matchesDestinoFilter } from '@/utils/destinos'
 
 export const maxDuration = 60; 
 
@@ -24,6 +25,7 @@ export async function POST(req) {
       endDate, 
       selectedOperative, 
       selectedCity,
+      selectedDestino,
       dateFilterText,
       operativeName
     } = body
@@ -76,6 +78,10 @@ export async function POST(req) {
       filteredData = filteredData.filter(q => q.profiles?.ciudad === selectedCity)
     }
 
+    if (selectedDestino) {
+      filteredData = filteredData.filter(q => matchesDestinoFilter(q.destino, selectedDestino))
+    }
+
     if (filteredData.length === 0) {
       return Response.json({ error: 'No data found' }, { status: 404 })
     }
@@ -115,7 +121,9 @@ export async function POST(req) {
       const comercial = normalizeText(q.comercial || 'N/A')
       const ciudad = normalizeText(q.profiles?.ciudad || 'N/A')
       const operativo = normalizeText(q.profiles?.nombre || 'N/A')
-      const destino = normalizeText(q.destino || 'N/A')
+      const destinoRaw = q.destino || ''
+      const destinoText = formatDestinoString(destinoRaw)
+      const destino = normalizeText(destinoText || 'N/A')
       const numPasajeros = Number(q.numero_pasajeros) || 0
       
       const passengerNames = Array.isArray(q.nombres_pasajeros) 

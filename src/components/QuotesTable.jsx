@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { QRCodeSVG } from 'qrcode.react'
-import airportsData from '@/data/airports.json'
+import { formatIataWithCountry } from '@/utils/destinos'
 
 import { 
   CheckCircle2, 
@@ -118,20 +118,6 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, currentUser
 
   const formatDestino = (raw) => {
     if (!raw) return 'S/D'
-
-    const formatIataWithCountry = (iataStr) => {
-      if (!iataStr) return ''
-      const iatas = iataStr.split(',')
-      return iatas.map(code => {
-        const cleanCode = code.trim().toUpperCase()
-        const apt = airportsData.find(a => a.iata.toUpperCase() === cleanCode)
-        if (apt && apt.country) {
-          const cCode = apt.country.substring(0, 3).toUpperCase()
-          return `${cleanCode} (${cCode})`
-        }
-        return cleanCode
-      }).filter(Boolean).join(' + ')
-    }
 
     if (raw.includes('|')) {
       const [iatas, name] = raw.split('|')

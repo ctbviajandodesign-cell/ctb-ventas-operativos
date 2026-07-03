@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useUserSession } from '@/hooks/useUserSession'
-import { Download, Calendar, Filter, Users, Database, FileSpreadsheet, AlertCircle } from 'lucide-react'
+import { Download, Calendar, Filter, Users, Database, FileSpreadsheet, AlertCircle, Plane } from 'lucide-react'
 import { showToast } from '@/utils/toast'
 import { saveAs } from 'file-saver'
 
@@ -19,6 +19,7 @@ export default function ReportesPage() {
   const [customEndDate, setCustomEndDate] = useState('')
   const [selectedCity, setSelectedCity] = useState('todas')
   const [selectedOperative, setSelectedOperative] = useState('todas')
+  const [selectedDestino, setSelectedDestino] = useState('')
 
   useEffect(() => {
     if (isAdmin) {
@@ -90,6 +91,7 @@ export default function ReportesPage() {
           endDate: endDate ? endDate.toISOString() : null,
           selectedOperative,
           selectedCity,
+          selectedDestino,
           dateFilterText,
           operativeName
         })
@@ -261,6 +263,21 @@ export default function ReportesPage() {
                     <option key={op.id} value={op.id}>{op.nombre}</option>
                   ))}
               </select>
+            </div>
+          </div>
+
+          {/* Filtro por destino */}
+          <div className="space-y-3">
+            <label className="text-xs font-black text-gray-400 uppercase tracking-widest">País o Ciudad Destino</label>
+            <div className="relative flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 hover:bg-gray-100/50 transition-colors">
+              <Plane size={18} className="text-primary shrink-0" />
+              <input
+                type="text"
+                placeholder="Ej: Colombia, GYE, Europa..."
+                className="w-full bg-transparent border-none text-sm font-black text-gray-800 outline-none focus:ring-0 placeholder:text-gray-400 placeholder:font-normal uppercase"
+                value={selectedDestino}
+                onChange={e => setSelectedDestino(e.target.value)}
+              />
             </div>
           </div>
 

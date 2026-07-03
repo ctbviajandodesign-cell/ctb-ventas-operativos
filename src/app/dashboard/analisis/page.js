@@ -3,14 +3,16 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useUserSession } from '@/hooks/useUserSession'
-import { Sparkles, Trophy, RefreshCw, AlertCircle, CheckCircle, TrendingUp, Download } from 'lucide-react'
+import { Sparkles, Trophy, RefreshCw, AlertCircle, CheckCircle, TrendingUp, Download, Plane } from 'lucide-react'
 import AIInsightCard from '@/components/AIInsightCard'
+import { formatDestinoString, matchesDestinoFilter } from '@/utils/destinos'
 
 export default function AnalisisPage() {
   const { user, profile, isAdmin, loading: sessionLoading } = useUserSession()
   const [board, setBoard] = useState([])
   const [selectedOp, setSelectedOp] = useState('global')
   const [timeframe, setTimeframe] = useState('mes') // 'mes' | 'ano'
+  const [selectedDestino, setSelectedDestino] = useState('')
   const [loading, setLoading] = useState(true)
   const [rankingVendidos, setRankingVendidos] = useState([])
   const [rankingObjeciones, setRankingObjeciones] = useState([])
@@ -56,8 +58,12 @@ export default function AnalisisPage() {
         cotsQuery = cotsQuery.eq('operativo_id', targetOp)
       }
 
-      const { data: cots, error } = await cotsQuery
+      let { data: cots, error } = await cotsQuery
       if (error) throw error
+
+      if (selectedDestino) {
+        cots = cots.filter(c => matchesDestinoFilter(c.destino, selectedDestino))
+      }
 
       const total = cots?.length || 0
       const ganadas = cots?.filter(c => c.estado === 'ganada')?.length || 0
@@ -73,7 +79,8 @@ export default function AnalisisPage() {
       // Destino top
       const destMap = {}
       cots?.forEach(q => { if (q.destino) destMap[q.destino] = (destMap[q.destino] || 0) + 1 })
-      const topDestino = Object.keys(destMap).sort((a,b) => destMap[b] - destMap[a])[0] || 'N/A'
+      const topDestinoRaw = Object.keys(destMap).sort((a,b) => destMap[b] - destMap[a])[0] || 'N/A'
+      const topDestino = topDestinoRaw !== 'N/A' ? formatDestinoString(topDestinoRaw) : 'N/A'
 
       // Motivos de pérdida top
       const motivosMap = {}
@@ -117,7 +124,7 @@ export default function AnalisisPage() {
         }
       })
       const rankingVendidosData = Object.entries(destinosGanadosMap)
-        .map(([destino, data]) => ({ destino, ...data }))
+        .map(([destino, data]) => ({ destino: formatDestinoString(destino), count: data.count, valor: data.valor }))
         .sort((a, b) => b.count - a.count)
 
       // 2. Destinos con Más Objeciones (Perdidas / Canceladas)
@@ -137,7 +144,7 @@ export default function AnalisisPage() {
         .map(([destino, data]) => {
           const mainObjection = Object.entries(data.motivos)
             .sort((a, b) => b[1] - a[1])[0]?.[0] || 'Sin especificar'
-          return { destino, count: data.count, mainObjection }
+          return { destino: formatDestinoString(destino), count: data.count, mainObjection }
         })
         .sort((a, b) => b.count - a.count)
 
@@ -170,7 +177,7 @@ export default function AnalisisPage() {
     if (!sessionLoading) {
       fetchData()
     }
-  }, [selectedOp, sessionLoading, timeframe])
+  }, [selectedOp, sessionLoading, timeframe, selectedDestino])
 
   const modoIA = (profile?.rol === 'admin' || profile?.rol === 'superadmin') ? (selectedOp === 'global' ? 'GLOBAL_ADMIN' : 'INDIVIDUAL_ADMIN') : 'OPERATIVE'
 
@@ -248,6 +255,18 @@ export default function AnalisisPage() {
               </select>
             </div>
           )}
+          
+          {/* Filtro por destino */}
+          <div className="bg-gray-50 p-1.5 rounded-2xl border border-gray-100 flex items-center gap-2">
+            <Plane size={16} className="text-gray-400 ml-2" />
+            <input
+              type="text"
+              placeholder="Filtro Destino..."
+              value={selectedDestino}
+              onChange={(e) => setSelectedDestino(e.target.value)}
+              className="bg-white border border-gray-200 text-xs font-black text-gray-800 uppercase tracking-widest py-2 px-3 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-gray-400 placeholder:font-normal w-32 md:w-48"
+            />
+          </div>
         </div>
       </div>
 
