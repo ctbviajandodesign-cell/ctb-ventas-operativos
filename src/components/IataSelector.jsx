@@ -61,6 +61,15 @@ export default function IataSelector({ value = '', onChange, placeholder = 'Busc
     setIsOpen(true)
   }
 
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault() // Prevent form submission
+      if (isOpen && filteredAirports.length > 0) {
+        handleSelect(filteredAirports[0])
+      }
+    }
+  }
+
   return (
     <div className="relative" ref={wrapperRef}>
       <div className="relative">
@@ -71,6 +80,7 @@ export default function IataSelector({ value = '', onChange, placeholder = 'Busc
           placeholder={placeholder}
           value={query}
           onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
           onFocus={() => setIsOpen(true)}
           maxLength={30}
         />
