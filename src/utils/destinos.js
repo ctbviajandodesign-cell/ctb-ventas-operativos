@@ -31,6 +31,17 @@ export const reverseCityIataMap = {
   'RIO': 'GIG'
 }
 
+const countryCodeMap = {
+  'UNITED STATES': 'USA',
+  'REP. DOMINICANA': 'DOM',
+  'DOMINICAN REPUBLIC': 'DOM',
+  'COSTA RICA': 'CRI',
+  'PUERTO RICO': 'PRI',
+  'SOUTH AFRICA': 'ZAF',
+  'UNITED KINGDOM': 'GBR',
+  'NEW ZEALAND': 'NZL'
+}
+
 export const formatIataWithCountry = (iataStr) => {
   if (!iataStr) return ''
   const iatas = iataStr.split(',')
@@ -46,7 +57,8 @@ export const formatIataWithCountry = (iataStr) => {
     }
 
     if (apt && apt.country) {
-      const cCode = apt.country.substring(0, 3).toUpperCase()
+      const countryUpper = apt.country.toUpperCase()
+      const cCode = countryCodeMap[countryUpper] || apt.country.substring(0, 3).toUpperCase()
       return `${cleanCode} (${cCode})`
     }
     return cleanCode
