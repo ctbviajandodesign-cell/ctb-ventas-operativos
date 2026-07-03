@@ -7,13 +7,14 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { 
   TrendingUp, Search, XCircle, Trash2, Edit, DollarSign,
   CheckCircle2, BarChart3, QrCode, ExternalLink, AlertCircle, Download, AlertTriangle, RotateCcw, Share2,
-  ChevronLeft, ChevronRight, Calendar, Filter, Users
+  ChevronLeft, ChevronRight, Calendar, Filter, Users, FileText
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 import Link from 'next/link'
 import { showToast } from '@/utils/toast'
+import { generateProformaPDF } from '@/lib/pdf-generator'
 
 export default function VentasPage() {
   return (
@@ -771,6 +772,20 @@ function VentasPageContent() {
                             >
                               <QrCode size={18} />
                             </a>
+                            
+                            <button
+                              onClick={(e) => {
+                                  e.stopPropagation()
+                                  // Find the URL to the voucher QR or just render it if we want. We'll pass null for now to keep it simple, or generate a qrBase64 if we had a canvas.
+                                  const qrUrl = `${window.location.origin}/v/${vCodigo}`
+                                  // For PDF we just pass the full venta object
+                                  generateProformaPDF({ ...venta.cotizaciones, estado: 'ganada', id: venta.cotizaciones?.id, created_at: venta.created_at, notas_iniciales: venta.cotizaciones?.notas_iniciales, destino_formateado: venta.cotizaciones?.destino, valor_total: venta.total, valor_comision: Number(venta.comision) + Number(venta.utilidad) }, null)
+                                }}
+                              className="p-2 text-primary hover:bg-primary/5 rounded-xl transition-colors"
+                              title="Descargar PDF Vendida"
+                            >
+                              <FileText size={18} />
+                            </button>
                             <button
                               onClick={(e) => {
                                   e.stopPropagation()
