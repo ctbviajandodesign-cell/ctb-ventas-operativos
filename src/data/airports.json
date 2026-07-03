@@ -2242,5 +2242,41 @@
     "name": "Cuenca (España)",
     "city": "Cuenca",
     "country": "Spain"
+  },
+  {
+    "iata": "JFK",
+    "name": "John F. Kennedy",
+    "city": "New York",
+    "country": "United States"
+  },
+  {
+    "iata": "LGA",
+    "name": "LaGuardia",
+    "city": "New York",
+    "country": "United States"
+  },
+  {
+    "iata": "EWR",
+    "name": "Newark",
+    "city": "New York",
+    "country": "United States"
+  },
+  {
+    "iata": "LGW",
+    "name": "Gatwick",
+    "city": "London",
+    "country": "United Kingdom"
+  },
+  {
+    "iata": "ORY",
+    "name": "Orly",
+    "city": "Paris",
+    "country": "France"
+  },
+  {
+    "iata": "VCP",
+    "name": "Viracopos",
+    "city": "Sao Paulo",
+    "country": "Brazil"
   }
 ]
