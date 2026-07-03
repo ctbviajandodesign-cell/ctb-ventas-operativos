@@ -115,6 +115,18 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, currentUser
     return null
   }
 
+  const formatDestino = (raw) => {
+    if (!raw) return 'S/D'
+    if (raw.includes('|')) {
+      const [iatas, name] = raw.split('|')
+      const formattedIatas = iatas.replace(/,/g, ', ')
+      if (name && formattedIatas) return `${name} (${formattedIatas})`
+      if (name) return name
+      return formattedIatas
+    }
+    return raw.replace(/,/g, ', ')
+  }
+
 
 
   const handleDelete = async (quote) => {
@@ -254,7 +266,7 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, currentUser
                 </td>
                 <td className="py-2.5 px-4">
                   <div className="font-black text-gray-800 text-sm leading-snug">{quote.agencia || 'Directo'}</div>
-                  <div className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.1em]">{quote.destino || 'S/D'}</div>
+                  <div className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.1em]" title={quote.destino}>{formatDestino(quote.destino)}</div>
                   {isPerdida && quote.motivo_perdida && (
                     <div className="text-[9px] font-black text-amber-600 bg-amber-50 border border-amber-200/60 rounded px-1.5 py-0.2 mt-0.5 inline-block uppercase">
                       Motivo: {quote.motivo_perdida}
@@ -420,7 +432,7 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, currentUser
                 </div>
                 <div className="bg-gray-50 p-3 sm:p-4 rounded-2xl border border-gray-100 min-w-0">
                   <p className="text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-widest mb-1 truncate">Destino</p>
-                  <p className="text-xs sm:text-sm font-black text-gray-800 leading-tight uppercase truncate">{viewingQuote.destino}</p>
+                  <p className="text-xs sm:text-sm font-black text-gray-800 leading-tight uppercase truncate" title={viewingQuote.destino}>{formatDestino(viewingQuote.destino)}</p>
                 </div>
               </div>
 
@@ -605,7 +617,7 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, currentUser
               <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
                 <p className="text-xs font-black text-red-600 uppercase tracking-widest mb-1">Se eliminará permanentemente:</p>
                 <p className="font-black text-gray-900 text-sm">#{deleteConfirmQuote.codigo} — {deleteConfirmQuote.agencia || 'Directo'}</p>
-                <p className="text-xs text-gray-500 mt-1">{deleteConfirmQuote.destino}</p>
+                <p className="text-xs text-gray-500 mt-1">{formatDestino(deleteConfirmQuote.destino)}</p>
               </div>
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-800 font-bold space-y-1">
                 <p>⚠️ Se borrarán también todas las <b>ventas</b> y <b>vouchers</b> asociados.</p>
