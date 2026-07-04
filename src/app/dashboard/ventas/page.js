@@ -14,6 +14,7 @@ import { es } from 'date-fns/locale'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 import Link from 'next/link'
 import { showToast } from '@/utils/toast'
+import { formatIataWithCountry } from '@/utils/destinos'
 import { generateProformaPDF } from '@/lib/pdf-generator'
 
 export default function VentasPage() {
@@ -48,6 +49,21 @@ function VentasPageContent() {
   const [selectedVenta, setSelectedVenta] = useState(null)
   const [selectedVoucher, setSelectedVoucher] = useState(null)
   const [voucherLoading, setVoucherLoading] = useState(false)
+
+  const formatDestino = (raw, createdAt) => {
+    if (!raw) return 'S/D'
+    const isOld = createdAt ? new Date(createdAt) < new Date('2026-07-01T00:00:00') : false
+    if (raw.includes('|')) {
+      const [iatas, name] = raw.split('|')
+      const formattedIatas = isOld ? iatas : formatIataWithCountry(iatas)
+      if (name && formattedIatas) return `${formattedIatas} | ${name}`
+      return name || formattedIatas
+    }
+    return isOld ? raw : formatIataWithCountry(raw)
+  }
+
+  // Refs para impresión de voucher
+  const printContentRef = useRef(null) 
   const [annulVentaModal, setAnnulVentaModal] = useState(null) // { venta, motivo }
   const [deleteConfirmVenta, setDeleteConfirmVenta] = useState(null)
   const [deletingPermanent, setDeletingPermanent] = useState(false)
@@ -724,7 +740,7 @@ function VentasPageContent() {
                   </td>
                   <td className="py-4 px-6">
                     <div className="font-black text-gray-800 text-sm">{venta.cotizaciones?.agencia}</div>
-                    <div className="text-xs text-gray-400 font-bold uppercase tracking-wider">{venta.cotizaciones?.destino}</div>
+                    <div className="text-xs text-gray-400 font-bold uppercase tracking-wider" title={venta.cotizaciones?.destino}>{formatDestino(venta.cotizaciones?.destino, venta.created_at)}</div>
                   </td>
 
                   <td className="py-4 px-6 text-right font-black text-gray-900">
@@ -779,7 +795,7 @@ function VentasPageContent() {
                                   // Find the URL to the voucher QR or just render it if we want. We'll pass null for now to keep it simple, or generate a qrBase64 if we had a canvas.
                                   const qrUrl = `${window.location.origin}/v/${vCodigo}`
                                   // For PDF we just pass the full venta object
-                                  generateProformaPDF({ ...venta.cotizaciones, estado: 'ganada', id: venta.cotizaciones?.id, created_at: venta.created_at, notas_iniciales: venta.cotizaciones?.notas_iniciales, destino_formateado: venta.cotizaciones?.destino, valor_total: venta.total, valor_comision: Number(venta.comision) + Number(venta.utilidad) }, null)
+                                  generateProformaPDF({ ...venta.cotizaciones, estado: 'ganada', id: venta.cotizaciones?.id, created_at: venta.created_at, notas_iniciales: venta.cotizaciones?.notas_iniciales, destino_formateado: formatDestino(venta.cotizaciones?.destino, venta.created_at), valor_total: venta.total, valor_comision: Number(venta.comision) + Number(venta.utilidad) }, null)
                                 }}
                               className="p-2 text-primary hover:bg-primary/5 rounded-xl transition-colors"
                               title="Descargar PDF Vendida"
@@ -896,7 +912,7 @@ function VentasPageContent() {
               <div>
                 <p className="text-xs font-black text-primary uppercase tracking-widest">Detalle de Venta</p>
                 <h2 className="text-2xl font-black">#{selectedVenta.cotizaciones?.codigo}</h2>
-                <p className="text-sm text-gray-400 mt-1">{selectedVenta.cotizaciones?.agencia} · {selectedVenta.cotizaciones?.destino}</p>
+                <p className="text-sm text-gray-400 mt-1">{selectedVenta.cotizaciones?.agencia} · {formatDestino(selectedVenta.cotizaciones?.destino, selectedVenta.created_at)}</p>
               </div>
               <button onClick={() => { setSelectedVenta(null); setSelectedVoucher(null) }} className="p-2 hover:bg-white/10 rounded-full transition-colors">
                 <XCircle size={24} />
@@ -1134,7 +1150,7 @@ function VentasPageContent() {
               <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
                 <p className="text-xs font-black text-red-600 uppercase tracking-widest mb-1">Se eliminará permanentemente:</p>
                 <p className="font-black text-gray-900 text-sm">#{deleteConfirmVenta.cotizaciones?.codigo} — {deleteConfirmVenta.cotizaciones?.agencia || 'Directo'}</p>
-                <p className="text-xs text-gray-500 mt-1">{deleteConfirmVenta.cotizaciones?.destino}</p>
+                <p className="text-xs text-gray-500 mt-1 uppercase">{formatDestino(deleteConfirmVenta.cotizaciones?.destino, deleteConfirmVenta.created_at)}</p>
               </div>
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-800 font-bold space-y-1">
                 <p>⚠️ Se borrará también el <b>voucher</b> asociado permanentemente.</p>
