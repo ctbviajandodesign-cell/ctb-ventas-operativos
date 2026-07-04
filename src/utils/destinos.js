@@ -2,7 +2,7 @@ import airportsData from '@/data/airports.json'
 
 export const cityIataMap = {
   "JUL": "PUN",
-  "ICA": "PAR",
+  "ICA": "PIO",
   "VVI": "SRZ",
   "GRU": "SAO",
   "GIG": "RIO",

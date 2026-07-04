@@ -70,7 +70,7 @@
     "iso": "ECU"
   },
   {
-    "iata": "RIO",
+    "iata": "RBB",
     "name": "Riobamba",
     "city": "Riobamba",
     "country": "Ecuador",
@@ -301,7 +301,7 @@
     "iso": "PER"
   },
   {
-    "iata": "PAR",
+    "iata": "PIO",
     "name": "Paracas",
     "city": "Paracas",
     "country": "Perú",
@@ -612,13 +612,6 @@
     "iata": "CJC",
     "name": "Calama / San Pedro Atacama",
     "city": "Calama / San Pedro Atacama",
-    "country": "Chile",
-    "iso": "CHL"
-  },
-  {
-    "iata": "FTE",
-    "name": "El Calafate",
-    "city": "El Calafate",
     "country": "Chile",
     "iso": "CHL"
   },
@@ -1113,7 +1106,7 @@
     "iso": "GTM"
   },
   {
-    "iata": "AGT",
+    "iata": "ATG",
     "name": "Antigua Guatemala",
     "city": "Antigua Guatemala",
     "country": "Guatemala",
@@ -3337,20 +3330,6 @@
     "city": "Rarotonga",
     "country": "Islas Cook",
     "iso": "COK"
-  },
-  {
-    "iata": "HNL",
-    "name": "Honolulú",
-    "city": "Honolulú",
-    "country": "Hawái (USA)",
-    "iso": "USA"
-  },
-  {
-    "iata": "OGG",
-    "name": "Maui",
-    "city": "Maui",
-    "country": "Hawái (USA)",
-    "iso": "USA"
   },
   {
     "iata": "CAS",
