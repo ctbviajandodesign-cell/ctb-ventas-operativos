@@ -209,9 +209,14 @@ export const formatIataWithCountry = (iataStr) => {
   if (!iataStr) return ''
   const iatas = iataStr.split(',')
   return iatas.map(code => {
-    const cleanCode = code.trim().toUpperCase()
+    let cleanCode = code.trim().toUpperCase()
     
-    // Look up via airport if it's a known city code
+    // Normalize airport code to city code if necessary (e.g. PTY -> PAC, EZE -> BUE)
+    if (cityIataMap[cleanCode]) {
+      cleanCode = cityIataMap[cleanCode]
+    }
+    
+    // Look up via airport if it's a known city code to find the country
     const lookupCode = reverseCityIataMap[cleanCode] || cleanCode
     
     let apt = airportsData.find(a => a.iata.toUpperCase() === lookupCode)
