@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo, Suspense } from 'react'
+import { useEffect, useState, useMemo, Suspense, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useUserSession } from '@/hooks/useUserSession'
 import { useSearchParams, useRouter } from 'next/navigation'
