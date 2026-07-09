@@ -367,20 +367,18 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, currentUser
                       const activeSale = Array.isArray(quote.ventas) ? quote.ventas.find(v => v.estado === 'activa') : (quote.ventas?.estado === 'activa' ? quote.ventas : null)
                       return (
                         <div className="flex items-center gap-1">
-                          {activeSale && (
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                window.dispatchEvent(new CustomEvent('open-sales-modal', { 
-                                  detail: { ...quote, existingSale: activeSale } 
-                                }))
-                              }}
-                              className="p-1.5 text-success bg-success/10 hover:bg-success/20 rounded-lg border border-success/20 transition-all"
-                              title="Editar Venta y Voucher"
-                            >
-                              <CheckCircle2 size={16} />
-                            </button>
-                          )}
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              window.dispatchEvent(new CustomEvent('open-sales-modal', { 
+                                detail: { ...quote, existingSale: activeSale || undefined } 
+                              }))
+                            }}
+                            className="p-1.5 text-success bg-success/10 hover:bg-success/20 rounded-lg border border-success/20 transition-all"
+                            title={activeSale ? "Editar Venta y Voucher" : "Crear Venta y Voucher"}
+                          >
+                            <CheckCircle2 size={16} />
+                          </button>
                           {vCodigo && (
                             <>
                               <a
