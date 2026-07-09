@@ -364,31 +364,50 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, currentUser
 
                     {isSold && (() => {
                       const vCodigo = getVoucherCodigo(quote)
-                      return vCodigo ? (
+                      const activeSale = Array.isArray(quote.ventas) ? quote.ventas.find(v => v.estado === 'activa') : (quote.ventas?.estado === 'activa' ? quote.ventas : null)
+                      return (
                         <div className="flex items-center gap-1">
-                          <a
-                            href={`/v/${vCodigo}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1.5 text-primary hover:bg-primary/10 rounded-lg border border-primary/10 transition-all"
-                            title="Ver Voucher (QR)"
-                          >
-                            <QrCode size={16} />
-                          </a>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              const url = `${window.location.origin}/v/${vCodigo}`
-                              navigator.clipboard.writeText(url)
-                              showToast('Enlace del voucher copiado!')
-                            }}
-                            className="p-1.5 text-gray-400 hover:text-success hover:bg-success/10 rounded-lg border border-gray-100 transition-all"
-                            title="Copiar Enlace del Voucher"
-                          >
-                            <Share2 size={16} />
-                          </button>
+                          {activeSale && (
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                window.dispatchEvent(new CustomEvent('open-sales-modal', { 
+                                  detail: { ...quote, existingSale: activeSale } 
+                                }))
+                              }}
+                              className="p-1.5 text-success bg-success/10 hover:bg-success/20 rounded-lg border border-success/20 transition-all"
+                              title="Editar Venta y Voucher"
+                            >
+                              <CheckCircle2 size={16} />
+                            </button>
+                          )}
+                          {vCodigo && (
+                            <>
+                              <a
+                                href={`/v/${vCodigo}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 text-primary hover:bg-primary/10 rounded-lg border border-primary/10 transition-all"
+                                title="Ver Voucher (QR)"
+                              >
+                                <QrCode size={16} />
+                              </a>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  const url = `${window.location.origin}/v/${vCodigo}`
+                                  navigator.clipboard.writeText(url)
+                                  showToast('Enlace del voucher copiado!')
+                                }}
+                                className="p-1.5 text-gray-400 hover:text-success hover:bg-success/10 rounded-lg border border-gray-100 transition-all"
+                                title="Copiar Enlace del Voucher"
+                              >
+                                <Share2 size={16} />
+                              </button>
+                            </>
+                          )}
                         </div>
-                      ) : null
+                      )
                     })()}
 
                     {(isSuperAdmin || quote.operativo_id === effectiveUserId) && (
