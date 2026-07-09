@@ -60,13 +60,25 @@ export default function SalesModal() {
         // Cargar voucher existente
         const { data: voucher } = await supabase
           .from('vouchers')
-          .select('id, codigo, estado, pasajeros')
+          .select('*')
           .eq('venta_id', s.id)
           .single()
         if (voucher) {
           setExistingVoucher(voucher)
           if (voucher.pasajeros) {
             setFormData(prev => ({ ...prev, pasajeros_voucher: Array.isArray(voucher.pasajeros) ? voucher.pasajeros.join('\n') : voucher.pasajeros }))
+          }
+          setFormData(prev => ({
+            ...prev,
+            generar_voucher: true,
+            fecha_viaje_desde: voucher.fecha_viaje_desde || '',
+            fecha_viaje_hasta: voucher.fecha_viaje_hasta || '',
+            notas_voucher: voucher.notas || '',
+            recordatorio_dias_antes: voucher.recordatorio_dias_antes?.toString() || '',
+            recordatorio_texto: voucher.recordatorio_texto || ''
+          }))
+          if (voucher.inclusiones) {
+            setInclusions(voucher.inclusiones)
           }
         }
       } else {
@@ -209,30 +221,47 @@ export default function SalesModal() {
         console.warn('Telegram notify error:', notifyErr)
       }
 
-      // Solo crear voucher si es nueva venta y se marcó la opción
-      if (!isEditing && formData.generar_voucher) {
-        const { error: vchError } = await supabase.from('vouchers').insert([{
-          venta_id: ventaId,
-          operativo_id: user.id,
-          codigo: `VCH-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
-          estado: 'activo',
-          fecha_viaje_desde: formData.fecha_viaje_desde || null,
-          fecha_viaje_hasta: formData.fecha_viaje_hasta || null,
-          fecha_caducidad: formData.fecha_viaje_hasta || null,
-          inclusiones: inclusions,
-          notas: formData.notas_voucher,
-          agencia: quote.agencia,
-          valor_total: Number(formData.total) || 0,
-          pasajeros: pasajerosArr,
-          destino: quote.destino,
-          recordatorio_dias_antes: formData.recordatorio_dias_antes ? Number(formData.recordatorio_dias_antes) : null,
-          recordatorio_texto: formData.recordatorio_texto || null
-        }])
-        if (vchError) throw vchError
-        window.location.href = '/dashboard/vouchers'
-        return
+      if (formData.generar_voucher) {
+        if (existingVoucher) {
+          const { error: vchError } = await supabase.from('vouchers').update({
+            fecha_viaje_desde: formData.fecha_viaje_desde || null,
+            fecha_viaje_hasta: formData.fecha_viaje_hasta || null,
+            fecha_caducidad: formData.fecha_viaje_hasta || null,
+            inclusiones: inclusions,
+            notas: formData.notas_voucher,
+            agencia: formData.agencia,
+            valor_total: Number(formData.total) || 0,
+            pasajeros: pasajerosArr,
+            destino: formData.destino,
+            recordatorio_dias_antes: formData.recordatorio_dias_antes ? Number(formData.recordatorio_dias_antes) : null,
+            recordatorio_texto: formData.recordatorio_texto || null
+          }).eq('id', existingVoucher.id)
+          if (vchError) throw vchError
+        } else {
+          const { error: vchError } = await supabase.from('vouchers').insert([{
+            venta_id: ventaId,
+            operativo_id: user.id,
+            codigo: `VCH-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
+            estado: 'activo',
+            fecha_viaje_desde: formData.fecha_viaje_desde || null,
+            fecha_viaje_hasta: formData.fecha_viaje_hasta || null,
+            fecha_caducidad: formData.fecha_viaje_hasta || null,
+            inclusiones: inclusions,
+            notas: formData.notas_voucher,
+            agencia: formData.agencia || quote.agencia,
+            valor_total: Number(formData.total) || 0,
+            pasajeros: pasajerosArr,
+            destino: formData.destino || quote.destino,
+            recordatorio_dias_antes: formData.recordatorio_dias_antes ? Number(formData.recordatorio_dias_antes) : null,
+            recordatorio_texto: formData.recordatorio_texto || null
+          }])
+          if (vchError) throw vchError
+          if (!isEditing) {
+            window.location.href = '/dashboard/vouchers'
+            return
+          }
+        }
       }
-
 
       window.location.reload()
     } catch (error) {
@@ -488,62 +517,60 @@ export default function SalesModal() {
           </div>
 
 
-          {/* OPCIÓN DE VOUCHER — solo si es nueva venta */}
-          {!isEditing && (
-            <div className="space-y-4">
-              <label className="flex items-center gap-4 cursor-pointer bg-primary/5 p-5 rounded-2xl border border-primary/20 hover:border-primary/40 transition-colors">
-                <input type="checkbox" className="w-6 h-6 rounded-lg accent-primary" checked={formData.generar_voucher} onChange={e => setFormData({ ...formData, generar_voucher: e.target.checked })} />
-                <div>
-                  <p className="font-black text-primary uppercase tracking-tighter flex items-center gap-2">
-                    <QrCode size={16} /> Generar Voucher con código QR
-                  </p>
-                  <p className="text-xs text-primary/60 mt-0.5">Crea el voucher oficial para el pasajero</p>
-                </div>
-              </label>
+          {/* OPCIÓN DE VOUCHER */}
+          <div className="space-y-4">
+            <label className="flex items-center gap-4 cursor-pointer bg-primary/5 p-5 rounded-2xl border border-primary/20 hover:border-primary/40 transition-colors">
+              <input type="checkbox" className="w-6 h-6 rounded-lg accent-primary" checked={formData.generar_voucher} onChange={e => setFormData({ ...formData, generar_voucher: e.target.checked })} />
+              <div>
+                <p className="font-black text-primary uppercase tracking-tighter flex items-center gap-2">
+                  <QrCode size={16} /> {existingVoucher ? 'Editar Voucher y QR Oficial' : 'Generar Voucher con código QR'}
+                </p>
+                <p className="text-xs text-primary/60 mt-0.5">{existingVoucher ? 'Actualiza los datos del voucher existente' : 'Crea el voucher oficial para el pasajero'}</p>
+              </div>
+            </label>
 
-              {formData.generar_voucher && (
-                <div className="space-y-5 animate-in slide-in-from-top-2 duration-200">
-                  <div className="grid grid-cols-5 gap-2">
-                    {Object.entries(incIcons).map(([item, Icon]) => (
-                      <button key={item} type="button" onClick={() => setInclusions({ ...inclusions, [item]: !inclusions[item] })}
-                        className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all text-xs ${inclusions[item] ? 'bg-primary text-white border-primary shadow-md' : 'bg-white text-gray-400 border-gray-100 hover:border-gray-200'}`}>
-                        <Icon size={18} />
-                        <span className="text-xs font-black uppercase">{item}</span>
-                      </button>
-                    ))}
+            {formData.generar_voucher && (
+              <div className="space-y-5 animate-in slide-in-from-top-2 duration-200">
+                <div className="grid grid-cols-5 gap-2">
+                  {Object.entries(incIcons).map(([item, Icon]) => (
+                    <button key={item} type="button" onClick={() => setInclusions({ ...inclusions, [item]: !inclusions[item] })}
+                      className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all text-xs ${inclusions[item] ? 'bg-primary text-white border-primary shadow-md' : 'bg-white text-gray-400 border-gray-100 hover:border-gray-200'}`}>
+                      <Icon size={18} />
+                      <span className="text-xs font-black uppercase">{item}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-black text-gray-400 uppercase">Inicio del viaje</label>
+                    <input type="date" className="input font-bold mt-1 text-xs" value={formData.fecha_viaje_desde} onChange={e => setFormData({ ...formData, fecha_viaje_desde: e.target.value })} />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs font-black text-gray-400 uppercase">Inicio del viaje</label>
-                      <input type="date" className="input font-bold mt-1 text-xs" value={formData.fecha_viaje_desde} onChange={e => setFormData({ ...formData, fecha_viaje_desde: e.target.value })} />
-                    </div>
-                    <div>
-                      <label className="text-xs font-black text-gray-400 uppercase">Fin del viaje</label>
-                      <input type="date" className="input font-bold mt-1 text-xs" value={formData.fecha_viaje_hasta} onChange={e => setFormData({ ...formData, fecha_viaje_hasta: e.target.value })} />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="text-xs font-black text-gray-400 uppercase">Notas para el pasajero</label>
-                      <textarea className="input text-xs mt-1 min-h-[70px]" placeholder="Indicaciones, observaciones..." value={formData.notas_voucher} onChange={e => setFormData({ ...formData, notas_voucher: e.target.value })} />
-                    </div>
-                    <div className="col-span-1">
-                      <label className="text-xs font-black text-gray-400 uppercase">Días para Aviso</label>
-                      <input type="number" min="0" className="input font-bold mt-1 text-xs" placeholder="Ej: 5" value={formData.recordatorio_dias_antes} onChange={e => setFormData({ ...formData, recordatorio_dias_antes: e.target.value })} />
-                      <p className="text-[10px] text-gray-400 mt-1">Aviso telegram antes de viaje</p>
-                    </div>
-                    <div className="col-span-1">
-                      <label className="text-xs font-black text-gray-400 uppercase">Nota de aviso</label>
-                      <input type="text" className="input font-bold mt-1 text-xs" placeholder="Ej: Pago de hotel" value={formData.recordatorio_texto} onChange={e => setFormData({ ...formData, recordatorio_texto: e.target.value })} />
-                    </div>
+                  <div>
+                    <label className="text-xs font-black text-gray-400 uppercase">Fin del viaje</label>
+                    <input type="date" className="input font-bold mt-1 text-xs" value={formData.fecha_viaje_hasta} onChange={e => setFormData({ ...formData, fecha_viaje_hasta: e.target.value })} />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-xs font-black text-gray-400 uppercase">Notas para el pasajero</label>
+                    <textarea className="input text-xs mt-1 min-h-[70px]" placeholder="Indicaciones, observaciones..." value={formData.notas_voucher} onChange={e => setFormData({ ...formData, notas_voucher: e.target.value })} />
+                  </div>
+                  <div className="col-span-1">
+                    <label className="text-xs font-black text-gray-400 uppercase">Días para Aviso</label>
+                    <input type="number" min="0" className="input font-bold mt-1 text-xs" placeholder="Ej: 5" value={formData.recordatorio_dias_antes} onChange={e => setFormData({ ...formData, recordatorio_dias_antes: e.target.value })} />
+                    <p className="text-[10px] text-gray-400 mt-1">Aviso telegram antes de viaje</p>
+                  </div>
+                  <div className="col-span-1">
+                    <label className="text-xs font-black text-gray-400 uppercase">Nota de aviso</label>
+                    <input type="text" className="input font-bold mt-1 text-xs" placeholder="Ej: Pago de hotel" value={formData.recordatorio_texto} onChange={e => setFormData({ ...formData, recordatorio_texto: e.target.value })} />
                   </div>
                 </div>
-              )}
+              </div>
+            )}
 
-            </div>
-          )}
+          </div>
 
           <button type="submit" disabled={loading}
             className={`w-full py-5 rounded-2xl text-lg font-black uppercase tracking-tighter shadow-xl transition-all hover:scale-[1.01] active:scale-95 text-white ${isEditing ? 'bg-gray-900 shadow-gray-900/20' : 'bg-primary shadow-primary/30'}`}>
-            {loading ? 'Guardando...' : isEditing ? '✓ Guardar Cambios' : formData.generar_voucher ? '✦ Confirmar Venta y Emitir Voucher' : '✓ Confirmar Venta'}
+            {loading ? 'Guardando...' : isEditing ? (formData.generar_voucher ? '✓ Guardar Cambios y Voucher' : '✓ Guardar Cambios') : formData.generar_voucher ? '✦ Confirmar Venta y Emitir Voucher' : '✓ Confirmar Venta'}
           </button>
         </form>
       </div>

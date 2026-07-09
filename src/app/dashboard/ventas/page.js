@@ -1080,7 +1080,7 @@ function VentasPageContent() {
                   }}
                   className="btn-primary py-3 px-6 text-sm flex items-center gap-2"
                 >
-                  <Edit size={16} /> Editar Plan de Pagos
+                  <Edit size={16} /> Editar Venta y Voucher
                 </button>
               )}
             </div>
