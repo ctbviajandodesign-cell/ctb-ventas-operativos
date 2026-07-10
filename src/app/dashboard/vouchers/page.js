@@ -964,6 +964,8 @@ export default function VouchersPage() {
           </form>
         </div>
       )}
+      
+      <VoucherStandaloneModal onSaved={fetchVouchers} />
     </div>
   )
 }
