@@ -31,6 +31,7 @@ import { generateVoucherPDF } from '@/lib/pdf-generator'
 import { logActivity } from '@/utils/audit'
 import { showToast } from '@/utils/toast'
 import { useUserSession } from '@/hooks/useUserSession'
+import VoucherStandaloneModal from '@/components/VoucherStandaloneModal'
 
 export default function VouchersPage() {
   const [vouchers, setVouchers] = useState([])
@@ -38,6 +39,7 @@ export default function VouchersPage() {
   const [editingVoucher, setEditingVoucher] = useState(null)
   const [viewingVoucher, setViewingVoucher] = useState(null)
   const [search, setSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState('todos')
   const [selectedCity, setSelectedCity] = useState('todas')
   const [selectedOperative, setSelectedOperative] = useState('todas')
   const [operatives, setOperatives] = useState([])
@@ -59,7 +61,7 @@ export default function VouchersPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [search, selectedCity, dateFilter, selectedOperative, customStartDate, customEndDate])
+  }, [search, typeFilter, selectedCity, dateFilter, selectedOperative, customStartDate, customEndDate])
 
   const copyVoucherLink = (e, codigo) => {
     if (e) e.stopPropagation()
@@ -246,6 +248,13 @@ export default function VouchersPage() {
       })
     }
 
+    // Filtro por tipo de voucher
+    if (typeFilter === 'con_venta') {
+      result = result.filter(v => v.venta_id != null)
+    } else if (typeFilter === 'independiente') {
+      result = result.filter(v => v.venta_id == null)
+    }
+
     // 2. Filtro por ciudad
     if ((profile?.rol === 'admin' || profile?.rol === 'superadmin') && selectedCity !== 'todas') {
       result = result.filter(v => v.profiles?.ciudad === selectedCity)
@@ -302,7 +311,7 @@ export default function VouchersPage() {
     }
 
     return result
-  }, [vouchers, search, selectedCity, selectedOperative, dateFilter, customStartDate, customEndDate, profile])
+  }, [vouchers, search, typeFilter, selectedCity, selectedOperative, dateFilter, customStartDate, customEndDate, profile])
 
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage
@@ -370,6 +379,33 @@ export default function VouchersPage() {
         </div>
         
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto justify-end">
+          
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('open-standalone-voucher-modal'))}
+            className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-white text-xs font-black uppercase tracking-widest px-5 py-3.5 rounded-2xl flex items-center justify-center gap-2 hover:scale-102 transition-all shadow-lg shadow-primary/30 shrink-0"
+          >
+            ✦ Crear Nuevo Voucher
+          </button>
+
+          {/* Filtro por tipo de voucher */}
+          <div className="flex bg-gray-100 p-1 rounded-2xl">
+            {[
+              { key: 'todos', label: 'Todos' },
+              { key: 'con_venta', label: 'Con Venta' },
+              { key: 'independiente', label: 'Independientes' },
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setTypeFilter(tab.key)}
+                className={`px-4 py-2 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all ${
+                  typeFilter === tab.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
           {/* Filtro por fecha */}
           <div className="relative w-full sm:w-auto sm:min-w-[13.5rem] flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-2 hover:bg-gray-100/50 transition-colors">
             <Calendar size={14} className="text-primary shrink-0" />
@@ -560,8 +596,12 @@ export default function VouchersPage() {
                   <td className="py-4 px-6 text-xs font-black text-primary uppercase tracking-tighter">
                     {voucher.profiles?.nombre?.split(' ')[0] || '---'}
                   </td>
-                  <td className="py-4 px-6 text-xs font-black text-amber-600 uppercase tracking-tighter">
-                    {voucher.ventas?.cotizaciones?.comercial || '---'}
+                  <td className="py-4 px-6 text-xs font-black uppercase tracking-tighter">
+                    {voucher.venta_id ? (
+                      <span className="text-amber-600">{voucher.ventas?.cotizaciones?.comercial || '---'}</span>
+                    ) : (
+                      <span className="bg-primary/10 text-primary px-2.5 py-1 rounded-lg">Independiente</span>
+                    )}
                   </td>
 
                   <td className="py-4 px-6 text-right" onClick={(e) => e.stopPropagation()}>
@@ -582,7 +622,13 @@ export default function VouchersPage() {
                       </button>
                       {(profile?.rol === 'superadmin' || voucher.operativo_id === user?.id) && (
                         <button 
-                          onClick={() => setEditingVoucher(voucher)}
+                          onClick={() => {
+                            if (voucher.venta_id) {
+                              setEditingVoucher(voucher)
+                            } else {
+                              window.dispatchEvent(new CustomEvent('open-standalone-voucher-modal', { detail: voucher }))
+                            }
+                          }}
                           className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
                           title="Editar Voucher"
                         >
