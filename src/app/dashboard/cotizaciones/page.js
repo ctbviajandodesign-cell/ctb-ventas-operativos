@@ -645,7 +645,13 @@ export default function CotizacionesPage() {
               >
                 <option value="todas">Todos los Operativos</option>
                 {operatives
-                  .filter(op => selectedCity === 'todas' || op.ciudad === selectedCity)
+                  .filter(op => {
+                    if (selectedCity !== 'todas') return op.ciudad === selectedCity;
+                    if (profile?.rol === 'auditor' && profile?.ciudad && !profile.ciudad.includes('Nacional')) {
+                      return profile.ciudad.includes(op.ciudad)
+                    }
+                    return true;
+                  })
                   .map(op => (
                     <option key={op.id} value={op.id}>{op.nombre}</option>
                   ))}
