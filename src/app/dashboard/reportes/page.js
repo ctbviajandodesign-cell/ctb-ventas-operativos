@@ -21,16 +21,19 @@ export default function ReportesPage() {
   const [selectedOperative, setSelectedOperative] = useState('todas')
   const [selectedDestino, setSelectedDestino] = useState('')
 
+  const isAuditor = profile?.rol === 'auditor'
+  const isPrivileged = isAdmin || isAuditor
+  
   useEffect(() => {
-    if (isAdmin) {
-      supabase.from('profiles').select('id, nombre, ciudad').eq('rol', 'operativo').then(({ data }) => {
+    if (isPrivileged) {
+      supabase.from('profiles').select('id, nombre, ciudad').in('rol', ['operativo', 'comercial', 'auditor']).then(({ data }) => {
         setOperatives(data || [])
       })
     }
-  }, [isAdmin])
+  }, [isPrivileged])
 
   const handleGenerateReport = async () => {
-    if (!isAdmin) {
+    if (!isPrivileged) {
       showToast('No tienes permisos para esta acción.', 'error')
       return
     }
@@ -125,12 +128,12 @@ export default function ReportesPage() {
     return <div className="p-20 text-center"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div></div>
   }
 
-  if (!isAdmin) {
+  if (!isPrivileged) {
     return (
       <div className="flex flex-col items-center justify-center py-32 text-center">
         <AlertCircle size={48} className="text-red-500 mb-4" />
         <h3 className="text-xl font-black text-gray-800 mb-2 uppercase">Acceso Restringido</h3>
-        <p className="text-gray-500 mb-6">Solo los administradores pueden generar el Reporte Maestro.</p>
+        <p className="text-gray-500 mb-6">Solo los administradores o auditores pueden generar el Reporte Maestro.</p>
       </div>
     )
   }
@@ -237,11 +240,10 @@ export default function ReportesPage() {
                 }}
               >
                 <option value="todas">Todas las Sedes</option>
-                <option value="Quito">Quito</option>
-                <option value="Guayaquil">Guayaquil</option>
-                <option value="Cuenca">Cuenca</option>
-                <option value="Manta">Manta</option>
-                <option value="Loja">Loja</option>
+                {['Quito', 'Guayaquil', 'Cuenca', 'Manta', 'Loja'].map(c => {
+                  if (isAuditor && !profile?.ciudad.includes('Nacional') && !profile?.ciudad.includes(c)) return null
+                  return <option key={c} value={c}>{c}</option>
+                })}
               </select>
             </div>
           </div>

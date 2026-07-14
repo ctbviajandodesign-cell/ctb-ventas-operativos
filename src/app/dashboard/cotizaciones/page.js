@@ -40,12 +40,12 @@ export default function CotizacionesPage() {
   const [errorState, setErrorState] = useState(null)
 
   useEffect(() => {
-    if (isAdmin) {
-      supabase.from('profiles').select('id, nombre, ciudad').eq('rol', 'operativo').then(({ data }) => {
+    if (isAdmin || profile?.rol === 'auditor') {
+      supabase.from('profiles').select('id, nombre, ciudad').in('rol', ['operativo', 'comercial', 'auditor']).then(({ data }) => {
         setOperatives(data || [])
       })
     }
-  }, [isAdmin])
+  }, [isAdmin, profile?.rol])
 
   useEffect(() => {
     setCurrentPage(1)
@@ -61,7 +61,8 @@ export default function CotizacionesPage() {
     setLoading(true)
     setErrorState(null)
     try {
-      const selectStr = isAdmin
+      const canViewAll = isAdmin || profile?.rol === 'auditor'
+      const selectStr = canViewAll
         ? 'id, operativo_id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, comercial, estado, motivo_perdida, created_at, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(*, vouchers(*))'
         : 'id, operativo_id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, comercial, estado, motivo_perdida, created_at, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!inner(nombre, ciudad), ventas(*, vouchers(*))'
 
@@ -70,7 +71,7 @@ export default function CotizacionesPage() {
         .select(selectStr)
         .order('created_at', { ascending: false })
 
-      if (!isAdmin) {
+      if (!canViewAll) {
         query = query.eq('operativo_id', user.id)
       }
 
@@ -208,10 +209,23 @@ export default function CotizacionesPage() {
 
   const dateFilteredQuotes = useMemo(() => {
     let result = enrichedQuotes
-    if (isAdmin && selectedCity !== 'todas') {
+    const canViewAll = isAdmin || profile?.rol === 'auditor'
+
+    // Si es auditor, primero filtramos a que solo vea cotizaciones de sus sedes o las suyas propias
+    if (profile?.rol === 'auditor') {
+      const auditorCities = (profile?.ciudad || '').split(',').map(c => c.trim())
+      const isNacional = auditorCities.includes('Nacional')
+      result = result.filter(q => {
+        if (q.operativo_id === user?.id) return true
+        if (isNacional) return true
+        return auditorCities.includes(q.profiles?.ciudad)
+      })
+    }
+
+    if (canViewAll && selectedCity !== 'todas') {
       result = result.filter(q => q.profiles?.ciudad === selectedCity)
     }
-    if (isAdmin && selectedOperative !== 'todas') {
+    if (canViewAll && selectedOperative !== 'todas') {
       result = result.filter(q => q.operativo_id === selectedOperative)
     }
     // Date Filtering (Ecuador Timezone)
@@ -262,7 +276,7 @@ export default function CotizacionesPage() {
       })
     }
     return result
-  }, [enrichedQuotes, dateFilter, customStartDate, customEndDate, selectedCity, selectedOperative, isAdmin])
+  }, [enrichedQuotes, dateFilter, customStartDate, customEndDate, selectedCity, selectedOperative, isAdmin, profile?.rol, profile?.ciudad, user?.id])
 
   // Métricas para el mini-dashboard
   const stats = useMemo(() => {
@@ -598,8 +612,8 @@ export default function CotizacionesPage() {
             </div>
           )}
 
-          {/* Filtro por ciudad (solo admin) */}
-          {isAdmin && (
+          {/* Filtro por ciudad (solo admin/auditor) */}
+          {(isAdmin || profile?.rol === 'auditor') && (
             <div className="relative w-full md:w-auto md:min-w-[13.5rem] flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2 hover:bg-gray-100/50 transition-colors">
               <Filter size={14} className="text-primary shrink-0" />
               <select
@@ -611,17 +625,17 @@ export default function CotizacionesPage() {
                 }}
               >
                 <option value="todas">Todas las Ciudades</option>
-                <option value="Quito">Quito</option>
-                <option value="Guayaquil">Guayaquil</option>
-                <option value="Cuenca">Cuenca</option>
-                <option value="Manta">Manta</option>
-                <option value="Loja">Loja</option>
+                {/* Filtrar opciones de ciudad si es auditor */}
+                {['Quito', 'Guayaquil', 'Cuenca', 'Manta', 'Loja'].map(c => {
+                  if (profile?.rol === 'auditor' && !profile?.ciudad.includes('Nacional') && !profile?.ciudad.includes(c)) return null
+                  return <option key={c} value={c}>{c}</option>
+                })}
               </select>
             </div>
           )}
 
-          {/* Filtro por operativo (solo admin) */}
-          {isAdmin && (
+          {/* Filtro por operativo (solo admin/auditor) */}
+          {(isAdmin || profile?.rol === 'auditor') && (
             <div className="relative w-full md:w-auto md:min-w-[13.5rem] flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2 hover:bg-gray-100/50 transition-colors animate-in fade-in duration-300">
               <Users size={14} className="text-primary shrink-0" />
               <select
@@ -672,6 +686,7 @@ export default function CotizacionesPage() {
             quotes={paginatedData}
             isAdmin={profile?.rol === 'admin' || profile?.rol === 'superadmin'}
             isSuperAdmin={profile?.rol === 'superadmin'}
+            isAuditor={profile?.rol === 'auditor'}
             currentUserId={user?.id}
             onUpdate={fetchQuotes}
           />

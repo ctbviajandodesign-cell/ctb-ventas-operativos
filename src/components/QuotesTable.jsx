@@ -42,7 +42,7 @@ const isExpired = (q) => {
   return false
 }
 
-export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, currentUserId, onUpdate }) {
+export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, isAuditor, currentUserId, onUpdate }) {
   const { user } = useUserSession()
   const router = useRouter()
   // Prefer currentUserId prop (passed from parent) to avoid async timing issues
@@ -263,6 +263,7 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, currentUser
             const isSold = isGanada || hasVch
             const isPerdida = rawStatus === 'perdida' || rawStatus === 'anulada'
             const aporte = (Number(quote.valor_utilidad || 0) + Number(quote.valor_comision || 0))
+            const canEdit = isSuperAdmin || isAdmin || quote.operativo_id === effectiveUserId
             return (
               <tr 
                 key={quote.id} 
@@ -343,7 +344,7 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, currentUser
                       <FileText size={16} />
                     </button>
                     
-                    {!isSold && !isPerdida && (
+                    {!isSold && !isPerdida && canEdit && (
                       <>
                         <button 
                           onClick={() => window.dispatchEvent(new CustomEvent('open-sales-modal', { detail: quote }))}
@@ -362,7 +363,7 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, currentUser
                       </>
                     )}
 
-                    {isSold && (() => {
+                    {isSold && canEdit && (() => {
                       const vCodigo = getVoucherCodigo(quote)
                       const activeSale = Array.isArray(quote.ventas) ? quote.ventas.find(v => v.estado === 'activa') : (quote.ventas?.estado === 'activa' ? quote.ventas : null)
                       return (
@@ -408,7 +409,7 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, currentUser
                       )
                     })()}
 
-                    {(isSuperAdmin || quote.operativo_id === effectiveUserId) && (
+                    {canEdit && (
                       <button 
                         onClick={(e) => {
                           e.stopPropagation()

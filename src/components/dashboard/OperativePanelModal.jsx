@@ -133,7 +133,7 @@ export default function OperativePanelModal({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 mt-4">
                 <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100">
                   <p className="text-xs font-black text-gray-400 uppercase">Total de Ventas</p>
                   <p className="text-2xl font-black text-gray-900 mt-1">${(operativePanel.valorTotalCliente || operativePanel.totalVendido)?.toLocaleString()}</p>
@@ -152,8 +152,26 @@ export default function OperativePanelModal({
                 </div>
               </div>
 
-              {/* FEEDBACK DE OPENAI BAJO DEMANDA */}
-              <div className="bg-gradient-to-br from-indigo-950 to-slate-900 p-6 rounded-3xl text-white relative overflow-hidden border border-indigo-500/20 shadow-xl">
+              <div className="pt-2">
+                <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Cotizaciones (Periodo Seleccionado)</p>
+                <div className="grid grid-cols-5 gap-2">
+                  {[
+                    { label: 'Cotizadas', val: operativePanel.totalCots, color: 'text-gray-900 bg-gray-100 border-gray-200' },
+                    { label: 'Vendidas', val: operativePanel.ganadas, color: 'text-success bg-success/10 border-success/20' },
+                    { label: 'En Espera', val: operativePanel.abiertas, color: 'text-primary bg-primary/10 border-primary/20' },
+                    { label: 'Caducadas', val: operativePanel.caducadas, color: 'text-rose-600 bg-rose-50 border-rose-100' },
+                    { label: 'Perdidas', val: operativePanel.perdidas, color: 'text-amber-600 bg-amber-50 border-amber-100' },
+                  ].map(item => (
+                    <div key={item.label} className={`p-3 rounded-2xl text-center border ${item.color} min-w-0`}>
+                      <p className="text-xl sm:text-2xl font-black truncate">{item.val}</p>
+                      <p className="text-[9px] sm:text-[10px] font-black uppercase mt-0.5 truncate">{item.label}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* FEEDBACK DE OPENAI BAJO DEMANDA AL FINAL */}
+              <div className="bg-gradient-to-br from-indigo-950 to-slate-900 p-6 rounded-3xl text-white relative overflow-hidden border border-indigo-500/20 shadow-xl mt-4">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-primary/20 rounded-full blur-xl pointer-events-none"></div>
                 <div className="flex items-center justify-between gap-4 mb-3 relative z-10">
                   <div className="flex items-center gap-3">
@@ -201,23 +219,6 @@ export default function OperativePanelModal({
                       </button>
                     </div>
                   )}
-                </div>
-              </div>
-
-              <div>
-                <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Cotizaciones (histórico total)</p>
-                <div className="grid grid-cols-4 gap-2">
-                  {[
-                    { label: 'Ganadas', val: operativePanel.ganadas, color: 'text-success bg-success/10 border-success/20' },
-                    { label: 'En Espera', val: operativePanel.abiertas, color: 'text-primary bg-primary/10 border-primary/20' },
-                    { label: 'Caducadas', val: operativePanel.caducadas, color: 'text-rose-600 bg-rose-50 border-rose-100' },
-                    { label: 'Perdidas', val: operativePanel.perdidas, color: 'text-amber-600 bg-amber-50 border-amber-100' },
-                  ].map(item => (
-                    <div key={item.label} className={`p-3 rounded-2xl text-center border ${item.color} min-w-0`}>
-                      <p className="text-2xl font-black truncate">{item.val}</p>
-                      <p className="text-[10px] font-black uppercase mt-0.5 truncate">{item.label}</p>
-                    </div>
-                  ))}
                 </div>
               </div>
             </>

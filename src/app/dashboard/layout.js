@@ -150,7 +150,7 @@ export default function DashboardLayout({ children }) {
             )
           })}
 
-          {(profile?.rol === 'admin' || profile?.rol === 'superadmin') && (
+          {(profile?.rol === 'admin' || profile?.rol === 'superadmin' || profile?.rol === 'auditor') && (
             <>
               <div className="pt-3 pb-1">
                 <p className="text-xs font-black text-gray-300 uppercase tracking-[0.2em] px-4">Administración</p>

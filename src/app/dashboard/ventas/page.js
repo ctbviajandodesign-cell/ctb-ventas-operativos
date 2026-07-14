@@ -69,12 +69,12 @@ function VentasPageContent() {
   const [deletingPermanent, setDeletingPermanent] = useState(false)
 
   useEffect(() => {
-    if (isAdmin) {
-      supabase.from('profiles').select('id, nombre, ciudad').eq('rol', 'operativo').then(({ data }) => {
+    if (isAdmin || profile?.rol === 'auditor') {
+      supabase.from('profiles').select('id, nombre, ciudad').in('rol', ['operativo', 'comercial', 'auditor']).then(({ data }) => {
         setOperatives(data || [])
       })
     }
-  }, [isAdmin])
+  }, [isAdmin, profile?.rol])
 
   useEffect(() => {
     setCurrentPage(1)
@@ -90,7 +90,8 @@ function VentasPageContent() {
     setLoading(true)
     setErrorState(null)
     try {
-      const selectStr = isAdmin
+      const canViewAll = isAdmin || profile?.rol === 'auditor'
+      const selectStr = canViewAll
         ? '*, profiles!left(nombre, ciudad), cotizaciones(id, agencia, destino, codigo, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, notas_iniciales), vouchers(codigo)'
         : '*, profiles!inner(nombre, ciudad), cotizaciones(id, agencia, destino, codigo, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, notas_iniciales), vouchers(codigo)'
 
@@ -99,7 +100,7 @@ function VentasPageContent() {
         .select(selectStr)
         .order('created_at', { ascending: false })
 
-      if (!isAdmin) {
+      if (!canViewAll) {
         query = query.eq('operativo_id', user.id)
       }
 
@@ -125,10 +126,22 @@ function VentasPageContent() {
 
   const dateFilteredVentas = useMemo(() => {
     let result = ventas
-    if (isAdmin && selectedCity !== 'todas') {
+    const canViewAll = isAdmin || profile?.rol === 'auditor'
+
+    if (profile?.rol === 'auditor') {
+      const auditorCities = (profile?.ciudad || '').split(',').map(c => c.trim())
+      const isNacional = auditorCities.includes('Nacional')
+      result = result.filter(v => {
+        if (v.operativo_id === user?.id) return true
+        if (isNacional) return true
+        return auditorCities.includes(v.profiles?.ciudad)
+      })
+    }
+
+    if (canViewAll && selectedCity !== 'todas') {
       result = result.filter(v => v.profiles?.ciudad === selectedCity)
     }
-    if (isAdmin && selectedOperative !== 'todas') {
+    if (canViewAll && selectedOperative !== 'todas') {
       result = result.filter(v => v.operativo_id === selectedOperative)
     }
     // Date Filtering (Ecuador Timezone)
@@ -176,7 +189,7 @@ function VentasPageContent() {
       })
     }
     return result
-  }, [ventas, dateFilter, customStartDate, customEndDate, selectedCity, selectedOperative, isAdmin])
+  }, [ventas, dateFilter, customStartDate, customEndDate, selectedCity, selectedOperative, isAdmin, profile?.rol, profile?.ciudad, user?.id])
 
   // Stats calculadas
   const stats = useMemo(() => {
@@ -627,8 +640,8 @@ function VentasPageContent() {
             </div>
           )}
 
-          {/* Filtro por ciudad (solo admin) */}
-          {isAdmin && (
+          {/* Filtro por ciudad (solo admin/auditor) */}
+          {(isAdmin || profile?.rol === 'auditor') && (
             <div className="relative w-full md:w-auto md:min-w-[13.5rem] flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2 hover:bg-gray-100/50 transition-colors">
               <Filter size={14} className="text-primary shrink-0" />
               <select
@@ -640,17 +653,16 @@ function VentasPageContent() {
                 }}
               >
                 <option value="todas">Todas las Ciudades</option>
-                <option value="Quito">Quito</option>
-                <option value="Guayaquil">Guayaquil</option>
-                <option value="Cuenca">Cuenca</option>
-                <option value="Manta">Manta</option>
-                <option value="Loja">Loja</option>
+                {['Quito', 'Guayaquil', 'Cuenca', 'Manta', 'Loja'].map(c => {
+                  if (profile?.rol === 'auditor' && !profile?.ciudad.includes('Nacional') && !profile?.ciudad.includes(c)) return null
+                  return <option key={c} value={c}>{c}</option>
+                })}
               </select>
             </div>
           )}
 
-          {/* Filtro por operativo (solo admin) */}
-          {isAdmin && (
+          {/* Filtro por operativo (solo admin/auditor) */}
+          {(isAdmin || profile?.rol === 'auditor') && (
             <div className="relative w-full md:w-auto md:min-w-[13.5rem] flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2 hover:bg-gray-100/50 transition-colors animate-in fade-in duration-300">
               <Users size={14} className="text-primary shrink-0" />
               <select

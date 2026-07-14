@@ -168,19 +168,22 @@ export default function DashboardClient() {
       
       setProfile(profileData)
       const isAdmin = profileData?.rol === 'admin' || profileData?.rol === 'superadmin'
-      const activeOpId = isAdmin && selectedOperative !== 'global' ? selectedOperative : user.id
+      const isAuditor = profileData?.rol === 'auditor'
+      const isPrivileged = isAdmin || isAuditor
+      
+      const activeOpId = isPrivileged && selectedOperative !== 'global' ? selectedOperative : user.id
       
       let initialOperatives = operatives;
-      if (isAdmin && operatives.length === 0) {
+      if (isPrivileged && operatives.length === 0) {
         // Will fetch in parallel later
       }
 
       const { startIso, endIso } = getPeriodRange(selectedPeriod, focusDate)
 
-      const targetIdForIndividual = (!isAdmin || selectedOperative !== 'global') ? (isAdmin ? selectedOperative : user.id) : null
+      const targetIdForIndividual = (!isPrivileged || selectedOperative !== 'global') ? (isPrivileged ? selectedOperative : user.id) : null
 
       // CONSTRUIR QUERIES EN PARALELO
-      const activeCityFilter = isAdmin ? selectedCity : profileData?.ciudad
+      const activeCityFilter = isPrivileged ? selectedCity : profileData?.ciudad
 
       let quotesQuery = supabase.from('cotizaciones').select('id, operativo_id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, estado, motivo_perdida, created_at, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10)
       let pipelineQuery = supabase.from('cotizaciones').select('operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, notas_seguimiento, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(id, estado, vouchers(codigo))').gte('created_at', startIso).lte('created_at', endIso)
@@ -204,8 +207,8 @@ export default function DashboardClient() {
       });
 
       // EJECUTAR PROMISE.ALL PARA MAXIMA VELOCIDAD Y PARALELIZACIÓN COMPLETA
-      const opsPromise = (isAdmin && operatives.length === 0) 
-        ? supabase.from('profiles').select('id, nombre, ciudad, meta_mensual').eq('rol', 'operativo')
+      const opsPromise = (isPrivileged && operatives.length === 0) 
+        ? supabase.from('profiles').select('id, nombre, ciudad, meta_mensual').in('rol', ['operativo', 'comercial', 'auditor'])
         : Promise.resolve({ data: operatives });
 
       const leaderboardPromise = fetch(`/api/leaderboard?period=${selectedPeriod}&startIso=${startIso}&endIso=${endIso}`)
@@ -232,7 +235,7 @@ export default function DashboardClient() {
         opsPromise
       ])
 
-      if (opsRes?.data && isAdmin && operatives.length === 0) {
+      if (opsRes?.data && isPrivileged && operatives.length === 0) {
         setOperatives(opsRes.data)
       }
 
@@ -262,11 +265,18 @@ export default function DashboardClient() {
 
       const rawBoard = resBoard?.success ? resBoard.leaderboard : []
       const userCity = profileData?.ciudad
-      const board = !isAdmin
-        ? rawBoard.filter(op => op.ciudad && userCity && op.ciudad.trim().toLowerCase() === userCity.trim().toLowerCase())
-        : (selectedCity !== 'global'
-            ? rawBoard.filter(op => op.ciudad?.trim().toLowerCase() === selectedCity.trim().toLowerCase())
-            : rawBoard)
+      
+      let board = rawBoard
+      if (!isPrivileged) {
+        board = rawBoard.filter(op => op.ciudad && userCity && op.ciudad.trim().toLowerCase() === userCity.trim().toLowerCase())
+      } else if (selectedCity !== 'global') {
+        board = rawBoard.filter(op => op.ciudad?.trim().toLowerCase() === selectedCity.trim().toLowerCase())
+      } else if (isAuditor) {
+        const auditorCities = (userCity || '').split(',').map(c => c.trim().toLowerCase())
+        if (!auditorCities.includes('nacional')) {
+          board = rawBoard.filter(op => op.ciudad && auditorCities.includes(op.ciudad.trim().toLowerCase()))
+        }
+      }
       setLeaderboard(board || [])
       setChartData(board || [])
 
@@ -295,13 +305,13 @@ export default function DashboardClient() {
 
       const multiplier = selectedPeriod === 'año' ? 12 : 1
       const globalM = board?.reduce((acc, op) => acc + (Number(op.meta) || 0), 0) || (50000 * multiplier)
-      const myMeta = !isAdmin
+      const myMeta = !isPrivileged
         ? ((Number(profileData?.meta_mensual) || 5000) * multiplier)
         : selectedOperative === 'global'
         ? globalM
         : (Number(board?.find(o => o.id === selectedOperative)?.meta) || (5000 * multiplier))
 
-      const metaBase = isAdmin && selectedOperative === 'global' ? globalM : myMeta
+      const metaBase = isPrivileged && selectedOperative === 'global' ? globalM : myMeta
 
       setMetrics(prev => ({
         ...prev,
@@ -436,22 +446,21 @@ export default function DashboardClient() {
     const isAdmin = profile?.rol === 'admin' || profile?.rol === 'superadmin'
     if (!isAdmin && op.id !== user?.id) return
 
-    // Carga detallada de ese operativo (Usando zona horaria de Ecuador)
-    const nowPanel = new Date()
-    const ecTimePanel = new Date(nowPanel.toLocaleString("en-US", { timeZone: "America/Guayaquil" }))
-    const startOfMonthIso = new Date(Date.UTC(ecTimePanel.getFullYear(), ecTimePanel.getMonth(), 1, 5, 0, 0, 0)).toISOString()
+    // Usamos el rango de fechas seleccionado actualmente en el dashboard
+    const { startIso, endIso } = getPeriodRange(selectedPeriod, focusDate)
+
     const [
       { data: ventas },
       { data: cots },
       { data: vouchersList }
     ] = await Promise.all([
-      supabase.from('ventas').select('*, cotizaciones(*)').eq('operativo_id', op.id).order('created_at', { ascending: false }),
-      supabase.from('cotizaciones').select('*, profiles!left(nombre, ciudad), ventas(id, estado, vouchers(codigo))').eq('operativo_id', op.id).gte('created_at', startOfMonthIso).order('created_at', { ascending: false }),
-      supabase.from('vouchers').select('*, profiles!left(nombre, ciudad), ventas(id, cotizaciones(comercial))').eq('operativo_id', op.id).gte('created_at', startOfMonthIso).order('created_at', { ascending: false })
+      supabase.from('ventas').select('*, cotizaciones(*)').eq('operativo_id', op.id).gte('created_at', startIso).lte('created_at', endIso).order('created_at', { ascending: false }),
+      supabase.from('cotizaciones').select('*, profiles!left(nombre, ciudad), ventas(id, estado, vouchers(codigo))').eq('operativo_id', op.id).gte('created_at', startIso).lte('created_at', endIso).order('created_at', { ascending: false }),
+      supabase.from('vouchers').select('*, profiles!left(nombre, ciudad), ventas(id, cotizaciones(comercial))').eq('operativo_id', op.id).gte('created_at', startIso).lte('created_at', endIso).order('created_at', { ascending: false })
     ])
 
-    // Filtrar para el mes actual para calcular el cumplimiento de meta
-    const ventasMes = ventas?.filter(v => v.estado === 'activa' && v.created_at >= startOfMonthIso) || []
+    // Filtrar para el periodo actual
+    const ventasMes = ventas?.filter(v => v.estado === 'activa') || []
 
     // IMPORTANTE: ganancia = comision + utilidad (aporte CTB), totalVendido = valor cliente
     const ganancia = ventasMes.reduce((a,v)=>a+(Number(v.comision)||0)+(Number(v.utilidad)||0),0)||0
@@ -654,7 +663,7 @@ export default function DashboardClient() {
 
       {/* HEADER & FILTROS */}
       <DashboardFilters
-        isAdmin={isAdmin}
+        isAdmin={isAdmin || profile?.rol === 'auditor'}
         selectedCity={selectedCity}
         setSelectedCity={setSelectedCity}
         selectedOperative={selectedOperative}

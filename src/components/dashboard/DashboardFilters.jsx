@@ -61,11 +61,10 @@ export default function DashboardFilters({
                 className="appearance-none bg-transparent border-none font-black text-xs text-gray-800 outline-none py-1 pr-8 pl-1 cursor-pointer focus:ring-0 w-full sm:w-auto bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%230066CC%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_2px_center] bg-[size:16px_16px]"
               >
                 <option value="global">Todas las Ciudades</option>
-                <option value="Quito">Quito</option>
-                <option value="Guayaquil">Guayaquil</option>
-                <option value="Cuenca">Cuenca</option>
-                <option value="Manta">Manta</option>
-                <option value="Loja">Loja</option>
+                {['Quito', 'Guayaquil', 'Cuenca', 'Manta', 'Loja'].map(c => {
+                  if (profile?.rol === 'auditor' && !profile?.ciudad.includes('Nacional') && !profile?.ciudad.includes(c)) return null
+                  return <option key={c} value={c}>{c}</option>
+                })}
               </select>
             </div>
 

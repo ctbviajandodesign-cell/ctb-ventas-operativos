@@ -22,6 +22,7 @@ export default function UsuariosPage() {
   const router = useRouter()
   const { profile } = useUserSession()
   const isSuperAdmin = profile?.rol === 'superadmin'
+  const isAuditor = profile?.rol === 'auditor'
 
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -48,8 +49,8 @@ export default function UsuariosPage() {
   }, [])
 
   useEffect(() => {
-    if (profile && profile.rol !== 'admin' && profile.rol !== 'superadmin') {
-      showToast('Acceso restringido a administradores.', 'error')
+    if (profile && profile.rol !== 'admin' && profile.rol !== 'superadmin' && profile.rol !== 'auditor') {
+      showToast('Acceso restringido a administradores y auditores.', 'error')
       router.push('/dashboard')
     }
   }, [profile])
@@ -133,6 +134,13 @@ export default function UsuariosPage() {
 
   // Filtrado reactivo de usuarios
   const filteredUsers = users.filter(user => {
+    if (isAuditor) {
+      // Si el auditor no tiene esas ciudades en su campo ciudad, no ver.
+      const auditorCities = (profile?.ciudad || '').split(',').map(c => c.trim())
+      if (!auditorCities.includes(user.ciudad) && profile?.ciudad !== 'Nacional') {
+        return false
+      }
+    }
     const matchesSearch = (user.nombre || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
                           (user.email || '').toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCiudad = filterCiudad === 'todas' || user.ciudad === filterCiudad
@@ -257,6 +265,7 @@ export default function UsuariosPage() {
               <div className={`px-3 py-1 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest border ${
                 user.rol === 'superadmin' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
                 user.rol === 'admin' ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                user.rol === 'auditor' ? 'bg-purple-50 text-purple-600 border-purple-200' :
                 user.rol === 'comercial' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
                 'bg-blue-50 text-blue-600 border-blue-200'
               }`}>
@@ -398,21 +407,6 @@ export default function UsuariosPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Ciudad</label>
-                  <select 
-                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 font-black text-gray-800 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                    value={formData.ciudad}
-                    onChange={e => setFormData({...formData, ciudad: e.target.value})}
-                  >
-                    <option value="Nacional">Nacional</option>
-                    <option value="Quito">Quito</option>
-                    <option value="Guayaquil">Guayaquil</option>
-                    <option value="Cuenca">Cuenca</option>
-                    <option value="Manta">Manta</option>
-                    <option value="Loja">Loja</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Rol</label>
                   <select 
                     className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 font-black text-gray-800 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
@@ -421,9 +415,71 @@ export default function UsuariosPage() {
                   >
                     <option value="operativo">Operativo</option>
                     <option value="comercial">Comercial</option>
+                    <option value="auditor">Auditor (Sedes Múltiples)</option>
                     <option value="admin">Admin</option>
                     <option value="superadmin">Super Admin</option>
                   </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
+                    {formData.rol === 'auditor' ? 'Sedes a auditar' : 'Ciudad Base'}
+                  </label>
+                  
+                  {formData.rol === 'auditor' ? (
+                    <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 flex flex-wrap gap-2">
+                      {['Quito', 'Guayaquil', 'Cuenca', 'Manta', 'Loja'].map(c => {
+                        const isSelected = formData.ciudad.includes(c)
+                        return (
+                          <label key={c} className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest cursor-pointer border transition-colors ${isSelected ? 'bg-primary text-white border-primary' : 'bg-white text-gray-400 border-gray-200 hover:border-primary/50'}`}>
+                            <input 
+                              type="checkbox" 
+                              className="hidden"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                let current = formData.ciudad ? formData.ciudad.split(',').map(s => s.trim()).filter(Boolean) : []
+                                if (current.includes('Nacional')) current = [] // reset si venía de un solo valor Nacional
+                                if (e.target.checked) {
+                                  current.push(c)
+                                } else {
+                                  current = current.filter(city => city !== c)
+                                }
+                                setFormData({...formData, ciudad: current.join(',')})
+                              }}
+                            />
+                            {c}
+                          </label>
+                        )
+                      })}
+                      <label className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest cursor-pointer border transition-colors ${formData.ciudad.includes('Nacional') ? 'bg-primary text-white border-primary' : 'bg-white text-gray-400 border-gray-200 hover:border-primary/50'}`}>
+                        <input 
+                          type="checkbox" 
+                          className="hidden"
+                          checked={formData.ciudad.includes('Nacional')}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFormData({...formData, ciudad: 'Nacional'})
+                            } else {
+                              setFormData({...formData, ciudad: ''})
+                            }
+                          }}
+                        />
+                        NACIONAL (Todas)
+                      </label>
+                    </div>
+                  ) : (
+                    <select 
+                      className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 font-black text-gray-800 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                      value={formData.ciudad.includes(',') ? 'Quito' : formData.ciudad}
+                      onChange={e => setFormData({...formData, ciudad: e.target.value})}
+                    >
+                      <option value="Nacional">Nacional</option>
+                      <option value="Quito">Quito</option>
+                      <option value="Guayaquil">Guayaquil</option>
+                      <option value="Cuenca">Cuenca</option>
+                      <option value="Manta">Manta</option>
+                      <option value="Loja">Loja</option>
+                    </select>
+                  )}
                 </div>
               </div>
 

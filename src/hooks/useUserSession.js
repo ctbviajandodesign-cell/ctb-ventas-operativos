@@ -11,6 +11,7 @@ export function useUserSession() {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [isAuditor, setIsAuditor] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -38,6 +39,7 @@ export function useUserSession() {
 
         setProfile(profileData)
         setIsAdmin(profileData?.rol === 'admin' || profileData?.rol === 'superadmin')
+        setIsAuditor(profileData?.rol === 'auditor')
       } catch (err) {
         console.error('Error fetching user session:', err)
         setError(err.message)
@@ -49,5 +51,5 @@ export function useUserSession() {
     fetchSession()
   }, [])
 
-  return { user, profile, isAdmin, loading, error }
+  return { user, profile, isAdmin, isAuditor, loading, error }
 }
