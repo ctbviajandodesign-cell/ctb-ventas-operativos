@@ -84,7 +84,10 @@ export default function DashboardFilters({
                   .filter(op => {
                     if (selectedCity !== 'global') return op.ciudad === selectedCity;
                     if (profile?.rol === 'auditor' && profile?.ciudad && !profile.ciudad.includes('Nacional')) {
-                      return profile.ciudad.includes(op.ciudad)
+                      if (!op.ciudad) return false;
+                      const auditorCities = profile.ciudad.split(',').map(c => c.trim().toLowerCase());
+                      const opCities = op.ciudad.split(',').map(c => c.trim().toLowerCase());
+                      return opCities.some(c => auditorCities.includes(c));
                     }
                     return true;
                   })

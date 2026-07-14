@@ -258,12 +258,13 @@ export default function VouchersPage() {
 
     // Filtro por auditor (limitar sus ciudades y sus propios vouchers)
     if (profile?.rol === 'auditor') {
-      const auditorCities = (profile?.ciudad || '').split(',').map(c => c.trim())
-      const isNacional = auditorCities.includes('Nacional')
+      const auditorCities = (profile?.ciudad || '').split(',').map(c => c.trim().toLowerCase())
+      const isNacional = auditorCities.includes('nacional')
       result = result.filter(v => {
         if (v.operativo_id === user?.id) return true
         if (isNacional) return true
-        return auditorCities.includes(v.profiles?.ciudad)
+        const vCity = (v.profiles?.ciudad || '').trim().toLowerCase()
+        return auditorCities.includes(vCity)
       })
     }
 
@@ -509,8 +510,11 @@ export default function VouchersPage() {
                 {operatives
                   .filter(op => {
                     if (selectedCity !== 'todas') return op.ciudad === selectedCity;
-                    if (profile?.rol === 'auditor' && profile?.ciudad && !profile.ciudad.includes('Nacional')) {
-                      return profile.ciudad.includes(op.ciudad)
+                    if (profile?.rol === 'auditor' && profile?.ciudad && !profile.ciudad.toLowerCase().includes('nacional')) {
+                      if (!op.ciudad) return false;
+                      const auditorCities = profile.ciudad.split(',').map(c => c.trim().toLowerCase());
+                      const opCities = op.ciudad.split(',').map(c => c.trim().toLowerCase());
+                      return opCities.some(c => auditorCities.includes(c));
                     }
                     return true;
                   })

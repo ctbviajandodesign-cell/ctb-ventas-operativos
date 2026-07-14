@@ -170,33 +170,37 @@ export default function DashboardLayout({ children }) {
                 {isActive('/dashboard/reportes') && <ChevronRight size={12} className="ml-auto text-white/60" />}
               </Link>
 
-              <Link
-                href="/dashboard/usuarios"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-black text-xs uppercase tracking-widest group relative ${
-                  isActive('/dashboard/usuarios')
-                    ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                    : 'text-gray-400 hover:bg-gray-50 hover:text-gray-700'
-                }`}
-              >
-                <Users size={17} className={isActive('/dashboard/usuarios') ? 'text-white' : 'text-gray-300 group-hover:text-gray-500 transition-colors'} />
-                Equipo
-                {isActive('/dashboard/usuarios') && <ChevronRight size={12} className="ml-auto text-white/60" />}
-              </Link>
+              {(profile?.rol === 'admin' || profile?.rol === 'superadmin') && (
+                <>
+                  <Link
+                    href="/dashboard/usuarios"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-black text-xs uppercase tracking-widest group relative ${
+                      isActive('/dashboard/usuarios')
+                        ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                        : 'text-gray-400 hover:bg-gray-50 hover:text-gray-700'
+                    }`}
+                  >
+                    <Users size={17} className={isActive('/dashboard/usuarios') ? 'text-white' : 'text-gray-300 group-hover:text-gray-500 transition-colors'} />
+                    Equipo
+                    {isActive('/dashboard/usuarios') && <ChevronRight size={12} className="ml-auto text-white/60" />}
+                  </Link>
 
-              <Link
-                href="/dashboard/comerciales"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-black text-xs uppercase tracking-widest group relative ${
-                  isActive('/dashboard/comerciales')
-                    ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                    : 'text-gray-400 hover:bg-gray-50 hover:text-gray-700'
-                }`}
-              >
-                <Users size={17} className={isActive('/dashboard/comerciales') ? 'text-white' : 'text-gray-300 group-hover:text-gray-500 transition-colors'} />
-                Comerciales
-                {isActive('/dashboard/comerciales') && <ChevronRight size={12} className="ml-auto text-white/60" />}
-              </Link>
+                  <Link
+                    href="/dashboard/comerciales"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-black text-xs uppercase tracking-widest group relative ${
+                      isActive('/dashboard/comerciales')
+                        ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                        : 'text-gray-400 hover:bg-gray-50 hover:text-gray-700'
+                    }`}
+                  >
+                    <Users size={17} className={isActive('/dashboard/comerciales') ? 'text-white' : 'text-gray-300 group-hover:text-gray-500 transition-colors'} />
+                    Comerciales
+                    {isActive('/dashboard/comerciales') && <ChevronRight size={12} className="ml-auto text-white/60" />}
+                  </Link>
+                </>
+              )}
 
               {profile?.rol === 'superadmin' && (
                 <Link

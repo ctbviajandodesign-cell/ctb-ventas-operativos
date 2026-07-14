@@ -49,8 +49,8 @@ export default function UsuariosPage() {
   }, [])
 
   useEffect(() => {
-    if (profile && profile.rol !== 'admin' && profile.rol !== 'superadmin' && profile.rol !== 'auditor') {
-      showToast('Acceso restringido a administradores y auditores.', 'error')
+    if (profile && profile.rol !== 'admin' && profile.rol !== 'superadmin') {
+      showToast('Acceso restringido a administradores.', 'error')
       router.push('/dashboard')
     }
   }, [profile])

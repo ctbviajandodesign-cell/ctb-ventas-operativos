@@ -16,6 +16,7 @@ export default function ComercialesPage() {
   const router = useRouter()
   const { profile } = useUserSession()
   const isSuperAdmin = profile?.rol === 'superadmin'
+  const isAuditor = profile?.rol === 'auditor'
 
   const [comerciales, setComerciales] = useState([])
   const [loading, setLoading] = useState(true)
@@ -40,7 +41,15 @@ export default function ComercialesPage() {
 
   async function fetchComerciales() {
     const { data } = await supabase.from('comerciales').select('*').order('created_at', { ascending: false })
-    setComerciales(data || [])
+    
+    let filteredData = data || []
+    if (isAuditor) {
+      const auditorCities = (profile?.ciudad || '').split(',').map(c => c.trim())
+      if (!auditorCities.includes('Nacional')) {
+        filteredData = filteredData.filter(c => auditorCities.includes(c.ciudad) || c.ciudad === 'Nacional')
+      }
+    }
+    setComerciales(filteredData)
     setLoading(false)
   }
 

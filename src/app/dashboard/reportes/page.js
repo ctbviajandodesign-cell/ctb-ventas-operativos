@@ -86,9 +86,15 @@ export default function ReportesPage() {
 
       setProgressText('Generando el Excel en los servidores de Vercel (puede tomar unos segundos)...')
 
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+
       const response = await fetch('/api/export-master', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           startDate: startDate ? startDate.toISOString() : null,
           endDate: endDate ? endDate.toISOString() : null,
@@ -260,7 +266,16 @@ export default function ReportesPage() {
               >
                 <option value="todas">Todo el Equipo</option>
                 {operatives
-                  .filter(op => selectedCity === 'todas' || op.ciudad === selectedCity)
+                  .filter(op => {
+                    if (selectedCity !== 'todas') return op.ciudad === selectedCity;
+                    if (isAuditor && profile?.ciudad && !profile.ciudad.includes('Nacional')) {
+                      if (!op.ciudad) return false;
+                      const auditorCities = profile.ciudad.split(',').map(c => c.trim().toLowerCase());
+                      const opCities = op.ciudad.split(',').map(c => c.trim().toLowerCase());
+                      return opCities.some(c => auditorCities.includes(c));
+                    }
+                    return true;
+                  })
                   .map(op => (
                     <option key={op.id} value={op.id}>{op.nombre}</option>
                   ))}

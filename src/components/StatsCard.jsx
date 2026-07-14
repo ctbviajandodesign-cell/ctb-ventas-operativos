@@ -43,11 +43,11 @@ export default function StatsCard({ title, value, icon: Icon, color = 'primary',
   return (
     <div 
       onClick={() => href && router.push(href)}
-      className={`glass-card relative overflow-hidden flex flex-col justify-between gap-3 group ${href ? 'cursor-pointer' : 'cursor-default'} h-full min-h-[135px]`}
+      className={`glass-card relative overflow-hidden flex flex-col justify-between gap-4 group ${href ? 'cursor-pointer' : 'cursor-default'} h-full min-h-[140px]`}
     >
       <div className={`absolute inset-0 bg-gradient-to-br from-white/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500`}></div>
       <div className="relative z-10 flex items-start justify-between w-full gap-2">
-        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-normal group-hover:text-gray-500 transition-colors pr-2 break-words">
+        <p className="text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-widest leading-normal group-hover:text-gray-500 transition-colors pr-2 break-words">
           {title}
         </p>
         <div className={`p-2.5 rounded-[1.1rem] ${scheme.iconBg} shrink-0 group-hover:scale-110 transition-all duration-500 ease-out`}>

@@ -34,7 +34,7 @@ export async function GET(request) {
     const { data: allOps, error: opsErr } = await supabaseAdmin
       .from('profiles')
       .select('id, nombre, meta_mensual, ciudad')
-      .eq('rol', 'operativo')
+      .in('rol', ['operativo', 'auditor'])
     
     if (opsErr) throw opsErr
 

@@ -28,12 +28,40 @@ export async function POST(req) {
       selectedDestino,
       dateFilterText,
       operativeName
+      // Note: isAuditor and auditorCities are now derived server-side for security
     } = body
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     )
+
+    // === VERIFICACIÓN DE SESIÓN SERVER-SIDE (SEGURIDAD) ===
+    const authHeader = req.headers.get('authorization')
+    if (!authHeader) {
+      return Response.json({ error: 'No autorizado' }, { status: 401 })
+    }
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    if (authError || !user) {
+      return Response.json({ error: 'Sesión inválida' }, { status: 401 })
+    }
+
+    // Obtener perfil real del servidor (nunca confiar en el cliente)
+    const { data: callerProfile } = await supabase
+      .from('profiles')
+      .select('rol, ciudad')
+      .eq('id', user.id)
+      .single()
+
+    if (!callerProfile || !['admin', 'superadmin', 'auditor'].includes(callerProfile.rol)) {
+      return Response.json({ error: 'Permisos insuficientes' }, { status: 403 })
+    }
+
+    const isAuditor = callerProfile.rol === 'auditor'
+    const auditorCities = callerProfile.ciudad || ''
+    // ======================================================
+
 
     let filteredData = []
     let step = 2000 
@@ -76,6 +104,11 @@ export async function POST(req) {
     
     if (selectedCity !== 'todas') {
       filteredData = filteredData.filter(q => q.profiles?.ciudad === selectedCity)
+    } else if (isAuditor && auditorCities) {
+      const allowedCities = auditorCities.split(',').map(c => c.trim())
+      if (!allowedCities.includes('Nacional')) {
+        filteredData = filteredData.filter(q => allowedCities.includes(q.profiles?.ciudad))
+      }
     }
 
     if (selectedDestino) {
