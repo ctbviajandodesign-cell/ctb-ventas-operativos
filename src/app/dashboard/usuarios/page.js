@@ -12,7 +12,8 @@ import {
   Trash2,
   Edit,
   AlertCircle,
-  Phone
+  Phone,
+  BarChart2
 } from 'lucide-react'
 import { showToast } from '@/utils/toast'
 import { useUserSession } from '@/hooks/useUserSession'
@@ -206,36 +207,47 @@ export default function UsuariosPage() {
               </div>
             </div>
 
-            {isSuperAdmin && (
-              <div className="flex gap-3 mt-8 opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0">
-                <button 
-                  onClick={() => {
-                    setEditingUser(user);
-                    setFormData({
-                      nombre: user.nombre || '',
-                      email: user.email || '',
-                      password: '',
-                      rol: user.rol || 'operativo',
-                      meta_mensual: user.meta_mensual || 1000,
-                      ciudad: user.ciudad || 'Quito',
-                      celular: user.celular || ''
-                    });
-                    setShowModal(true);
-                    setFormError(null);
-                  }}
-                  className="flex-1 py-4 bg-gray-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:scale-[1.02] transition-transform"
-                >
-                  Editar
-                </button>
+            <div className="flex gap-2 mt-8 opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0">
+              <button 
+                onClick={() => router.push(`/dashboard/usuarios/${user.id}`)}
+                className="flex-1 py-4 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:scale-[1.02] transition-transform shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+              >
+                <BarChart2 size={16} /> Rendimiento
+              </button>
 
-                <button 
-                  onClick={() => handleDeleteUser(user)}
-                  className="w-12 h-12 bg-red-50 text-danger rounded-2xl flex items-center justify-center hover:bg-danger hover:text-white transition-all"
-                >
-                  <Trash2 size={20} />
-                </button>
-              </div>
-            )}
+              {isSuperAdmin && (
+                <>
+                  <button 
+                    onClick={() => {
+                      setEditingUser(user);
+                      setFormData({
+                        nombre: user.nombre || '',
+                        email: user.email || '',
+                        password: '',
+                        rol: user.rol || 'operativo',
+                        meta_mensual: user.meta_mensual || 1000,
+                        ciudad: user.ciudad || 'Quito',
+                        celular: user.celular || ''
+                      });
+                      setShowModal(true);
+                      setFormError(null);
+                    }}
+                    className="w-12 h-12 bg-gray-900 text-white rounded-2xl flex items-center justify-center hover:scale-[1.02] transition-transform shrink-0"
+                    title="Editar"
+                  >
+                    <Edit size={16} />
+                  </button>
+
+                  <button 
+                    onClick={() => handleDeleteUser(user)}
+                    className="w-12 h-12 bg-red-50 text-danger rounded-2xl flex items-center justify-center hover:bg-danger hover:text-white transition-all shrink-0"
+                    title="Eliminar"
+                  >
+                    <Trash2 size={20} />
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         ))}
       </div>
