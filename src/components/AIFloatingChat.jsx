@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '@/lib/supabase'
 import { Sparkles, Send, X, Bot, User, Loader2, Trash2 } from 'lucide-react'
 
 export default function AIFloatingChat() {
@@ -43,77 +42,28 @@ export default function AIFloatingChat() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isOpen])
 
-  // Carga silenciosa de la base de conocimientos al abrir el chat
+  // Escuchar eventos de sincronización de contexto desde otras pantallas (ej. DashboardClient)
   useEffect(() => {
-    if (isOpen && dataLoadingState === 'idle') {
-      loadKnowledgeBaseSilently()
-    }
-  }, [isOpen])
-
-  const loadKnowledgeBaseSilently = async () => {
-    setDataLoadingState('loading')
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      // Cargar perfil
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-      
-      const isAdmin = profileData?.rol === 'admin' || profileData?.rol === 'superadmin'
-
-      // Cargar lista de operativos si es admin
-      let ops = []
-      if (isAdmin) {
-        const { data: opsData } = await supabase
-          .from('profiles')
-          .select('id, nombre, ciudad, meta_mensual')
-          .eq('rol', 'operativo')
-        ops = opsData || []
-      }
-
-      // Rango de fechas: desde inicio de año (Ecuador Time)
-      const now = new Date()
-      const ecTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Guayaquil" }))
-      const startIso = new Date(Date.UTC(ecTime.getFullYear(), 0, 1, 5, 0, 0, 0)).toISOString()
-
-      // Consulta del pipeline de cotizaciones
-      // Usar profiles!inner si filtramos por ciudad para evitar que PostgREST ignore el filtro en cotizaciones
-      const selectStr = (!isAdmin && profileData)
-        ? 'operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!inner(nombre, ciudad), ventas(id, estado, vouchers(codigo))'
-        : 'operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(id, estado, vouchers(codigo))'
-
-      let pipelineQuery = supabase
-        .from('cotizaciones')
-        .select(selectStr)
-        .gte('created_at', startIso)
-        .order('created_at', { ascending: false })
-
-      if (!isAdmin && profileData) {
-        pipelineQuery = pipelineQuery.eq('profiles.ciudad', profileData.ciudad)
-      }
-
-      const [resQuotes, resBoard] = await Promise.all([
-        pipelineQuery,
-        fetch(`/api/leaderboard?period=mes&startIso=${startIso}`).then(r => r.json()).catch(() => ({ ranking: [] }))
-      ])
-
-      if (resQuotes.error) throw resQuotes.error
-
-      setDataContext({
-        quotes: resQuotes.data || [],
-        leaderboard: resBoard.leaderboard || [],
-        operatives: ops
-      })
+    const handleSync = (event) => {
+      const { quotes, leaderboard, operatives } = event.detail
+      setDataContext({ quotes, leaderboard, operatives })
       setDataLoadingState('ready')
-    } catch (err) {
-      console.error('Error cargando contexto IA:', err)
-      setDataLoadingState('error')
     }
-  }
+
+    window.addEventListener('sync-ai-context', handleSync)
+    
+    // Si no hay datos después de 3 segundos (ej. página sin sincronización), mostrar fallback
+    const timeoutId = setTimeout(() => {
+      if (!dataContext) {
+        setDataLoadingState('error') // Para que no se quede cargando infinito si la página no emite
+      }
+    }, 3000)
+
+    return () => {
+      window.removeEventListener('sync-ai-context', handleSync)
+      clearTimeout(timeoutId)
+    }
+  }, [dataContext])
 
   const handleSend = async (textToSend) => {
     const questionText = textToSend || input
@@ -138,10 +88,10 @@ export default function AIFloatingChat() {
       }
 
       // Si falló la sincronización o no cargó a tiempo
-      if (!currentContext) {
+      if (!currentContext || currentContext.quotes?.length === 0) {
         setMessages(prev => [
           ...prev, 
-          { role: 'assistant', content: 'Sigo conectando con la base de datos. Por favor, reintenta tu pregunta en unos segundos.' }
+          { role: 'assistant', content: 'No pude sincronizarme con los datos de tu pantalla. Asegúrate de estar en una vista con datos cargados o recarga la página.' }
         ])
         setIsLoading(false)
         return

@@ -399,6 +399,17 @@ export default function DashboardClient() {
         porCobrarGlobal: porCobrarGlobal
       }))
 
+      // Sincronizar el contexto con el chat flotante global
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sync-ai-context', {
+          detail: {
+            quotes: pipelineEnriched,
+            leaderboard: board || [],
+            operatives: opsRes?.data || operatives
+          }
+        }))
+      }
+
     } catch (error) {
       console.error('Error fetching data:', error)
       setErrorState('No pudimos cargar los datos del dashboard. Por favor, verifica tu conexión o intenta nuevamente.')

@@ -161,6 +161,22 @@ export default function OperativeProfileClient({ operativeId }) {
         porcentajeMeta
       })
 
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sync-ai-context', {
+          detail: {
+            quotes: validCots,
+            leaderboard: [{
+               nombre: opProfile.nombre,
+               ciudad: opProfile.ciudad,
+               meta: metaCalculada,
+               total: gananciaPeriodo,
+               cumplimiento: porcentajeMeta
+            }],
+            operatives: [opProfile]
+          }
+        }))
+      }
+
       generateAIInsight(opProfile, gananciaPeriodo, validCots.length, ganadas, perdidas, abiertas, conversion, topDestino, topMotivosOp, porcentajeMeta, caducadas, anuladas)
 
     } catch (err) {
