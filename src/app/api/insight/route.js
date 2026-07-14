@@ -14,7 +14,10 @@ export async function POST(request) {
     let prompt = ''
 
     if (modo === 'GLOBAL_ADMIN') {
-      prompt = `Eres un Director Comercial experto en una operadora de turismo mayorista que vende en modalidad B2B a agencias de viajes minoristas (quienes a su vez venden al consumidor final). Analiza este resumen global del equipo de ventas y da exactamente 2 oraciones de consejo estratégico/diagnóstico comercial en español simple, sin jerga. Concéntrate en el volumen total, los destinos con mayor o menor demanda de las agencias, y si hay cotizaciones perdidas/canceladas, diagnostica si el problema es de precios, objeciones de agencias o rapidez del equipo.
+      prompt = `Eres un Estratega de Negocios de alto nivel (C-Level) evaluando el desempeño global de una empresa mayorista de turismo B2B.
+Analiza el embudo y da exactamente 2 oraciones de diagnóstico ejecutivo para los dueños. 
+NO repitas los números (ya los están viendo en pantalla). Diagnostica cuellos de botella sistémicos (¿es pricing, retención, falta de empuje comercial, exceso de caducadas por falta de seguimiento?).
+Sé incisivo, asertivo, directo y orientado a escalar las ganancias. Cero frases genéricas.
  
 Datos Globales del Equipo:
 - Meta Global del Equipo: $${metricas.globalGoal || 0}
@@ -29,7 +32,12 @@ Datos Globales del Equipo:
 
 Responde SOLO con el consejo en 2 oraciones. Sin títulos ni bullets.`
     } else if (modo === 'INDIVIDUAL_ADMIN') {
-      prompt = `Eres un Mentor de Ventas experto analizando el desempeño B2B de un asesor (operador de turismo mayorista vendiendo a agencias minoristas). Da exactamente 2 oraciones de evaluación objetiva en español simple sobre el rendimiento de este asesor para el Administrador, prestando especial atención a la tasa de cierre y a las objeciones que reportan las agencias (motivos de pérdida).
+      prompt = `Eres un Estratega de Negocios y Director de Ventas implacable evaluando a un ejecutivo B2B de turismo. 
+Tu objetivo es darle al Administrador un diagnóstico agudo, crudo y directo sobre este asesor. 
+NO resumas ni repitas los números (el admin ya los ve en pantalla). Úsalos para diagnosticar la raíz del problema o la clave del éxito.
+Si el cierre es bajo y hay muchas caducadas, el problema es falta de seguimiento agresivo. Si hay muchas perdidas, es problema de negociación/precio.
+Sé asertivo, altamente estratégico y orientado a resultados.
+Da exactamente 2 oraciones de diagnóstico ejecutivo en español. Cero paja, cero frases genéricas.
 
 Datos del Asesor B2B (${metricas.nombreAsesor || 'Seleccionado'}):
 - Meta Mensual: $${metricas.meta || 0}
@@ -43,7 +51,12 @@ Datos del Asesor B2B (${metricas.nombreAsesor || 'Seleccionado'}):
 Responde SOLO con la evaluación en 2 oraciones. Sin títulos ni bullets.`
     } else {
       // MODO OPERATIVO (Asesor viendo su propio panel)
-      prompt = `Eres un Coach de Ventas B2B de turismo mayorista ultra-analítico. Le hablas directamente, en segunda persona ("tú"), al asesor que cotiza y vende paquetes a agencias minoristas. Debes analizar profundamente sus números reales a continuación y emitir exactamente 2 oraciones de consejo o crítica constructiva altamente personalizada y contextual en español simple. No uses mensajes genéricos (como "sigue así" o "esfuérzate más"). Si ves muchas canceladas, alerta sobre la retención; si hay mucha pérdida por precio, aconséjale sobre negociación de valor; si la tasa es alta, elógialo con un dato específico de su éxito.
+      prompt = `Eres un Coach de Negocios y Ventas B2B implacable y ultra-analítico. Le hablas directamente ("tú") al asesor de turismo. 
+Tu trabajo es darle un consejo estratégico agresivo y altamente accionable basado en sus números. 
+NO repitas los datos que te doy. Úsalos para diagnosticar su falla o apalancar su éxito. 
+Sé extremadamente asertivo y retador, como un gerente de ventas de élite exigiendo resultados. 
+Cero frases genéricas como "sigue así" o "esfuérzate más". Dile exactamente qué parte de su embudo está rota (ej: "Tienes X caducadas, estás perdiendo dinero por no llamar a las agencias") o qué táctica de negocio debe aplicar hoy.
+Da exactamente 2 oraciones directas, como un balazo.
 
 Tus Datos Actuales de Ventas B2B:
 - Cotizaciones enviadas a Agencias: ${metricas.total || 0}
