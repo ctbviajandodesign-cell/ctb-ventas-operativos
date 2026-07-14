@@ -31,6 +31,7 @@ import { generateVoucherPDF } from '@/lib/pdf-generator'
 import { logActivity } from '@/utils/audit'
 import { showToast } from '@/utils/toast'
 import { useUserSession } from '@/hooks/useUserSession'
+import { CTB_CITIES } from '@/data/cities'
 import VoucherStandaloneModal from '@/components/VoucherStandaloneModal'
 
 export default function VouchersPage() {
@@ -490,7 +491,7 @@ export default function VouchersPage() {
                 }}
               >
                 <option value="todas">Todas las Ciudades</option>
-                {['Quito', 'Guayaquil', 'Cuenca', 'Manta', 'Loja'].map(c => {
+                {CTB_CITIES.map(c => {
                   if (profile?.rol === 'auditor' && !profile?.ciudad.includes('Nacional') && !profile?.ciudad.includes(c)) return null
                   return <option key={c} value={c}>{c}</option>
                 })}

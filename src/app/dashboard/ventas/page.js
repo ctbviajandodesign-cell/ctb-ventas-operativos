@@ -16,6 +16,7 @@ import Link from 'next/link'
 import { showToast } from '@/utils/toast'
 import { formatIataWithCountry } from '@/utils/destinos'
 import { generateProformaPDF } from '@/lib/pdf-generator'
+import { CTB_CITIES } from '@/data/cities'
 
 export default function VentasPage() {
   return (
@@ -661,7 +662,7 @@ function VentasPageContent() {
                 }}
               >
                 <option value="todas">Todas las Ciudades</option>
-                {['Quito', 'Guayaquil', 'Cuenca', 'Manta', 'Loja'].map(c => {
+                {CTB_CITIES.map(c => {
                   if (profile?.rol === 'auditor') {
                     if (profile?.ciudad?.includes('Nacional')) return <option key={c} value={c}>{c}</option>
                     const auditorCities = profile?.ciudad ? profile.ciudad.toLowerCase().split(',').map(city => city.trim()) : []

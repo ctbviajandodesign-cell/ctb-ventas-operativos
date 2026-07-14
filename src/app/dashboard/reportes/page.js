@@ -6,6 +6,7 @@ import { useUserSession } from '@/hooks/useUserSession'
 import { Download, Calendar, Filter, Users, Database, FileSpreadsheet, AlertCircle, Plane } from 'lucide-react'
 import { showToast } from '@/utils/toast'
 import { saveAs } from 'file-saver'
+import { CTB_CITIES } from '@/data/cities'
 
 export default function ReportesPage() {
   const { user, profile, isAdmin, loading: sessionLoading } = useUserSession()
@@ -246,7 +247,7 @@ export default function ReportesPage() {
                 }}
               >
                 <option value="todas">Todas las Sedes</option>
-                {['Quito', 'Guayaquil', 'Cuenca', 'Manta', 'Loja'].map(c => {
+                {CTB_CITIES.map(c => {
                   if (isAuditor && !profile?.ciudad.includes('Nacional') && !profile?.ciudad.includes(c)) return null
                   return <option key={c} value={c}>{c}</option>
                 })}

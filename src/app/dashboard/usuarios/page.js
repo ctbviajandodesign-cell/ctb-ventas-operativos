@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { showToast } from '@/utils/toast'
 import { useUserSession } from '@/hooks/useUserSession'
+import { CTB_CITIES } from '@/data/cities'
 
 export default function UsuariosPage() {
   const router = useRouter()
@@ -427,7 +428,7 @@ export default function UsuariosPage() {
                   
                   {formData.rol === 'auditor' ? (
                     <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 flex flex-wrap gap-2">
-                      {['Quito', 'Guayaquil', 'Cuenca', 'Manta', 'Loja'].map(c => {
+                      {CTB_CITIES.map(c => {
                         const isSelected = formData.ciudad.includes(c)
                         return (
                           <label key={c} className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest cursor-pointer border transition-colors ${isSelected ? 'bg-primary text-white border-primary' : 'bg-white text-gray-400 border-gray-200 hover:border-primary/50'}`}>
