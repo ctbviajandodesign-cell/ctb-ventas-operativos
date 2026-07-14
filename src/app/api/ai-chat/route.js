@@ -9,7 +9,7 @@ export async function POST(request) {
       return NextResponse.json({ answer: 'El sistema de Inteligencia Artificial no está configurado (falta la clave API de OpenAI).', error: 'No API key' })
     }
 
-    const { question, dataset, leaderboard, operativos } = await request.json()
+    const { question, history = [], dataset, leaderboard, operativos } = await request.json()
 
     // Formateador robusto para la hora de Ecuador (America/Guayaquil, UTC-5)
     // Evita problemas de desfases y funciona de manera idéntica en cualquier servidor (local o Vercel)
@@ -294,7 +294,7 @@ ${JSON.stringify(cleanLeaderboard, null, 2)}
 === REGLAS DE RESPUESTA ===
 1. Responde de forma muy didáctica, sintetizada y directa. Utiliza saltos de línea y listas con viñetas (-) para organizar la información en un máximo de 3 o 4 puntos clave. Evita bloques compactos de texto corrido y NUNCA dupliques información.
 2. NUNCA utilices títulos con almohadillas (evita caracteres como #, ##, ###). Si necesitas rotular una sección, usa texto en negrita al inicio de la línea.
-3. **Claridad de Contexto (Sin Memoria Conversacional)**: Eres una IA "One-Shot" (no tienes memoria de los mensajes anteriores). Por lo tanto, NUNCA le hagas preguntas al usuario que requieran que él te responda para aclarar la consulta (ej: "¿De qué mes hablas?"). Si la pregunta es muy general, **asume automáticamente** que se refiere al período que el usuario tiene filtrado en su pantalla (el dataset que estás recibiendo) y entrégale la respuesta inmediatamente, pero acláralo (ej: "Según el período que tienes filtrado actualmente..."). Si haces preguntas estratégicas al final, deben ser retóricas o para reflexión del administrador, no para que te las responda en el chat.
+3. **Memoria Conversacional y Aclaraciones**: Eres una IA con **memoria**. Si el usuario hace una pregunta muy ambigua o general (ej: "¿Por qué estamos bajos?"), hazle una pregunta de vuelta para pedirle contexto antes de responder definitivamente (ej: "¿Te refieres a todo el mes de Julio o solo a lo que pasó esta semana con el equipo de Quito?"). ¡Pregunta y dialoga para ser más preciso!
 4. Usa negrita para nombres, destinos, porcentajes y montos: **DREAMS**, **Karla Freire**, **Cancún**, **15%**, **$1,035 USD**.
 4. **Agrupación Obligatoria**: Si un mismo asesor/operativo tiene múltiples cotizaciones o ventas en el subconjunto de datos, debes **agruparlas y sumarlas** en un único total. NUNCA listes al mismo asesor más de una vez en el mismo resumen.
 5. **Cruces de Datos y Comparaciones**: Eres capaz de hacer comparaciones cruzadas. Si el usuario te pide comparar dos operativos, buscar el mejor vendedor de un destino específico, o identificar quién vendió menos en una ciudad, analiza el "LISTADO DETALLADO DE REGISTROS" y las agrupaciones para responder con precisión matemática exacta basándote en los números reales.
@@ -318,6 +318,12 @@ ${JSON.stringify(cleanLeaderboard, null, 2)}
 
 Pregunta del usuario: "${question}"`
 
+    const openaiMessages = [
+      { role: 'system', content: prompt },
+      ...history.map(m => ({ role: m.role, content: m.content })),
+      { role: 'user', content: question }
+    ]
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -326,7 +332,7 @@ Pregunta del usuario: "${question}"`
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
+        messages: openaiMessages,
         max_tokens: 450,
         temperature: 0.1
       })

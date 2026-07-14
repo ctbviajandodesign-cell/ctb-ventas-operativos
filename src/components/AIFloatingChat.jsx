@@ -152,6 +152,7 @@ export default function AIFloatingChat() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           question: questionText,
+          history: messages.filter(m => m.role !== 'assistant' || !m.content.includes('Hola. Soy el asistente IA')),
           dataset: currentContext.quotes,
           leaderboard: currentContext.leaderboard,
           operatives: currentContext.operatives
