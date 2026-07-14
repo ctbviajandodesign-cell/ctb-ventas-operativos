@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
+let cachedSessionPromise = null
+
 /**
  * Hook to manage user session and profile data.
  * Fetches the authenticated user and their corresponding profile from Supabase.
@@ -19,24 +21,32 @@ export function useUserSession() {
     async function fetchSession() {
       try {
         setLoading(true)
-        const { data: { user }, error: authError } = await supabase.auth.getUser()
         
-        if (authError) throw authError
+        if (!cachedSessionPromise) {
+          cachedSessionPromise = (async () => {
+            const { data: { user }, error: authError } = await supabase.auth.getUser()
+            if (authError) throw authError
+            if (!user) return { user: null, profileData: null }
+            
+            const { data: profileData, error: profileError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', user.id)
+              .single()
+              
+            if (profileError) throw profileError
+            return { user, profileData }
+          })()
+        }
+        
+        const { user, profileData } = await cachedSessionPromise
+
         if (!user) {
           setLoading(false)
           return
         }
 
         setUser(user)
-
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single()
-
-        if (profileError) throw profileError
-
         setProfile(profileData)
         setIsAdmin(profileData?.rol === 'admin' || profileData?.rol === 'superadmin')
         setIsAuditor(profileData?.rol === 'auditor')

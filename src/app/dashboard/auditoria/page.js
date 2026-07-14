@@ -43,6 +43,7 @@ export default function AuditoriaPage() {
         .from('logs_actividad')
         .select('*')
         .order('created_at', { ascending: false })
+        .limit(500)
 
       if (error) throw error
       setLogs(data || [])
@@ -109,7 +110,7 @@ export default function AuditoriaPage() {
     )
   })
 
-  if (sessionLoading || loading) {
+  if (sessionLoading || loading || profile?.rol !== 'superadmin') {
     return <div className="p-10 text-center animate-pulse text-gray-400 font-medium">Cargando bitácora de auditoría...</div>
   }
 

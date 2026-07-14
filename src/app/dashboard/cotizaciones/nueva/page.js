@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { showToast } from '@/utils/toast'
 import IataSelector from '@/components/IataSelector'
+import { useUserSession } from '@/hooks/useUserSession'
 
 export default function NuevaCotizacionPage() {
   const router = useRouter()
@@ -28,11 +29,14 @@ export default function NuevaCotizacionPage() {
   const [tipoComercial, setTipoComercial] = useState('')
   const [comercialManual, setComercialManual] = useState('')
 
+  const { user } = useUserSession()
+
   useEffect(() => {
+    if (!user) return
     supabase.from('comerciales').select('id, nombre, ciudad').then(({ data }) => {
       setComerciales(data || [])
     })
-  }, [])
+  }, [user])
   
   const [formData, setFormData] = useState({
     agencia: '',

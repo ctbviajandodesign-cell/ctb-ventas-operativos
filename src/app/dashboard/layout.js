@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useUserSession } from '@/hooks/useUserSession'
 import Image from 'next/image'
 import { 
   LayoutDashboard, 
@@ -26,13 +27,9 @@ export default function DashboardLayout({ children }) {
   const router = useRouter()
   const pathname = usePathname()
 
-  const [profile, setProfile] = useState(null)
+  const { profile } = useUserSession()
   const [toast, setToast] = useState(null)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-
-  useEffect(() => {
-    fetchProfile()
-  }, [])
 
   useEffect(() => {
     let timer
@@ -53,13 +50,7 @@ export default function DashboardLayout({ children }) {
     }
   }, [])
 
-  async function fetchProfile() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      const { data } = await supabase.from('profiles').select('rol, nombre').eq('id', user.id).single()
-      setProfile(data)
-    }
-  }
+  // No need for fetchProfile anymore since we use useUserSession
 
   const handleLogout = async () => {
     await supabase.auth.signOut()

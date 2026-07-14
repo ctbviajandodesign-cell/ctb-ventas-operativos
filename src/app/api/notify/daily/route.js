@@ -42,25 +42,23 @@ export async function GET(req) {
 
     const diaAyer = ecYesterday.toLocaleDateString('es-EC', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Guayaquil' })
 
-    // --- 1. Todos los operativos ---
-    const { data: allOps, error: errorAllOps } = await supabase
-      .from('profiles')
-      .select('id, nombre, ciudad, meta_mensual')
-      .eq('rol', 'operativo')
-      .order('ciudad')
+    // --- Ejecutar las 4 consultas pesadas en paralelo ---
+    const [
+      { data: allOps, error: errorAllOps },
+      { data: ventasMes, error: errorVentasMes },
+      { data: cotizacionesAyer, error: errorCotiz },
+      { data: ventasAyer, error: errorVentas }
+    ] = await Promise.all([
+      supabase.from('profiles').select('id, nombre, ciudad, meta_mensual').eq('rol', 'operativo').order('ciudad'),
+      supabase.from('ventas').select('comision, utilidad, operativo_id').eq('estado', 'activa').gte('created_at', startOfMonthUTC.toISOString()).lte('created_at', yesterdayEndUTC.toISOString()),
+      supabase.from('cotizaciones').select('operativo_id').gte('created_at', yesterdayStartUTC.toISOString()).lte('created_at', yesterdayEndUTC.toISOString()),
+      supabase.from('ventas').select('comision, utilidad, operativo_id').eq('estado', 'activa').gte('created_at', yesterdayStartUTC.toISOString()).lte('created_at', yesterdayEndUTC.toISOString())
+    ])
 
     if (errorAllOps) throw new Error(`Error operativos: ${errorAllOps.message}`)
-
-    // --- 2. Ventas del mes (para calcular % meta general) ---
-    const { data: ventasMes, error: errorVentasMes } = await supabase
-      .from('ventas')
-      .select('comision, utilidad, operativo_id')
-      .eq('estado', 'activa')
-      .gte('created_at', startOfMonthUTC.toISOString())
-      // Ojo: si es día 1 evaluando ayer, las ventas son hasta el final de ayer.
-      .lte('created_at', yesterdayEndUTC.toISOString())
-
     if (errorVentasMes) throw new Error(`Error ventas mes: ${errorVentasMes.message}`)
+    if (errorCotiz) throw new Error(`Error cotizaciones: ${errorCotiz.message}`)
+    if (errorVentas) throw new Error(`Error ventas: ${errorVentas.message}`)
 
     // Mapa de progreso de meta por operativo
     const progresoMes = {}
@@ -72,25 +70,6 @@ export async function GET(req) {
         progresoMes[v.operativo_id] += Number(v.comision || 0) + Number(v.utilidad || 0)
       }
     }
-
-    // --- 3. Cotizaciones de Ayer ---
-    const { data: cotizacionesAyer, error: errorCotiz } = await supabase
-      .from('cotizaciones')
-      .select('operativo_id')
-      .gte('created_at', yesterdayStartUTC.toISOString())
-      .lte('created_at', yesterdayEndUTC.toISOString())
-
-    if (errorCotiz) throw new Error(`Error cotizaciones: ${errorCotiz.message}`)
-
-    // --- 4. Ventas cerradas Ayer ---
-    const { data: ventasAyer, error: errorVentas } = await supabase
-      .from('ventas')
-      .select('comision, utilidad, operativo_id')
-      .eq('estado', 'activa')
-      .gte('created_at', yesterdayStartUTC.toISOString())
-      .lte('created_at', yesterdayEndUTC.toISOString())
-
-    if (errorVentas) throw new Error(`Error ventas: ${errorVentas.message}`)
 
     // --- Agrupar datos por operativo ---
     const datosOperativos = {}
