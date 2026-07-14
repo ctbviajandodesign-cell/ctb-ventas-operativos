@@ -117,6 +117,12 @@ export async function POST(request) {
       destinosVentas[q.destino].monto += q.valor_venta
     })
 
+    // Motivos de pérdida
+    const motivosPerdidaMap = {}
+    cleanDataset.filter(q => q.motivo_perdida).forEach(q => {
+      motivosPerdidaMap[q.motivo_perdida] = (motivosPerdidaMap[q.motivo_perdida] || 0) + 1
+    })
+
     // Operativos resumen
     const operativosMap = {}
     cleanDataset.forEach(q => {
@@ -253,6 +259,9 @@ ${JSON.stringify(agenciasSoloCotizan)}
 === DESTINOS VENDIDOS ===
 ${JSON.stringify(destinosVentas, null, 2)}
 
+=== MOTIVOS DE PÉRDIDA ===
+${JSON.stringify(motivosPerdidaMap, null, 2)}
+
 === RESUMEN POR OPERATIVO ===
 ${JSON.stringify(operativosMap, null, 2)}
 
@@ -289,7 +298,8 @@ ${JSON.stringify(cleanLeaderboard, null, 2)}
 4. **Agrupación Obligatoria**: Si un mismo asesor/operativo tiene múltiples cotizaciones o ventas en el subconjunto de datos de un día en específico, debes **agruparlas y sumarlas** en un único total para ese asesor. NUNCA listes al mismo asesor más de una vez en el mismo resumen o desglose (ej: en lugar de mostrar "Eva Freire: 1 venta por $1,940 USD; Eva Freire: 1 venta por $582 USD", debes consolidarlo en "Eva Freire: **2** ventas por **$2,522 USD** | Ingreso CTB: **$429.88 USD**").
 5. **Escalabilidad de Ventas**: NUNCA listes transacciones individuales una por una (agencia por agencia, monto por monto) en resúmenes generales o preguntas de rendimiento. Solo haz un listado detallado (ej: "Asesor vendió a Agencia con destino...") si el usuario pregunta explícitamente por detalles detallados o listados específicos (ej: "a quién no más vendieron", "lista las ventas de hoy", "a qué agencias se vendió").
 6. **Resúmenes y Rendimiento**: Para preguntas sobre quién vendió más/menos, quién cotizó más/menos, resúmenes del día/mes o rendimiento general, agrupa y resume los datos por operativo/asesor mostrando: **Asesor**: **X** cotizaciones | **Y** ventas (**$Z USD** de monto total, con una Utilidad de CTB de **$I USD** [comisión + margen]) | **W%** de conversión (ventas / cotizaciones).
-7. **Comparaciones de Ventas (Monto vs Cantidad)**: Al determinar "quién vendió más" o "quién vendió menos":
+7. **Consultoría y Estrategia**: Si el usuario hace una pregunta abierta, analítica o estratégica (ej: "¿qué me recomiendas hacer?", "¿por qué estamos perdiendo ventas?", "analiza mi equipo"), **NO** respondas con listas planas. Actúa como el Estratega de Negocios MBA: cruza los datos de conversión con los **Motivos de Pérdida** e identifica cuellos de botella (ej: "Veo que el 40% de las ventas se pierden por precio... sugiero X").
+8. **Comparaciones de Ventas (Monto vs Cantidad)**: Al determinar "quién vendió más" o "quién vendió menos":
    - Si la cantidad de ventas es diferente (ej: 2 ventas vs 1 venta), el mayor vendedor es quien tenga más ventas cerradas.
    - Si la cantidad de ventas es igual (ej: empate con 1 venta cada uno), el mayor vendedor se define por el monto facturado: el de mayor valor en dólares ($) vendió más, y el de menor valor vendió menos.
    - ¡CUIDADO! Realiza la comparación numérica con precisión básica: un monto como **$1,240 USD** es mayor que **$582 USD**, por ende el asesor con **$1,240 USD** es el mayor vendedor y el de **$582 USD** es el menor. No inviertas los resultados.
