@@ -52,18 +52,16 @@ export default function AIFloatingChat() {
 
     window.addEventListener('sync-ai-context', handleSync)
     
-    // Si no hay datos después de 3 segundos (ej. página sin sincronización), mostrar fallback
+    // Si no hay datos después de 3 segundos, asumimos que no hay sincronización
     const timeoutId = setTimeout(() => {
-      if (!dataContext) {
-        setDataLoadingState('error') // Para que no se quede cargando infinito si la página no emite
-      }
+      setDataLoadingState(prev => prev === 'loading' ? 'error' : prev)
     }, 3000)
 
     return () => {
       window.removeEventListener('sync-ai-context', handleSync)
       clearTimeout(timeoutId)
     }
-  }, [dataContext])
+  }, [])
 
   const handleSend = async (textToSend) => {
     const questionText = textToSend || input
