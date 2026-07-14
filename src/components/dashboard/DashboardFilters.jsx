@@ -81,7 +81,13 @@ export default function DashboardFilters({
               >
                 <option value="global">Todos</option>
                 {operatives
-                  .filter(op => selectedCity === 'global' || op.ciudad === selectedCity)
+                  .filter(op => {
+                    if (selectedCity !== 'global') return op.ciudad === selectedCity;
+                    if (profile?.rol === 'auditor' && profile?.ciudad && !profile.ciudad.includes('Nacional')) {
+                      return profile.ciudad.includes(op.ciudad)
+                    }
+                    return true;
+                  })
                   .map(op => (
                     <option key={op.id} value={op.id}>{op.nombre}</option>
                   ))}

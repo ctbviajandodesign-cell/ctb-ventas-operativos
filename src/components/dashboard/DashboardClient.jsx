@@ -184,26 +184,38 @@ export default function DashboardClient() {
 
       // CONSTRUIR QUERIES EN PARALELO
       const activeCityFilter = isPrivileged ? selectedCity : profileData?.ciudad
+      
+      let allowedCities = null;
+      if (isAuditor && profileData?.ciudad && !profileData.ciudad.includes('Nacional')) {
+        allowedCities = profileData.ciudad.split(',').map(c => c.trim())
+      }
 
-      let quotesQuery = supabase.from('cotizaciones').select('id, operativo_id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, estado, motivo_perdida, created_at, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10)
-      let pipelineQuery = supabase.from('cotizaciones').select('operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, notas_seguimiento, fecha_caducidad, hora_caducidad, profiles!left(nombre, ciudad), ventas(id, estado, vouchers(codigo))').gte('created_at', startIso).lte('created_at', endIso)
+      let quotesQuery = supabase.from('cotizaciones').select('id, operativo_id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, estado, motivo_perdida, created_at, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!inner(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10)
+      let pipelineQuery = supabase.from('cotizaciones').select('operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, notas_seguimiento, fecha_caducidad, hora_caducidad, profiles!inner(nombre, ciudad), ventas(id, estado, vouchers(codigo))').gte('created_at', startIso).lte('created_at', endIso)
 
       if (targetIdForIndividual) {
-        // MODO INDIVIDUAL: Filtrar exclusivamente por ID del operativo, sin joins complejos para evitar errores de RLS
+        // MODO INDIVIDUAL: Filtrar exclusivamente por ID del operativo
         quotesQuery = quotesQuery.eq('operativo_id', targetIdForIndividual)
         pipelineQuery = pipelineQuery.eq('operativo_id', targetIdForIndividual)
       } else if (activeCityFilter && activeCityFilter !== 'global') {
-        // MODO GLOBAL/ADMIN: Filtrar por ciudad haciendo join manual con profiles (requiere foreign keys intactas)
-        quotesQuery = supabase.from('cotizaciones').select('id, operativo_id, codigo, agencia, destino, numero_pasajeros, nombres_pasajeros, valor_total, valor_comision, valor_utilidad, valor_bono, comercial, estado, motivo_perdida, created_at, notas_iniciales, fecha_caducidad, hora_caducidad, profiles!inner(nombre, ciudad), ventas(*, vouchers(*))').order('created_at', { ascending: false }).limit(10).eq('profiles.ciudad', activeCityFilter)
-        pipelineQuery = supabase.from('cotizaciones').select('operativo_id, codigo, agencia, destino, estado, valor_total, valor_comision, valor_utilidad, created_at, comercial, numero_pasajeros, nombres_pasajeros, motivo_perdida, notas_iniciales, notas_seguimiento, fecha_caducidad, hora_caducidad, profiles!inner(nombre, ciudad), ventas(id, estado, vouchers(codigo))').gte('created_at', startIso).lte('created_at', endIso).eq('profiles.ciudad', activeCityFilter)
+        // MODO CIUDAD ESPECÍFICA
+        quotesQuery = quotesQuery.eq('profiles.ciudad', activeCityFilter)
+        pipelineQuery = pipelineQuery.eq('profiles.ciudad', activeCityFilter)
+      } else if (allowedCities && allowedCities.length > 0) {
+        // MODO GLOBAL PARA AUDITOR (Solo sus ciudades)
+        quotesQuery = quotesQuery.in('profiles.ciudad', allowedCities)
+        pipelineQuery = pipelineQuery.in('profiles.ciudad', allowedCities)
       }
 
       // ── MODO RENDIMIENTO EXTREMO (RPC) ──
+      // Si es auditor con múltiples ciudades en modo global, la RPC no soporta array. Pasaremos null y luego ignoraremos el resultado RPC.
+      const rpcCity = (activeCityFilter !== 'global') ? activeCityFilter : (allowedCities?.length === 1 ? allowedCities[0] : null);
+      
       const rpcPromise = supabase.rpc('get_dashboard_metrics', {
         p_start_iso: startIso,
         p_end_iso: endIso,
         p_operativo_id: targetIdForIndividual,
-        p_city: activeCityFilter !== 'global' ? activeCityFilter : null
+        p_city: rpcCity
       });
 
       // EJECUTAR PROMISE.ALL PARA MAXIMA VELOCIDAD Y PARALELIZACIÓN COMPLETA
@@ -326,21 +338,37 @@ export default function DashboardClient() {
         topMotivos: topMotivosText
       }))
 
-      // ── OVERRIDE FINAL: métricas usando la respuesta del RPC ──
+      // ── OVERRIDE FINAL: métricas usando la respuesta del RPC o Pipeline Local ──
+      const useLocalPipeline = (isAuditor && allowedCities && allowedCities.length > 1 && activeCityFilter === 'global')
       
-      const ganadasCount   = rpcData?.ganadas || 0
-      const totalVendidoReal = rpcData?.totalVendido || 0
-      const totalGananciaReal = rpcData?.totalGanancia || 0
-      const vouchersCount = rpcData?.vouchersEmitidos || 0
-      const porCobrarMes = rpcData?.porCobrarMes || 0
-      const porCobrarGlobal = rpcData?.porCobrarMes || 0 // Usamos el del mes temporalmente
-      
-      const caducadasReal  = rpcData?.caducadas || 0
-      const abiertasReal   = rpcData?.abiertas || 0
-      const perdidasReal   = rpcData?.perdidas || 0
-      const anuladasReal   = rpcData?.anuladas || 0
-      const totalReal      = rpcData?.totalPipeline || 0
-      const convReal       = totalReal > 0 ? (ganadasCount / totalReal * 100) : 0
+      let ganadasCount = 0, totalVendidoReal = 0, totalGananciaReal = 0, vouchersCount = 0, porCobrarMes = 0, porCobrarGlobal = 0, caducadasReal = 0, abiertasReal = 0, perdidasReal = 0, anuladasReal = 0, totalReal = 0, convReal = 0;
+
+      if (useLocalPipeline) {
+        // Auditor con múltiples ciudades en vista global: calcular todo localmente para evitar fugar datos nacionales
+        totalReal = pipelineEnriched.length
+        ganadasCount = pipelineEnriched.filter(q => q._esVenta).length
+        abiertasReal = pipelineEnriched.filter(q => q.estado === 'abierta' && !isExpired(q)).length
+        caducadasReal = pipelineEnriched.filter(q => q.estado === 'abierta' && isExpired(q)).length
+        perdidasReal = pipelineEnriched.filter(q => q.estado === 'perdida').length
+        anuladasReal = pipelineEnriched.filter(q => q.estado === 'anulada').length
+        convReal = totalReal > 0 ? (ganadasCount / totalReal * 100) : 0
+        totalVendidoReal = pipelineEnriched.filter(q => q._esVenta).reduce((a,q) => a + (Number(q.valor_total) || 0), 0)
+        totalGananciaReal = pipelineEnriched.filter(q => q._esVenta).reduce((a,q) => a + (Number(q.valor_comision) || 0) + (Number(q.valor_utilidad) || 0), 0)
+        // Por cobrar no es fácil de calcular sin join con recibos, lo omitimos o dejamos en 0 para auditores multi-ciudad
+      } else {
+        ganadasCount   = rpcData?.ganadas || 0
+        totalVendidoReal = rpcData?.totalVendido || 0
+        totalGananciaReal = rpcData?.totalGanancia || 0
+        vouchersCount = rpcData?.vouchersEmitidos || 0
+        porCobrarMes = rpcData?.porCobrarMes || 0
+        porCobrarGlobal = rpcData?.porCobrarMes || 0 // Usamos el del mes temporalmente
+        caducadasReal  = rpcData?.caducadas || 0
+        abiertasReal   = rpcData?.abiertas || 0
+        perdidasReal   = rpcData?.perdidas || 0
+        anuladasReal   = rpcData?.anuladas || 0
+        totalReal      = rpcData?.totalPipeline || 0
+        convReal       = totalReal > 0 ? (ganadasCount / totalReal * 100) : 0
+      }
 
       // Si estamos en modo individual o para el embudo de visualización personal
       const indStats = [
