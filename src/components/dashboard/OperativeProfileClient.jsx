@@ -23,6 +23,7 @@ import { showToast } from '@/utils/toast'
 import { useUserSession } from '@/hooks/useUserSession'
 import { getPeriodRange, getPeriodLabel, getEcuadorTime, isExpired } from '@/utils/dateHelpers'
 import { format } from 'date-fns'
+import { saveAs } from 'file-saver'
 
 export default function OperativeProfileClient({ operativeId }) {
   const router = useRouter()
@@ -34,6 +35,7 @@ export default function OperativeProfileClient({ operativeId }) {
   const [activeTab, setActiveTab] = useState('resumen')
   const [loadingAi, setLoadingAi] = useState(false)
   const [aiInsight, setAiInsight] = useState(null)
+  const [isExporting, setIsExporting] = useState(false)
 
   // Filtros dinámicos
   const [selectedPeriod, setSelectedPeriod] = useState('mes')
@@ -188,43 +190,45 @@ export default function OperativeProfileClient({ operativeId }) {
     }
   }
 
-  const exportConsolidatedReport = () => {
-    if (!stats) return
-    const headers = ['Tipo,Codigo,Fecha,Agencia,Destino,Valor Total,Aporte CTB,Estado']
-    const rows = []
-
-    stats.cotizaciones.forEach(c => {
-      const isGanada = c.estado === 'ganada' || (Array.isArray(c.ventas) && c.ventas.some(v => v.estado !== 'anulada'))
-      const tipo = isGanada ? 'VENTA' : 'COTIZACION'
-      const codigo = c.codigo || 'N/A'
-      const fecha = new Date(c.created_at).toLocaleDateString()
-      const agencia = (c.agencia || 'Directo').replace(/,/g, ';')
-      const destino = (c.destino || '').replace(/,/g, ';')
+  const exportConsolidatedReport = async () => {
+    if (!stats || !profile) return
+    setIsExporting(true)
+    try {
+      const { startIso, endIso } = getPeriodRange(selectedPeriod, focusDate)
+      const periodLabelStr = getPeriodLabel(selectedPeriod, focusDate)
       
-      let valorTotal = c.valor_total || 0
-      let aporteCTB = (Number(c.valor_comision) || 0) + (Number(c.valor_utilidad) || 0)
+      const response = await fetch('/api/export-master', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startDate: startIso,
+          endDate: endIso,
+          selectedOperative: profile.id,
+          selectedCity: profile.ciudad || 'todas',
+          selectedDestino: '',
+          dateFilterText: periodLabelStr,
+          operativeName: profile.nombre.replace(/\s+/g, '_')
+        })
+      })
 
-      if (isGanada && c.ventas && c.ventas.length > 0) {
-        const v = c.ventas.find(ve => ve.estado === 'activa')
-        if (v) {
-          valorTotal = v.total || valorTotal
-          aporteCTB = (Number(v.comision) || 0) + (Number(v.utilidad) || 0)
+      if (!response.ok) {
+        if (response.status === 404) {
+          showToast('No se encontraron registros en el período seleccionado.', 'error')
+        } else {
+          showToast(`Error del servidor: ${response.status}`, 'error')
         }
+        return
       }
-      
-      const estado = isGanada ? 'GANADA' : isExpired(c) && c.estado === 'abierta' ? 'CADUCADA' : (c.estado || '').toUpperCase()
-      rows.push(`${tipo},${codigo},${fecha},${agencia},${destino},${valorTotal},${aporteCTB},${estado}`)
-    })
 
-    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join("\n")
-    const encodedUri = encodeURI(csvContent)
-    const link = document.createElement("a")
-    link.setAttribute("href", encodedUri)
-    const periodLabelStr = getPeriodLabel(selectedPeriod, focusDate).replace(/\s/g, '_')
-    link.setAttribute("download", `Reporte_${profile?.nombre?.replace(/\s/g, '_')}_${periodLabelStr}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+      const blob = await response.blob()
+      saveAs(blob, `DataLake_CTB_${profile.nombre.replace(/\s+/g, '_')}_${periodLabelStr.replace(/\s/g, '_')}.xlsx`)
+      showToast('Reporte Inteligente descargado con éxito.')
+    } catch (error) {
+      console.error(error)
+      showToast('Error generando el reporte Excel.', 'error')
+    } finally {
+      setIsExporting(false)
+    }
   }
 
   if (!profile && !loading) return null
@@ -307,9 +311,14 @@ export default function OperativeProfileClient({ operativeId }) {
 
           <button 
             onClick={exportConsolidatedReport}
-            className="bg-gray-900 hover:bg-gray-800 text-white text-[10px] font-black uppercase tracking-widest px-6 py-4 rounded-[2rem] flex items-center justify-center gap-2 hover:scale-[1.02] transition-all shadow-xl shadow-gray-200 w-full sm:w-auto shrink-0"
+            disabled={isExporting}
+            className="bg-gray-900 hover:bg-gray-800 disabled:opacity-70 disabled:hover:scale-100 text-white text-[10px] font-black uppercase tracking-widest px-6 py-4 rounded-[2rem] flex items-center justify-center gap-2 hover:scale-[1.02] transition-all shadow-xl shadow-gray-200 w-full sm:w-auto shrink-0"
           >
-            <Download size={14} /> Exportar
+            {isExporting ? (
+              <><RefreshCw size={14} className="animate-spin" /> Procesando Excel...</>
+            ) : (
+              <><Download size={14} /> Exportar Excel</>
+            )}
           </button>
         </div>
       </div>
