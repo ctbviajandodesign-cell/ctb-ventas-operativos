@@ -201,9 +201,13 @@ export default function SalesModal() {
         const meta = Number(profileData?.meta_mensual || 5000)
         const metaPct = meta > 0 ? (aporteTotal / meta) * 100 : 0
 
+        const { data: { session } } = await supabase.auth.getSession()
         fetch('/api/notify/venta', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`
+          },
           body: JSON.stringify({
             operativo: profileData?.nombre || 'Asesor',
             ciudad: profileData?.ciudad || '',

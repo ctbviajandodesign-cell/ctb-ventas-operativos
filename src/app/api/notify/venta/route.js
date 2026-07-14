@@ -12,10 +12,26 @@ import { createClient } from '@supabase/supabase-js'
 import { notifyAll, notifyGlobal, formatMoney, progressBar } from '@/lib/telegram'
 
 export async function POST(req) {
+  // === PROTECCIÓN DE API ===
+  const authHeader = req.headers.get('authorization')
+  if (!authHeader) return Response.json({ ok: false, error: 'No autorizado' }, { status: 401 })
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
+  if (!token) return Response.json({ ok: false, error: 'Token inválido' }, { status: 401 })
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error('SUPABASE_SERVICE_ROLE_KEY not configured')
+    return Response.json({ ok: false, error: 'Configuración del servidor incorrecta' }, { status: 500 })
+  }
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    { auth: { autoRefreshToken: false, persistSession: false } }
   )
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+  if (authError || !user) return Response.json({ ok: false, error: 'Sesión inválida' }, { status: 401 })
+  // =========================
 
   try {
     const {
@@ -47,7 +63,7 @@ export async function POST(req) {
       `<code>${progressBar(pct)}</code>`,
     ].join('\n')
 
-    const tgRes = await notifyAll(ciudad, ventaText)
+    await notifyAll(ciudad, ventaText)
 
     // ── 2. Mensajes de hito de meta ────────────────────────────
     const cruzó100  = pctAnterior < 100 && pct >= 100
@@ -145,9 +161,10 @@ export async function POST(req) {
       }
     }
 
-    return Response.json({ ok: true, telegram_debug: tgRes })
+    return Response.json({ ok: true })
   } catch (err) {
     console.error('notify/venta error:', err)
     return Response.json({ ok: false, error: err.message }, { status: 500 })
   }
 }
+

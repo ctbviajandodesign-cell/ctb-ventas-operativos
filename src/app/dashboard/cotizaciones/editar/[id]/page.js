@@ -167,8 +167,7 @@ export default function EditarCotizacionPage() {
         valor_utilidad: Number(formData.valor_utilidad) || 0,
         valor_bono: Number(formData.valor_bono) || 0,
         nombres_pasajeros: filteredPasajeros,
-        estado: 'abierta',
-        created_at: new Date().toISOString()
+        estado: 'abierta'
       }
 
       const { error } = await supabase

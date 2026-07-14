@@ -362,10 +362,18 @@ function VentasPageContent() {
     if (deudaFilter !== 'todas') {
       result = result.filter(v => {
         const t = Number(v.total) || 0
-        const a1 = Number(v.abono_1) || 0
-        const a2 = Number(v.abono_2) || 0
-        const at = Number(v.abono_tarjeta) || 0
-        const faltante = t - (a1 + a2 + at)
+        let paid = 0
+        if (Array.isArray(v.plan_pagos) && v.plan_pagos.length > 0) {
+          paid = v.plan_pagos.filter(m => m.status === 'pagado').reduce((a, m) => a + Number(m.amount), 0)
+        } else {
+          // Fallback legacy
+          const a1 = Number(v.abono_1) || 0
+          const a2 = Number(v.abono_2) || 0
+          const at = Number(v.abono_tarjeta) || 0
+          paid = a1 + a2 + at
+        }
+        const faltante = t - paid
+        
         if (deudaFilter === 'con_deuda') return faltante > 0
         if (deudaFilter === 'pagadas') return faltante <= 0
         return true

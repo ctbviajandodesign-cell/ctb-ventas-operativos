@@ -51,7 +51,7 @@ export default function AnalisisPage() {
 
       let cotsQuery = supabase
         .from('cotizaciones')
-        .select('estado, valor_total, valor_comision, valor_utilidad, destino, operativo_id, motivo_perdida')
+        .select('estado, valor_total, valor_comision, valor_utilidad, destino, operativo_id, motivo_perdida, ventas!left(id, estado)')
         .gte('created_at', startIso)
 
       if (targetOp !== 'global') {
@@ -66,12 +66,17 @@ export default function AnalisisPage() {
       }
 
       const total = cots?.length || 0
-      const ganadas = cots?.filter(c => c.estado === 'ganada')?.length || 0
-      const abiertas = cots?.filter(c => c.estado === 'abierta')?.length || 0
-      const cotsPerdidas = cots?.filter(c => c.estado === 'perdida' || c.estado === 'cancelada') || []
+      // Una cotización está "ganada" si tiene al menos una venta activa (igual que la lógica del cliente)
+      const enriched = (cots || []).map(c => ({
+        ...c,
+        _esGanada: Array.isArray(c.ventas) && c.ventas.some(v => v.estado !== 'anulada')
+      }))
+      const ganadas = enriched.filter(c => c._esGanada).length
+      const abiertas = enriched.filter(c => !c._esGanada && c.estado === 'abierta').length
+      const cotsPerdidas = enriched.filter(c => !c._esGanada && (c.estado === 'perdida' || c.estado === 'anulada'))
       const perdidas = cotsPerdidas.length
       
-      const ganancia = cots?.filter(c => c.estado === 'ganada').reduce((acc, curr) => {
+      const ganancia = enriched.filter(c => c._esGanada).reduce((acc, curr) => {
         return acc + (Number(curr.valor_comision) || 0) + (Number(curr.valor_utilidad) || 0)
       }, 0) || 0
       const conversion = total > 0 ? ((ganadas / total) * 100).toFixed(1) : 0
@@ -114,7 +119,7 @@ export default function AnalisisPage() {
 
       // 1. Destinos Más Vendidos (Ganadas)
       const destinosGanadosMap = {}
-      cots?.filter(c => c.estado === 'ganada').forEach(c => {
+      enriched.filter(c => c._esGanada).forEach(c => {
         if (c.destino) {
           if (!destinosGanadosMap[c.destino]) {
             destinosGanadosMap[c.destino] = { count: 0, valor: 0 }
@@ -127,9 +132,9 @@ export default function AnalisisPage() {
         .map(([destino, data]) => ({ destino: formatDestinoString(destino), count: data.count, valor: data.valor }))
         .sort((a, b) => b.count - a.count)
 
-      // 2. Destinos con Más Objeciones (Perdidas / Canceladas)
+      // 2. Destinos con Más Objeciones (Perdidas / Anuladas)
       const destinosPerdidosMap = {}
-      cots?.filter(c => c.estado === 'perdida' || c.estado === 'cancelada').forEach(c => {
+      enriched.filter(c => !c._esGanada && (c.estado === 'perdida' || c.estado === 'anulada')).forEach(c => {
         if (c.destino) {
           if (!destinosPerdidosMap[c.destino]) {
             destinosPerdidosMap[c.destino] = { count: 0, motivos: {} }

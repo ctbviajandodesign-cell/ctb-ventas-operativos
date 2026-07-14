@@ -8,9 +8,12 @@ import { createClient } from '@supabase/supabase-js'
 import { notifyAdmin, notifyCity, formatMoney, progressBar, escapeHtml, getEcuadorTime, ecToUTC } from '@/lib/telegram'
 
 export async function GET(req) {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return Response.json({ error: 'SUPABASE_SERVICE_ROLE_KEY no configurada' }, { status: 500 })
+  }
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    process.env.SUPABASE_SERVICE_ROLE_KEY
   )
   const secret = req.headers.get('x-cron-secret')
   const authHeader = req.headers.get('authorization')
