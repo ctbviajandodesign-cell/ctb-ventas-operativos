@@ -5,15 +5,15 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { 
   UserPlus, 
-  Mail, 
-  Shield, 
-  Target,
   ArrowLeft,
   Trash2,
   Edit,
   AlertCircle,
   Phone,
-  BarChart2
+  BarChart2,
+  Search,
+  Filter,
+  Target
 } from 'lucide-react'
 import { showToast } from '@/utils/toast'
 import { useUserSession } from '@/hooks/useUserSession'
@@ -37,6 +37,11 @@ export default function UsuariosPage() {
     ciudad: 'Quito',
     celular: ''
   })
+
+  // Nuevos estados para los filtros UI
+  const [searchTerm, setSearchTerm] = useState('')
+  const [filterCiudad, setFilterCiudad] = useState('todas')
+  const [filterRol, setFilterRol] = useState('todos')
 
   useEffect(() => {
     fetchUsers()
@@ -78,7 +83,6 @@ export default function UsuariosPage() {
 
       if (result.error) throw new Error(result.error)
 
-      // Cerrar modal y limpiar formulario automáticamente en caso de éxito
       setShowModal(false)
       setFormData({
         nombre: '',
@@ -127,14 +131,28 @@ export default function UsuariosPage() {
     }
   }
 
+  // Filtrado reactivo de usuarios
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = (user.nombre || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          (user.email || '').toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesCiudad = filterCiudad === 'todas' || user.ciudad === filterCiudad
+    const matchesRol = filterRol === 'todos' || user.rol === filterRol
+    return matchesSearch && matchesCiudad && matchesRol
+  })
+
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="max-w-7xl mx-auto space-y-8 pb-20">
+      
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-            <ArrowLeft size={24} />
+          <button onClick={() => router.back()} className="p-2 bg-white shadow-sm border border-gray-100 hover:bg-gray-50 rounded-full transition-colors shrink-0">
+            <ArrowLeft size={20} className="text-gray-600" />
           </button>
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Gestión de Usuarios</h1>
+          <div>
+            <h1 className="text-3xl font-black text-gray-900 tracking-tight leading-none">Equipo</h1>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Gestión y Rendimiento del Personal</p>
+          </div>
         </div>
         {isSuperAdmin && (
           <button 
@@ -152,69 +170,128 @@ export default function UsuariosPage() {
               setShowModal(true); 
               setFormError(null); 
             }}
-            className="btn-primary flex items-center gap-2"
+            className="bg-gray-900 hover:bg-success text-white font-black text-xs uppercase tracking-widest px-6 py-4 rounded-2xl shadow-xl hover:scale-105 transition-all flex items-center justify-center gap-2"
           >
-            <UserPlus size={20} />
+            <UserPlus size={16} />
             Nuevo Usuario
           </button>
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {users.length === 0 ? (
-          <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-gray-100">
-            <p className="text-xs font-black text-gray-400 uppercase tracking-widest">No hay usuarios registrados</p>
+      {/* Barra Inteligente de Filtros */}
+      <div className="bg-white p-4 md:p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4">
+        {/* Buscador */}
+        <div className="flex-1 relative">
+          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input 
+            type="text" 
+            placeholder="Buscar por nombre o correo..." 
+            className="w-full pl-12 pr-4 py-3 bg-gray-50 border-none rounded-2xl text-sm font-black text-gray-800 placeholder:text-gray-400 placeholder:font-normal focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        
+        {/* Filtro Ciudad */}
+        <div className="w-full md:w-48 relative flex items-center gap-2 bg-gray-50 rounded-2xl px-4 hover:bg-gray-100/50 transition-colors shrink-0">
+          <Filter size={16} className="text-primary shrink-0" />
+          <select
+            className="w-full py-3 appearance-none bg-transparent border-none text-[11px] font-black text-gray-600 outline-none focus:ring-0 cursor-pointer uppercase tracking-widest"
+            value={filterCiudad}
+            onChange={(e) => setFilterCiudad(e.target.value)}
+          >
+            <option value="todas">Todas las Sedes</option>
+            <option value="Quito">Quito</option>
+            <option value="Guayaquil">Guayaquil</option>
+            <option value="Cuenca">Cuenca</option>
+            <option value="Manta">Manta</option>
+            <option value="Loja">Loja</option>
+            <option value="Nacional">Nacional</option>
+          </select>
+        </div>
+
+        {/* Filtro Rol */}
+        <div className="w-full md:w-48 relative flex items-center gap-2 bg-gray-50 rounded-2xl px-4 hover:bg-gray-100/50 transition-colors shrink-0">
+          <Filter size={16} className="text-primary shrink-0" />
+          <select
+            className="w-full py-3 appearance-none bg-transparent border-none text-[11px] font-black text-gray-600 outline-none focus:ring-0 cursor-pointer uppercase tracking-widest"
+            value={filterRol}
+            onChange={(e) => setFilterRol(e.target.value)}
+          >
+            <option value="todos">Todos los Roles</option>
+            <option value="operativo">Operativos</option>
+            <option value="comercial">Comerciales</option>
+            <option value="admin">Admins</option>
+            <option value="superadmin">Super Admins</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Lista Horizontal de Usuarios */}
+      <div className="space-y-4">
+        {loading && users.length === 0 ? (
+          <div className="py-20 text-center text-gray-400 text-xs font-black uppercase tracking-widest flex flex-col items-center gap-4">
+            <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full"></div>
+            Cargando Equipo...
           </div>
-        ) : users.map(user => (
-          <div key={user.id} className="bg-white p-8 rounded-[3rem] shadow-xl border border-gray-50 group hover:border-primary transition-all duration-500">
-            <div className="flex items-center justify-between mb-8">
-              <div className="w-14 h-14 bg-gray-900 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-xl shadow-gray-200">
+        ) : filteredUsers.length === 0 ? (
+          <div className="py-20 text-center bg-white rounded-[3rem] border border-gray-100 shadow-sm">
+            <p className="text-xs font-black text-gray-400 uppercase tracking-widest">No se encontraron usuarios con esos filtros.</p>
+          </div>
+        ) : filteredUsers.map(user => (
+          <div key={user.id} className="bg-white p-4 md:p-5 rounded-3xl shadow-sm border border-gray-100 hover:border-primary/40 hover:shadow-lg transition-all duration-300 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 md:gap-6 group">
+            
+            {/* Col 1: Avatar & Info */}
+            <div className="flex items-center gap-4 md:w-1/4 shrink-0">
+              <div className="w-12 h-12 bg-gray-900 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-md shrink-0 transition-transform group-hover:scale-110">
                 {user.nombre?.charAt(0) || '?'}
               </div>
-              <div className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest ${
-                user.rol === 'superadmin' ? 'bg-indigo-100 text-indigo-700 font-extrabold border border-indigo-200/50' :
-                user.rol === 'admin' ? 'bg-amber-100 text-amber-600' :
-                user.rol === 'comercial' ? 'bg-emerald-100 text-emerald-600' :
-                'bg-blue-100 text-blue-600'
+              <div className="truncate">
+                <h3 className="font-black text-base md:text-lg text-gray-900 tracking-tight leading-none mb-1 truncate" title={user.nombre}>{user.nombre}</h3>
+                <p className="text-[10px] md:text-[11px] font-bold text-gray-400 uppercase tracking-widest truncate" title={user.email}>{user.email}</p>
+              </div>
+            </div>
+
+            {/* Col 2: Labels (Rol / Ciudad) */}
+            <div className="flex items-center gap-2 flex-wrap md:w-1/5 shrink-0">
+              <div className={`px-3 py-1 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest border ${
+                user.rol === 'superadmin' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                user.rol === 'admin' ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                user.rol === 'comercial' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
+                'bg-blue-50 text-blue-600 border-blue-200'
               }`}>
                 {user.rol}
               </div>
-            </div>
-            
-            <h3 className="font-black text-xl text-gray-900 tracking-tight leading-none mb-2">{user.nombre}</h3>
-            <div className="flex items-center gap-2 mb-4 flex-wrap">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{user.email}</p>
               {user.ciudad && (
-                <span className="text-[10px] font-black uppercase tracking-widest bg-gray-100 text-gray-600 px-2.5 py-0.5 rounded-full">
+                <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest bg-gray-50 text-gray-500 px-3 py-1 rounded-full border border-gray-200">
                   {user.ciudad}
                 </span>
               )}
             </div>
 
-            {user.celular && (
-              <div className="flex items-center gap-2 text-xs font-bold text-gray-500 mb-4 bg-gray-50 px-4 py-2 rounded-xl border border-gray-100/50 w-fit">
-                <Phone size={14} className="text-primary" />
-                <span>{user.celular}</span>
-              </div>
-            )}
-
-            <div className="bg-gray-50 p-6 rounded-[2rem] border border-gray-100 group-hover:bg-white transition-colors">
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                  <Target size={16} className="text-primary" /> Meta Mensual
-                </span>
-                <span className="font-black text-gray-900 text-lg">${(Number(user.meta_mensual) || 0).toLocaleString()}</span>
+            {/* Col 3: Contact & Meta */}
+            <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-6 md:w-1/4 shrink-0">
+              {user.celular && (
+                <div className="flex items-center gap-1.5 text-[11px] font-bold text-gray-500 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                  <Phone size={12} className="text-primary" />
+                  <span>{user.celular}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-1.5 text-xs font-black text-gray-900 bg-primary/5 px-3 py-1.5 rounded-lg border border-primary/10">
+                <Target size={14} className="text-primary" />
+                <span>${(Number(user.meta_mensual) || 0).toLocaleString()}</span>
               </div>
             </div>
 
-            <div className="flex gap-2 mt-8 opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0">
+            {/* Col 4: Actions */}
+            <div className="flex items-center gap-2 w-full md:w-auto pt-4 md:pt-0 border-t md:border-none border-gray-100 mt-2 md:mt-0 justify-end flex-1">
               <button 
                 onClick={() => router.push(`/dashboard/usuarios/${user.id}`)}
-                className="flex-1 py-4 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:scale-[1.02] transition-transform shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+                className="flex-1 md:flex-none px-5 py-2.5 bg-primary/10 text-primary border border-primary/20 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all shadow-sm flex items-center justify-center gap-2"
               >
-                <BarChart2 size={16} /> Rendimiento
+                <BarChart2 size={14} /> Perfil
               </button>
-
+              
               {isSuperAdmin && (
                 <>
                   <button 
@@ -232,82 +309,87 @@ export default function UsuariosPage() {
                       setShowModal(true);
                       setFormError(null);
                     }}
-                    className="w-12 h-12 bg-gray-900 text-white rounded-2xl flex items-center justify-center hover:scale-[1.02] transition-transform shrink-0"
+                    className="w-10 h-10 bg-gray-50 text-gray-600 border border-gray-200 rounded-xl flex items-center justify-center hover:bg-gray-900 hover:text-white hover:border-gray-900 transition-all shrink-0"
                     title="Editar"
                   >
-                    <Edit size={16} />
+                    <Edit size={14} />
                   </button>
 
                   <button 
                     onClick={() => handleDeleteUser(user)}
-                    className="w-12 h-12 bg-red-50 text-danger rounded-2xl flex items-center justify-center hover:bg-danger hover:text-white transition-all shrink-0"
+                    className="w-10 h-10 bg-red-50 text-red-500 border border-red-100 rounded-xl flex items-center justify-center hover:bg-red-500 hover:text-white hover:border-red-500 transition-all shrink-0"
                     title="Eliminar"
                   >
-                    <Trash2 size={20} />
+                    <Trash2 size={14} />
                   </button>
                 </>
               )}
             </div>
+
           </div>
         ))}
       </div>
 
+      {/* Modal Alta / Edición (Mantenemos diseño de modal anterior intacto) */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[4rem] w-full max-w-md overflow-hidden shadow-2xl">
-            <div className="bg-primary p-10 text-white">
-              <h2 className="text-3xl font-black uppercase tracking-tighter leading-none">{editingUser ? 'Editar Usuario' : 'Alta de Usuario'}</h2>
-              <p className="text-xs font-bold opacity-80 uppercase tracking-widest mt-2">{editingUser ? 'Actualizar datos de perfil de usuario' : 'Provisionamiento de nuevo perfil de usuario'}</p>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[3rem] w-full max-w-md overflow-hidden shadow-2xl scale-in-center">
+            <div className="bg-gray-900 p-8 text-white relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-3xl pointer-events-none"></div>
+              <h2 className="text-2xl font-black uppercase tracking-tighter leading-none relative z-10">{editingUser ? 'Editar Usuario' : 'Alta de Usuario'}</h2>
+              <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest mt-2 relative z-10">{editingUser ? 'Actualizar datos corporativos' : 'Provisionamiento de cuenta'}</p>
             </div>
             
-            <form onSubmit={handleCreateUser} className="p-10 space-y-5">
+            <form onSubmit={handleCreateUser} className="p-8 space-y-4">
               {formError && (
-                <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-xs font-bold border border-red-100 flex items-start gap-2 animate-in fade-in duration-200">
-                  <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-[11px] font-bold border border-red-100 flex items-start gap-2 animate-in fade-in">
+                  <AlertCircle size={14} className="shrink-0 mt-0.5" />
                   <span>{formError}</span>
                 </div>
               )}
+              
               <div className="space-y-1">
-                <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Nombre Completo</label>
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Nombre Completo</label>
                 <input 
-                  required className="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 font-black text-gray-800 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all" 
+                  required className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 font-black text-gray-800 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all" 
                   value={formData.nombre || ''}
                   onChange={e => setFormData({...formData, nombre: e.target.value})}
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Email Profesional</label>
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email Profesional</label>
                 <input 
-                  type="email" required className="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 font-black text-gray-800 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all" 
+                  type="email" required className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 font-black text-gray-800 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all" 
                   value={formData.email || ''}
                   onChange={e => setFormData({...formData, email: e.target.value})}
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Celular / WhatsApp</label>
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Celular / WhatsApp</label>
                 <input 
-                  className="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 font-black text-gray-800 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all" 
-                  placeholder="Ej: +593999999999"
+                  className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 font-black text-gray-800 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all placeholder:font-normal placeholder:text-gray-300" 
+                  placeholder="Ej: 0999999999"
                   value={formData.celular || ''}
                   onChange={e => setFormData({...formData, celular: e.target.value})}
                 />
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">{editingUser ? 'Password (Opcional)' : 'Password'}</label>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">{editingUser ? 'Password (Opcional)' : 'Password'}</label>
                   <input 
                     type="password" 
                     required={!editingUser} 
                     placeholder={editingUser ? '••••••' : ''}
-                    className="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 font-black text-gray-800 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all placeholder:text-gray-300" 
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 font-black text-gray-800 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all placeholder:text-gray-300" 
                     value={formData.password || ''}
                     onChange={e => setFormData({...formData, password: e.target.value})}
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Meta ($)</label>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Meta ($)</label>
                   <input 
-                    type="number" required className="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 font-black text-gray-800 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all" 
+                    type="number" required className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 font-black text-gray-800 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all" 
                     value={formData.meta_mensual || ''}
                     onChange={e => setFormData({...formData, meta_mensual: e.target.value})}
                   />
@@ -316,13 +398,13 @@ export default function UsuariosPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Ciudad</label>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Ciudad</label>
                   <select 
-                    className="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 font-black text-gray-800 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 font-black text-gray-800 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                     value={formData.ciudad}
                     onChange={e => setFormData({...formData, ciudad: e.target.value})}
                   >
-                    <option value="Nacional">Nacional (Todo el país)</option>
+                    <option value="Nacional">Nacional</option>
                     <option value="Quito">Quito</option>
                     <option value="Guayaquil">Guayaquil</option>
                     <option value="Cuenca">Cuenca</option>
@@ -331,23 +413,24 @@ export default function UsuariosPage() {
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Rol</label>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Rol</label>
                   <select 
-                    className="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 font-black text-gray-800 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 font-black text-gray-800 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                     value={formData.rol}
                     onChange={e => setFormData({...formData, rol: e.target.value})}
                   >
                     <option value="operativo">Operativo</option>
                     <option value="comercial">Comercial</option>
-                    <option value="admin">Administrador</option>
-                    <option value="superadmin">Super Administrador</option>
+                    <option value="admin">Admin</option>
+                    <option value="superadmin">Super Admin</option>
                   </select>
                 </div>
               </div>
-              <div className="flex gap-4 pt-8">
-                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-4 font-black text-gray-400 text-xs uppercase tracking-widest hover:text-gray-600 transition-colors">Cancelar</button>
-                <button type="submit" disabled={loading} className="flex-1 bg-primary text-white py-4 rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-primary/30 hover:scale-[1.02] transition-all">
-                  {loading ? 'Procesando...' : (editingUser ? 'Guardar' : 'Crear Usuario')}
+
+              <div className="flex gap-3 pt-6 border-t border-gray-50">
+                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-3 font-black text-gray-400 bg-gray-50 rounded-2xl text-[10px] uppercase tracking-widest hover:bg-gray-100 hover:text-gray-600 transition-all">Cancelar</button>
+                <button type="submit" disabled={loading} className="flex-1 bg-gray-900 text-white py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-gray-900/20 hover:scale-[1.02] transition-all">
+                  {loading ? 'Procesando...' : (editingUser ? 'Guardar' : 'Crear')}
                 </button>
               </div>
             </form>
