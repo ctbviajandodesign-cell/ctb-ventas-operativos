@@ -122,7 +122,8 @@ export default function OperativeProfileClient({ operativeId }) {
       const ganadas = validCots.filter(c => c.estado === 'ganada').length
       const abiertas = validCots.filter(c => c.estado === 'abierta' && !isExpired(c)).length
       const caducadas = validCots.filter(c => c.estado === 'abierta' && isExpired(c)).length
-      const perdidas = validCots.filter(c => ['perdida', 'anulada'].includes(c.estado)).length
+      const perdidas = validCots.filter(c => c.estado === 'perdida').length
+      const anuladas = validCots.filter(c => c.estado === 'anulada').length
       const conversion = validCots.length > 0 ? ((ganadas / validCots.length) * 100).toFixed(1) : '0.0'
 
       const destMap = {}
@@ -160,7 +161,7 @@ export default function OperativeProfileClient({ operativeId }) {
         porcentajeMeta
       })
 
-      generateAIInsight(opProfile, gananciaPeriodo, validCots.length, ganadas, perdidas, abiertas, conversion, topDestino, topMotivosOp, porcentajeMeta)
+      generateAIInsight(opProfile, gananciaPeriodo, validCots.length, ganadas, perdidas, abiertas, conversion, topDestino, topMotivosOp, porcentajeMeta, caducadas, anuladas)
 
     } catch (err) {
       console.error(err)
@@ -170,7 +171,7 @@ export default function OperativeProfileClient({ operativeId }) {
     }
   }
 
-  const generateAIInsight = async (p, g, tc, gn, pr, ab, conv, td, tm, cump) => {
+  const generateAIInsight = async (p, g, tc, gn, pr, ab, conv, td, tm, cump, cad, anu) => {
     setLoadingAi(true)
     try {
       const res = await fetch('/api/insight', {
@@ -187,6 +188,8 @@ export default function OperativeProfileClient({ operativeId }) {
             ganadas: gn,
             perdidas: pr,
             abiertas: ab,
+            caducadas: cad,
+            anuladas: anu,
             conversion: conv,
             topDestino: td,
             topMotivos: tm

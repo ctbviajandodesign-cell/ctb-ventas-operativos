@@ -21,6 +21,7 @@ Datos Globales del Equipo:
 - Utilidad de CTB Actual: $${metricas.totalAporte || 0}
 - Cumplimiento de Meta: ${metricas.porcentajeMeta ? Number(metricas.porcentajeMeta).toFixed(1) : 0}%
 - Restante para Meta: $${Math.max(0, (metricas.globalGoal || 0) - (metricas.totalAporte || 0))}
+- Cotizaciones Caducadas (Venció su vigencia): ${metricas.caducadas || 0}
 - Cotizaciones Perdidas (No cerraron): ${metricas.perdidas || 0}
 - Cotizaciones Anuladas (Se vendieron pero el cliente canceló): ${metricas.anuladas || 0}
 - Principales Motivos de Pérdida (Objeciones de Agencias): ${metricas.topMotivos || 'Ninguno registrado'}
@@ -35,7 +36,7 @@ Datos del Asesor B2B (${metricas.nombreAsesor || 'Seleccionado'}):
 - Utilidad de CTB Generada: $${metricas.totalAporte || 0}
 - Cumplimiento: ${metricas.cumplimiento ? Number(metricas.cumplimiento).toFixed(1) : 0}%
 - Tasa de Cierre con Agencias: ${metricas.conversion || 0}%
-- Cotizaciones (Ganadas: ${metricas.ganadas || 0}, En Espera: ${metricas.abiertas || 0}, Perdidas: ${metricas.perdidas || 0}, Anuladas post-venta: ${metricas.anuladas || 0})
+- Cotizaciones (Ganadas: ${metricas.ganadas || 0}, En Espera: ${metricas.abiertas || 0}, Caducadas: ${metricas.caducadas || 0}, Perdidas: ${metricas.perdidas || 0}, Anuladas post-venta: ${metricas.anuladas || 0})
 - Principales Motivos de Pérdida (Objeciones de Agencias): ${metricas.topMotivos || 'Ninguno registrado'}
 - Destino Principal Cotizado: ${metricas.topDestino || 'N/A'}
 
@@ -49,6 +50,7 @@ Tus Datos Actuales de Ventas B2B:
 - En Espera (esperando cierre de agencia): ${metricas.abiertas || 0}
 - Ventas Cerradas: ${metricas.ganadas || 0}
 - Ventas Anuladas post-cierre: ${metricas.anuladas || 0}
+- Caducadas por falta de cierre: ${metricas.caducadas || 0}
 - No concretadas / Perdidas por Objeción: ${metricas.perdidas || 0}
 - Principales Motivos de Pérdida (Objeciones de Agencias): ${metricas.topMotivos || 'Ninguno registrado'}
 - Tasa de Cierre: ${metricas.conversion || 0}%
