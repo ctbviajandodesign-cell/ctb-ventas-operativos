@@ -342,14 +342,14 @@ export default function UsuariosPage() {
       {/* Modal Alta / Edición (Mantenemos diseño de modal anterior intacto) */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-[3rem] w-full max-w-md overflow-hidden shadow-2xl scale-in-center">
-            <div className="bg-gray-900 p-8 text-white relative overflow-hidden">
+          <div className="bg-white rounded-[3rem] w-full max-w-md overflow-hidden shadow-2xl scale-in-center flex flex-col max-h-[90vh]">
+            <div className="bg-gray-900 p-8 text-white relative overflow-hidden shrink-0">
               <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-3xl pointer-events-none"></div>
               <h2 className="text-2xl font-black uppercase tracking-tighter leading-none relative z-10">{editingUser ? 'Editar Usuario' : 'Alta de Usuario'}</h2>
               <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest mt-2 relative z-10">{editingUser ? 'Actualizar datos corporativos' : 'Provisionamiento de cuenta'}</p>
             </div>
             
-            <form onSubmit={handleCreateUser} className="p-8 space-y-4">
+            <form onSubmit={handleCreateUser} className="p-8 space-y-4 overflow-y-auto">
               {formError && (
                 <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-[11px] font-bold border border-red-100 flex items-start gap-2 animate-in fade-in">
                   <AlertCircle size={14} className="shrink-0 mt-0.5" />
