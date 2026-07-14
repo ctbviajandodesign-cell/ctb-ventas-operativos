@@ -52,12 +52,12 @@ export default function VouchersPage() {
   const { user, profile, isAdmin, loading: sessionLoading } = useUserSession()
 
   useEffect(() => {
-    if (isAdmin) {
-      supabase.from('profiles').select('id, nombre, ciudad').eq('rol', 'operativo').then(({ data }) => {
+    if (isAdmin || profile?.rol === 'auditor') {
+      supabase.from('profiles').select('id, nombre, ciudad').in('rol', ['operativo', 'comercial', 'auditor']).then(({ data }) => {
         setOperatives(data || [])
       })
     }
-  }, [isAdmin])
+  }, [isAdmin, profile?.rol])
 
   useEffect(() => {
     setCurrentPage(1)
@@ -85,7 +85,8 @@ export default function VouchersPage() {
   async function fetchVouchers() {
     setLoading(true)
     try {
-      const selectStr = isAdmin
+      const canViewAll = isAdmin || profile?.rol === 'auditor'
+      const selectStr = canViewAll
         ? '*, profiles!left(nombre, ciudad), ventas(id, cotizaciones(comercial))'
         : '*, profiles!inner(nombre, ciudad), ventas(id, cotizaciones(comercial))'
 
@@ -94,7 +95,7 @@ export default function VouchersPage() {
         .select(selectStr)
         .order('created_at', { ascending: false })
 
-      if (!isAdmin) {
+      if (!canViewAll) {
         query = query.eq('operativo_id', user.id)
       }
 
@@ -255,13 +256,24 @@ export default function VouchersPage() {
       result = result.filter(v => v.venta_id == null)
     }
 
-    // 2. Filtro por ciudad
-    if ((profile?.rol === 'admin' || profile?.rol === 'superadmin') && selectedCity !== 'todas') {
+    // Filtro por auditor (limitar sus ciudades y sus propios vouchers)
+    if (profile?.rol === 'auditor') {
+      const auditorCities = (profile?.ciudad || '').split(',').map(c => c.trim())
+      const isNacional = auditorCities.includes('Nacional')
+      result = result.filter(v => {
+        if (v.operativo_id === user?.id) return true
+        if (isNacional) return true
+        return auditorCities.includes(v.profiles?.ciudad)
+      })
+    }
+
+    // 2. Filtro por ciudad manual
+    if ((profile?.rol === 'admin' || profile?.rol === 'superadmin' || profile?.rol === 'auditor') && selectedCity !== 'todas') {
       result = result.filter(v => v.profiles?.ciudad === selectedCity)
     }
 
     // Filtro por operativo
-    if ((profile?.rol === 'admin' || profile?.rol === 'superadmin') && selectedOperative !== 'todas') {
+    if ((profile?.rol === 'admin' || profile?.rol === 'superadmin' || profile?.rol === 'auditor') && selectedOperative !== 'todas') {
       result = result.filter(v => v.operativo_id === selectedOperative)
     }
 
@@ -465,7 +477,7 @@ export default function VouchersPage() {
             </div>
           )}
 
-          {(profile?.rol === 'admin' || profile?.rol === 'superadmin') && (
+          {(isAdmin || profile?.rol === 'auditor') && (
             <div className="relative w-full sm:w-auto sm:min-w-[13.5rem] flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-2 hover:bg-gray-100/50 transition-colors">
               <Filter size={14} className="text-primary shrink-0" />
               <select
@@ -477,16 +489,15 @@ export default function VouchersPage() {
                 }}
               >
                 <option value="todas">Todas las Ciudades</option>
-                <option value="Quito">Quito</option>
-                <option value="Guayaquil">Guayaquil</option>
-                <option value="Cuenca">Cuenca</option>
-                <option value="Manta">Manta</option>
-                <option value="Loja">Loja</option>
+                {['Quito', 'Guayaquil', 'Cuenca', 'Manta', 'Loja'].map(c => {
+                  if (profile?.rol === 'auditor' && !profile?.ciudad.includes('Nacional') && !profile?.ciudad.includes(c)) return null
+                  return <option key={c} value={c}>{c}</option>
+                })}
               </select>
             </div>
           )}
 
-          {(profile?.rol === 'admin' || profile?.rol === 'superadmin') && (
+          {(isAdmin || profile?.rol === 'auditor') && (
             <div className="relative w-full sm:w-auto sm:min-w-[13.5rem] flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-2 hover:bg-gray-100/50 transition-colors animate-in fade-in duration-300">
               <Users size={14} className="text-primary shrink-0" />
               <select
@@ -496,7 +507,13 @@ export default function VouchersPage() {
               >
                 <option value="todas">Todos los Operativos</option>
                 {operatives
-                  .filter(op => selectedCity === 'todas' || op.ciudad === selectedCity)
+                  .filter(op => {
+                    if (selectedCity !== 'todas') return op.ciudad === selectedCity;
+                    if (profile?.rol === 'auditor' && profile?.ciudad && !profile.ciudad.includes('Nacional')) {
+                      return profile.ciudad.includes(op.ciudad)
+                    }
+                    return true;
+                  })
                   .map(op => (
                     <option key={op.id} value={op.id}>{op.nombre}</option>
                   ))}
