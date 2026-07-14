@@ -384,34 +384,6 @@ export default function OperativeProfileClient({ operativeId }) {
             </div>
           </div>
 
-          {/* AI INSIGHT */}
-          <div className="bg-gradient-to-br from-indigo-950 to-slate-900 p-8 rounded-[3rem] text-white relative overflow-hidden border border-indigo-500/20 shadow-xl">
-            <div className="absolute top-0 right-0 w-40 h-40 bg-primary/20 rounded-full blur-3xl pointer-events-none -mr-10 -mt-10"></div>
-            <div className="flex flex-col md:flex-row gap-6 relative z-10 items-start">
-              <div className="shrink-0 w-16 h-16 bg-primary/20 rounded-[1.5rem] flex items-center justify-center text-primary border border-primary/30 shadow-inner">
-                <Sparkles size={32} />
-              </div>
-              <div className="flex-1 w-full">
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="text-xs sm:text-sm font-black text-primary uppercase tracking-[0.2em]">Auditoría de IA — {selectedPeriod}</h3>
-                  <button onClick={() => generateAIInsight(profile, stats.gananciaPeriodo, stats.cotizaciones.length, stats.ganadas, stats.perdidas, stats.abiertas, stats.conversion, stats.topDestino, stats.topMotivosOp)} className="p-2 bg-white/10 hover:bg-white/20 rounded-xl transition-all">
-                    <RefreshCw size={14} className={loadingAi ? 'animate-spin' : ''} />
-                  </button>
-                </div>
-                {loadingAi ? (
-                  <div className="space-y-3 animate-pulse">
-                    <div className="h-3 bg-white/10 rounded-full w-full"></div>
-                    <div className="h-3 bg-white/10 rounded-full w-5/6"></div>
-                    <div className="h-3 bg-white/10 rounded-full w-4/6"></div>
-                  </div>
-                ) : (
-                  <p className="text-xs sm:text-sm leading-relaxed text-gray-200 font-medium">
-                    {aiInsight || "No hay datos suficientes para generar un análisis."}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
 
           {/* TABS Y DETALLES */}
           <div className="bg-white rounded-[3rem] shadow-sm border border-gray-100 overflow-hidden">
@@ -446,8 +418,9 @@ export default function OperativeProfileClient({ operativeId }) {
               {activeTab === 'resumen' && (
                 <div className="space-y-8">
                   <h3 className="font-black text-lg uppercase tracking-tighter text-gray-900">Estado del Embudo ({selectedPeriod})</h3>
-                  <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
                     {[
+                      { label: 'Total Cotizadas', val: stats.cotizaciones.length, color: 'text-gray-900 bg-gray-50 border-gray-200' },
                       { label: 'Ganadas', val: stats.ganadas, color: 'text-success bg-success/5 border-success/20' },
                       { label: 'En Espera (Vigentes)', val: stats.abiertas, color: 'text-primary bg-primary/5 border-primary/20' },
                       { label: 'Caducadas', val: stats.caducadas, color: 'text-rose-500 bg-rose-50 border-rose-100' },
@@ -565,6 +538,35 @@ export default function OperativeProfileClient({ operativeId }) {
                   </table>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* AI INSIGHT */}
+          <div className="bg-gradient-to-br from-indigo-950 to-slate-900 p-8 rounded-[3rem] text-white relative overflow-hidden border border-indigo-500/20 shadow-xl mt-8">
+            <div className="absolute top-0 right-0 w-40 h-40 bg-primary/20 rounded-full blur-3xl pointer-events-none -mr-10 -mt-10"></div>
+            <div className="flex flex-col md:flex-row gap-6 relative z-10 items-start">
+              <div className="shrink-0 w-16 h-16 bg-primary/20 rounded-[1.5rem] flex items-center justify-center text-primary border border-primary/30 shadow-inner">
+                <Sparkles size={32} />
+              </div>
+              <div className="flex-1 w-full">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-xs sm:text-sm font-black text-primary uppercase tracking-[0.2em]">Auditoría de IA — {selectedPeriod}</h3>
+                  <button onClick={() => generateAIInsight(profile, stats.gananciaPeriodo, stats.cotizaciones.length, stats.ganadas, stats.perdidas, stats.abiertas, stats.conversion, stats.topDestino, stats.topMotivosOp)} className="p-2 bg-white/10 hover:bg-white/20 rounded-xl transition-all">
+                    <RefreshCw size={14} className={loadingAi ? 'animate-spin' : ''} />
+                  </button>
+                </div>
+                {loadingAi ? (
+                  <div className="space-y-3 animate-pulse">
+                    <div className="h-3 bg-white/10 rounded-full w-full"></div>
+                    <div className="h-3 bg-white/10 rounded-full w-5/6"></div>
+                    <div className="h-3 bg-white/10 rounded-full w-4/6"></div>
+                  </div>
+                ) : (
+                  <p className="text-xs sm:text-sm leading-relaxed text-gray-200 font-medium">
+                    {aiInsight || "No hay datos suficientes para generar un análisis."}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </>
