@@ -28,6 +28,7 @@ export default function LogrosPage() {
   async function fetchLogros() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return // Prevents crash if user is not authenticated
       const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).single()
       setProfile(p)
 
@@ -97,7 +98,7 @@ export default function LogrosPage() {
       const boardData = await resBoard.json()
       const rawBoard = boardData.success ? boardData.leaderboard : []
       const userCity = p?.ciudad
-      const isUserAdmin = p?.rol === 'admin'
+      const isUserAdmin = p?.rol === 'admin' || p?.rol === 'superadmin'
 
       const filteredBoard = !isUserAdmin
         ? rawBoard.filter(op => op.ciudad && userCity && op.ciudad.trim().toLowerCase() === userCity.trim().toLowerCase())

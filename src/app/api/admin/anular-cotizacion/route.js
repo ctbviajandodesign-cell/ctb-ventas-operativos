@@ -37,12 +37,11 @@ export async function POST(req) {
 
     if (anularVentas) {
       const { data: ventasMatch } = await supabaseAdmin.from('ventas').select('id').eq('cotizacion_id', cotizacionId)
-      if (ventasMatch && ventasMatch.length > 0) {
-        for (const v of ventasMatch) {
-          await supabaseAdmin.from('ventas').update({ estado: 'anulada' }).eq('id', v.id)
-          await supabaseAdmin.from('vouchers').update({ estado: 'anulado' }).eq('venta_id', v.id)
+        const ids = ventasMatch.map(v => v.id)
+        if (ids.length > 0) {
+          await supabaseAdmin.from('ventas').update({ estado: 'anulada' }).in('id', ids)
+          await supabaseAdmin.from('vouchers').update({ estado: 'anulado' }).in('venta_id', ids)
         }
-      }
     }
 
     const { error: errCot } = await supabaseAdmin.from('cotizaciones').update({ 

@@ -39,9 +39,14 @@ export async function POST(req) {
       .eq('id', ventaId)
       .single()
 
+    const actualCotizacionId = venta?.cotizacion_id
+    if (!actualCotizacionId) {
+      return Response.json({ ok: false, error: 'La venta no tiene una cotización asociada válida' }, { status: 400 })
+    }
+
     // Fetch quote details for audit logging
-    const { data: quote } = await supabaseAdmin.from('cotizaciones').select('codigo, agencia, destino, valor_total').eq('id', cotizacionId).single()
-    const logDetails = `Venta de la Cotización ${quote?.codigo || cotizacionId} (Agencia: ${quote?.agencia || 'Directo'}, Destino: ${quote?.destino || 'Desconocido'}) fue anulada permanentemente. Motivo: ${motivo || 'No especificado'}.`
+    const { data: quote } = await supabaseAdmin.from('cotizaciones').select('codigo, agencia, destino, valor_total').eq('id', actualCotizacionId).single()
+    const logDetails = `Venta de la Cotización ${quote?.codigo || actualCotizacionId} (Agencia: ${quote?.agencia || 'Directo'}, Destino: ${quote?.destino || 'Desconocido'}) fue anulada permanentemente. Motivo: ${motivo || 'No especificado'}.`
 
     // 1. Anular la Venta
     const { error: errVenta } = await supabaseAdmin.from('ventas').update({ estado: 'anulada' }).eq('id', ventaId)
@@ -51,13 +56,11 @@ export async function POST(req) {
     await supabaseAdmin.from('vouchers').update({ estado: 'anulado' }).eq('venta_id', ventaId)
 
     // 3. Anular la Cotización
-    if (cotizacionId) {
-      const { error: errCot } = await supabaseAdmin.from('cotizaciones').update({ 
-        estado: 'anulada',
-        motivo_perdida: motivo || 'Anulada por sistema'
-      }).eq('id', cotizacionId)
-      if (errCot) throw errCot
-    }
+    const { error: errCot } = await supabaseAdmin.from('cotizaciones').update({ 
+      estado: 'anulada',
+      motivo_perdida: motivo || 'Anulada por sistema'
+    }).eq('id', actualCotizacionId)
+    if (errCot) throw errCot
 
     // Insert log
     await supabaseAdmin.from('logs_actividad').insert([{

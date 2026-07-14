@@ -662,7 +662,12 @@ function VentasPageContent() {
               >
                 <option value="todas">Todas las Ciudades</option>
                 {['Quito', 'Guayaquil', 'Cuenca', 'Manta', 'Loja'].map(c => {
-                  if (profile?.rol === 'auditor' && !profile?.ciudad.includes('Nacional') && !profile?.ciudad.includes(c)) return null
+                  if (profile?.rol === 'auditor') {
+                    if (profile?.ciudad?.includes('Nacional')) return <option key={c} value={c}>{c}</option>
+                    const auditorCities = profile?.ciudad ? profile.ciudad.toLowerCase().split(',').map(city => city.trim()) : []
+                    const currentCity = c.toLowerCase().trim()
+                    if (!auditorCities.includes(currentCity)) return null
+                  }
                   return <option key={c} value={c}>{c}</option>
                 })}
               </select>
@@ -682,8 +687,11 @@ function VentasPageContent() {
                 {operatives
                   .filter(op => {
                     if (selectedCity !== 'todas') return op.ciudad === selectedCity;
-                    if (profile?.rol === 'auditor' && profile?.ciudad && !profile.ciudad.includes('Nacional')) {
-                      return profile.ciudad.includes(op.ciudad)
+                    if (profile?.rol === 'auditor') {
+                      if (profile?.ciudad?.includes('Nacional')) return true
+                      const auditorCities = profile?.ciudad ? profile.ciudad.toLowerCase().split(',').map(c => c.trim()) : []
+                      const opCity = op.ciudad ? op.ciudad.toLowerCase().trim() : ''
+                      return auditorCities.includes(opCity)
                     }
                     return true;
                   })
