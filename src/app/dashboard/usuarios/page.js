@@ -50,8 +50,8 @@ export default function UsuariosPage() {
   }, [])
 
   useEffect(() => {
-    if (profile && profile.rol !== 'admin' && profile.rol !== 'superadmin') {
-      showToast('Acceso restringido a administradores.', 'error')
+    if (profile && profile.rol !== 'admin' && profile.rol !== 'superadmin' && profile.rol !== 'auditor') {
+      showToast('Acceso restringido.', 'error')
       router.push('/dashboard')
     }
   }, [profile])
@@ -136,9 +136,10 @@ export default function UsuariosPage() {
   // Filtrado reactivo de usuarios
   const filteredUsers = users.filter(user => {
     if (isAuditor) {
-      // Si el auditor no tiene esas ciudades en su campo ciudad, no ver.
-      const auditorCities = (profile?.ciudad || '').split(',').map(c => c.trim())
-      if (!auditorCities.includes(user.ciudad) && profile?.ciudad !== 'Nacional') {
+      if (profile?.ciudad === 'Nacional') return true
+      const auditorCities = (profile?.ciudad || '').toLowerCase().split(',').map(c => c.trim())
+      const userCity = (user.ciudad || '').toLowerCase().trim()
+      if (!auditorCities.includes(userCity)) {
         return false
       }
     }

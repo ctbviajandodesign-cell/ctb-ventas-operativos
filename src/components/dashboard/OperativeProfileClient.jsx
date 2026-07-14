@@ -52,8 +52,8 @@ export default function OperativeProfileClient({ operativeId }) {
 
   useEffect(() => {
     if (sessionLoading) return
-    if (loggedInProfile && loggedInProfile.rol !== 'admin' && loggedInProfile.rol !== 'superadmin') {
-      showToast('Acceso denegado. Se requiere rol de administrador.', 'error')
+    if (loggedInProfile && loggedInProfile.rol !== 'admin' && loggedInProfile.rol !== 'superadmin' && loggedInProfile.rol !== 'auditor') {
+      showToast('Acceso denegado. Se requiere rol de administrador o auditor.', 'error')
       router.push('/dashboard')
       return
     }
@@ -74,6 +74,17 @@ export default function OperativeProfileClient({ operativeId }) {
         router.push('/dashboard/usuarios')
         return
       }
+
+      if (loggedInProfile?.rol === 'auditor' && loggedInProfile?.ciudad !== 'Nacional') {
+        const auditorCities = (loggedInProfile?.ciudad || '').toLowerCase().split(',').map(c => c.trim())
+        const userCity = (opProfile.ciudad || '').toLowerCase().trim()
+        if (!auditorCities.includes(userCity)) {
+          showToast('Acceso denegado. Este operativo pertenece a otra ciudad.', 'error')
+          router.push('/dashboard/usuarios')
+          return
+        }
+      }
+
       setProfile(opProfile)
 
       const { startIso, endIso } = getPeriodRange(selectedPeriod, focusDate)
