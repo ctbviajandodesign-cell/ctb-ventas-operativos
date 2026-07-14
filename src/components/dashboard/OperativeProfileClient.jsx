@@ -160,7 +160,7 @@ export default function OperativeProfileClient({ operativeId }) {
         porcentajeMeta
       })
 
-      generateAIInsight(opProfile, gananciaPeriodo, validCots.length, ganadas, perdidas, abiertas, conversion, topDestino, topMotivosOp)
+      generateAIInsight(opProfile, gananciaPeriodo, validCots.length, ganadas, perdidas, abiertas, conversion, topDestino, topMotivosOp, porcentajeMeta)
 
     } catch (err) {
       console.error(err)
@@ -170,7 +170,7 @@ export default function OperativeProfileClient({ operativeId }) {
     }
   }
 
-  const generateAIInsight = async (p, g, tc, gn, pr, ab, conv, td, tm) => {
+  const generateAIInsight = async (p, g, tc, gn, pr, ab, conv, td, tm, cump) => {
     setLoadingAi(true)
     try {
       const res = await fetch('/api/insight', {
@@ -182,6 +182,7 @@ export default function OperativeProfileClient({ operativeId }) {
             nombreAsesor: p.nombre,
             meta: p.meta_mensual,
             totalAporte: g,
+            cumplimiento: cump,
             total: tc,
             ganadas: gn,
             perdidas: pr,
