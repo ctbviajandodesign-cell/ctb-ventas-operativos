@@ -8,10 +8,21 @@ export const generateVoucherPDF = (voucher, qrBase64) => {
     format: 'a4'
   })
 
-  // Paleta de Colores CTB
   const primaryColor = [0, 102, 204] // #0066CC
   const darkColor = [15, 23, 42] // #0F172A
   const greyColor = [156, 163, 175]
+
+  // Helper para limpiar caracteres no soportados por jsPDF (emojis, etc)
+  const cleanText = (str) => {
+    if (!str) return ''
+    return str
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/[\u201C\u201D]/g, '"')
+      .replace(/[\u2013\u2014]/g, '-')
+      .replace(/[\u2022]/g, '*')
+      .replace(/[^\x00-\xFF]/g, ' ')
+      .trim()
+  }
 
   // Rectángulo Superior (Header)
   doc.setFillColor(...darkColor)
@@ -67,26 +78,27 @@ export const generateVoucherPDF = (voucher, qrBase64) => {
     margin: { left: 15, right: 15 }
   })
 
-  const nextY = doc.lastAutoTable.finalY + 15
+  let currentY = doc.lastAutoTable.finalY + 15
 
   // Destino y Fechas
   doc.setFontSize(9)
   doc.setTextColor(...greyColor)
-  doc.text('DESTINO FINAL', 15, nextY)
-  doc.text('PERIODO DE VIAJE', 110, nextY)
+  doc.text('DESTINO FINAL', 15, currentY)
+  doc.text('PERIODO DE VIAJE', 110, currentY)
 
   doc.setTextColor(...darkColor)
   doc.setFontSize(12)
   doc.setFont('helvetica', 'bold')
-  doc.text(voucher.destino || 'EXPLORE', 15, nextY + 6)
-  doc.text(`${voucher.fecha_viaje_desde || '---'} AL ${voucher.fecha_viaje_hasta || '---'}`, 110, nextY + 6)
+  doc.text(voucher.destino || 'EXPLORE', 15, currentY + 6)
+  doc.text(`${voucher.fecha_viaje_desde || '---'} AL ${voucher.fecha_viaje_hasta || '---'}`, 110, currentY + 6)
+
+  currentY += 15
 
   // Inclusiones
   if (voucher.inclusiones) {
-    const inclY = nextY + 20
     doc.setFontSize(9)
     doc.setTextColor(...greyColor)
-    doc.text('SERVICIOS INCLUIDOS', 15, inclY)
+    doc.text('SERVICIOS INCLUIDOS', 15, currentY)
 
     const items = Object.entries(voucher.inclusiones)
       .filter(([_, val]) => val)
@@ -94,41 +106,59 @@ export const generateVoucherPDF = (voucher, qrBase64) => {
     
     doc.setTextColor(...primaryColor)
     doc.setFontSize(10)
-    doc.text(items.join('  •  '), 15, inclY + 6)
+    doc.text(items.join('  •  '), 15, currentY + 6)
+    
+    currentY += 15
   }
 
   // Notas
   if (voucher.notas) {
-    const notasY = nextY + 40
-    doc.setFillColor(245, 247, 250)
-    doc.rect(15, notasY, 180, 20, 'F')
-    doc.setFontSize(8)
-    doc.setTextColor(...greyColor)
-    doc.text('OBSERVACIONES', 20, notasY + 6)
-    doc.setTextColor(...darkColor)
-    doc.setFontSize(9)
-    doc.setFont('helvetica', 'italic')
-    doc.text(voucher.notas, 20, notasY + 12, { maxWidth: 170 })
+    const cleanedNotas = cleanText(voucher.notas)
+    autoTable(doc, {
+      startY: currentY,
+      head: [['OBSERVACIONES']],
+      body: [[cleanedNotas]],
+      theme: 'plain',
+      headStyles: { 
+        fillColor: [245, 247, 250], 
+        textColor: greyColor, 
+        fontSize: 8, 
+        fontStyle: 'bold',
+        cellPadding: { top: 5, right: 5, bottom: 2, left: 5 }
+      },
+      bodyStyles: { 
+        fillColor: [245, 247, 250], 
+        textColor: darkColor, 
+        fontSize: 9, 
+        fontStyle: 'italic',
+        cellPadding: { top: 2, right: 5, bottom: 5, left: 5 }
+      },
+      margin: { left: 15, right: 15, bottom: 45 }
+    })
   }
 
-  // Footer / Firma
-  const footerY = 270
-  doc.setDrawColor(230, 230, 230)
-  doc.line(15, footerY, 195, footerY)
-  
-  doc.setFontSize(7)
-  doc.setTextColor(...greyColor)
-  doc.setFont('helvetica', 'normal')
-  doc.text('Este documento es una representación digital del voucher oficial de CTB Viajando.', 15, footerY + 5)
-  doc.text('La validez puede verificarse escaneando el código QR oficial en ctbviajando.com/verify', 15, footerY + 9)
-  
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(...primaryColor)
-  doc.text('CTB CLOUD VERIFIED', 165, footerY + 7)
+  // Footer / Firma en todas las páginas
+  const pageCount = doc.internal.getNumberOfPages()
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i)
+    const footerY = 270
+    doc.setDrawColor(230, 230, 230)
+    doc.line(15, footerY, 195, footerY)
+    
+    doc.setFontSize(7)
+    doc.setTextColor(...greyColor)
+    doc.setFont('helvetica', 'normal')
+    doc.text('Este documento es una representación digital del voucher oficial de CTB Viajando.', 15, footerY + 5)
+    doc.text('La validez puede verificarse escaneando el código QR oficial en ctbviajando.com/verify', 15, footerY + 9)
+    
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...primaryColor)
+    doc.text('CTB CLOUD VERIFIED', 165, footerY + 7)
 
-  // QR Code
-  if (qrBase64) {
-    doc.addImage(qrBase64, 'PNG', 160, footerY - 35, 30, 30)
+    // QR Code
+    if (qrBase64) {
+      doc.addImage(qrBase64, 'PNG', 160, footerY - 35, 30, 30)
+    }
   }
 
   doc.save(`Voucher_${voucher.codigo}.pdf`)
@@ -146,6 +176,18 @@ export const generateProformaPDF = (venta, qrBase64 = null) => {
   const darkColor = [15, 23, 42] // #0F172A
   const greyColor = [156, 163, 175]
   const isVenta = venta.estado === 'ganada'
+
+  // Helper para limpiar caracteres no soportados por jsPDF (emojis, etc)
+  const cleanText = (str) => {
+    if (!str) return ''
+    return str
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/[\u201C\u201D]/g, '"')
+      .replace(/[\u2013\u2014]/g, '-')
+      .replace(/[\u2022]/g, '*')
+      .replace(/[^\x00-\xFF]/g, ' ')
+      .trim()
+  }
 
   // Rectángulo Superior (Header)
   doc.setFillColor(...darkColor)
@@ -213,17 +255,29 @@ export const generateProformaPDF = (venta, qrBase64 = null) => {
   let currentY = 105;
 
   if (venta.notas_iniciales) {
-    doc.setFillColor(245, 247, 250)
-    doc.rect(15, currentY, 180, 35, 'F')
-    doc.setFontSize(9)
-    doc.setTextColor(...greyColor)
-    doc.text('OBSERVACIONES / REQUERIMIENTO', 20, currentY + 7)
-    doc.setTextColor(...darkColor)
-    doc.setFontSize(10)
-    doc.setFont('helvetica', 'normal')
-    const splitNotes = doc.splitTextToSize(venta.notas_iniciales, 170)
-    doc.text(splitNotes, 20, currentY + 14)
-    currentY += 45
+    const cleanedNotas = cleanText(venta.notas_iniciales)
+    autoTable(doc, {
+      startY: currentY,
+      head: [['OBSERVACIONES / REQUERIMIENTO']],
+      body: [[cleanedNotas]],
+      theme: 'plain',
+      headStyles: { 
+        fillColor: [245, 247, 250], 
+        textColor: greyColor, 
+        fontSize: 9, 
+        fontStyle: 'bold',
+        cellPadding: { top: 5, right: 5, bottom: 2, left: 5 }
+      },
+      bodyStyles: { 
+        fillColor: [245, 247, 250], 
+        textColor: darkColor, 
+        fontSize: 10, 
+        fontStyle: 'normal',
+        cellPadding: { top: 2, right: 5, bottom: 5, left: 5 }
+      },
+      margin: { left: 15, right: 15, bottom: 45 }
+    })
+    currentY = doc.lastAutoTable.finalY + 15
   }
 
   // Pasajeros
@@ -235,7 +289,7 @@ export const generateProformaPDF = (venta, qrBase64 = null) => {
       theme: 'grid',
       headStyles: { fillColor: darkColor, textColor: 255, fontStyle: 'bold', fontSize: 9 },
       bodyStyles: { fontSize: 10, textColor: darkColor },
-      margin: { left: 15, right: 15 }
+      margin: { left: 15, right: 15, bottom: 45 }
     })
     currentY = doc.lastAutoTable.finalY + 15
   }
@@ -253,32 +307,36 @@ export const generateProformaPDF = (venta, qrBase64 = null) => {
       theme: 'grid',
       headStyles: { fillColor: primaryColor, textColor: 255, fontStyle: 'bold', fontSize: 9 },
       bodyStyles: { fontSize: 10, textColor: darkColor },
-      margin: { left: 15, right: 15 }
+      margin: { left: 15, right: 15, bottom: 45 }
     })
     currentY = doc.lastAutoTable.finalY + 15
   }
 
-  // Footer / Firma
-  const footerY = 270
-  doc.setDrawColor(230, 230, 230)
-  doc.setLineWidth(0.5)
-  doc.line(15, footerY, 195, footerY)
-  
-  doc.setFontSize(7)
-  doc.setTextColor(...greyColor)
-  doc.setFont('helvetica', 'normal')
-  doc.text('Documento generado a través de CTB Business Intelligence.', 15, footerY + 5)
-  if (qrBase64) {
-    doc.text('Cotización vinculada a un Voucher. Escanee el código para verificar.', 15, footerY + 9)
-  }
-  
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(...primaryColor)
-  doc.text('CTB CLOUD VERIFIED', 165, footerY + 7)
+  // Footer / Firma en todas las páginas
+  const pageCount = doc.internal.getNumberOfPages()
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i)
+    const footerY = 270
+    doc.setDrawColor(230, 230, 230)
+    doc.setLineWidth(0.5)
+    doc.line(15, footerY, 195, footerY)
+    
+    doc.setFontSize(7)
+    doc.setTextColor(...greyColor)
+    doc.setFont('helvetica', 'normal')
+    doc.text('Documento generado a través de CTB Business Intelligence.', 15, footerY + 5)
+    if (qrBase64) {
+      doc.text('Cotización vinculada a un Voucher. Escanee el código para verificar.', 15, footerY + 9)
+    }
+    
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...primaryColor)
+    doc.text('CTB CLOUD VERIFIED', 165, footerY + 7)
 
-  // QR Code
-  if (qrBase64) {
-    doc.addImage(qrBase64, 'PNG', 160, footerY - 35, 30, 30)
+    // QR Code
+    if (qrBase64) {
+      doc.addImage(qrBase64, 'PNG', 160, footerY - 35, 30, 30)
+    }
   }
 
   const prefix = isVenta ? 'Proforma_Vendida' : 'Cotizacion'
