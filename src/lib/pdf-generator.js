@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
-export const generateVoucherPDF = (voucher, qrBase64) => {
+export const generateVoucherPDF = async (voucher, qrBase64) => {
   const doc = new jsPDF({
     orientation: 'p',
     unit: 'mm',
@@ -24,19 +24,44 @@ export const generateVoucherPDF = (voucher, qrBase64) => {
       .trim()
   }
 
+  // Intentar cargar el logo
+  let logoBase64 = null
+  try {
+    const res = await fetch('/logo.png')
+    const blob = await res.blob()
+    logoBase64 = await new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result)
+      reader.readAsDataURL(blob)
+    })
+  } catch (e) {
+    console.warn('No se pudo cargar el logo', e)
+  }
+
   // Rectángulo Superior (Header)
   doc.setFillColor(...darkColor)
   doc.rect(0, 0, 210, 40, 'F')
 
-  // Logo Text (Simulado si no hay imagen base64)
-  doc.setTextColor(255, 255, 255)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(24)
-  doc.text('CTB VIAJANDO', 15, 20)
-  
-  doc.setFontSize(8)
-  doc.setFont('helvetica', 'normal')
-  doc.text('TRAVEL AGENCY & BUSINESS INTELLIGENCE', 15, 26)
+  if (logoBase64) {
+    doc.addImage(logoBase64, 'PNG', 15, 10, 20, 20, undefined, 'FAST')
+    doc.setTextColor(255, 255, 255)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(24)
+    doc.text('CTB VIAJANDO', 40, 20)
+    
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'normal')
+    doc.text('TRAVEL AGENCY & BUSINESS INTELLIGENCE', 40, 26)
+  } else {
+    doc.setTextColor(255, 255, 255)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(24)
+    doc.text('CTB VIAJANDO', 15, 20)
+    
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'normal')
+    doc.text('TRAVEL AGENCY & BUSINESS INTELLIGENCE', 15, 26)
+  }
 
   // Etiqueta de Documento
   doc.setFillColor(...primaryColor)
@@ -164,7 +189,7 @@ export const generateVoucherPDF = (voucher, qrBase64) => {
   doc.save(`Voucher_${voucher.codigo}.pdf`)
 }
 
-export const generateProformaPDF = (venta, qrBase64 = null) => {
+export const generateProformaPDF = async (venta, qrBase64 = null) => {
   const doc = new jsPDF({
     orientation: 'p',
     unit: 'mm',
@@ -189,17 +214,44 @@ export const generateProformaPDF = (venta, qrBase64 = null) => {
       .trim()
   }
 
+  // Intentar cargar el logo
+  let logoBase64 = null
+  try {
+    const res = await fetch('/logo.png')
+    const blob = await res.blob()
+    logoBase64 = await new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result)
+      reader.readAsDataURL(blob)
+    })
+  } catch (e) {
+    console.warn('No se pudo cargar el logo', e)
+  }
+
   // Rectángulo Superior (Header)
   doc.setFillColor(...darkColor)
   doc.rect(0, 0, 210, 40, 'F')
-  doc.setTextColor(255, 255, 255)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(24)
-  doc.text('CTB VIAJANDO', 15, 20)
-  
-  doc.setFontSize(8)
-  doc.setFont('helvetica', 'normal')
-  doc.text('TRAVEL AGENCY & BUSINESS INTELLIGENCE', 15, 26)
+
+  if (logoBase64) {
+    doc.addImage(logoBase64, 'PNG', 15, 10, 20, 20, undefined, 'FAST')
+    doc.setTextColor(255, 255, 255)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(24)
+    doc.text('CTB VIAJANDO', 40, 20)
+    
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'normal')
+    doc.text('TRAVEL AGENCY & BUSINESS INTELLIGENCE', 40, 26)
+  } else {
+    doc.setTextColor(255, 255, 255)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(24)
+    doc.text('CTB VIAJANDO', 15, 20)
+    
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'normal')
+    doc.text('TRAVEL AGENCY & BUSINESS INTELLIGENCE', 15, 26)
+  }
 
   // Etiqueta de Documento
   doc.setFillColor(...primaryColor)
