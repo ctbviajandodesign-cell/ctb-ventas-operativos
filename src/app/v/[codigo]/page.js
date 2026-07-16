@@ -85,6 +85,23 @@ export default function VoucherVerificationPage() {
   const isAnulado = voucher.estado === 'anulado'
   const isValid = voucher.estado === 'activo' && !isExpired
 
+  const renderTextWithLinks = (text) => {
+    if (!text) return null;
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+    
+    return parts.map((part, i) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline font-bold hover:text-blue-800">
+            {part}
+          </a>
+        );
+      }
+      return part;
+    });
+  };
+
   return (
     <div className="min-h-screen bg-[#0F172A] flex flex-col items-center justify-center p-4 font-sans selection:bg-primary/30">
       
@@ -219,7 +236,9 @@ export default function VoucherVerificationPage() {
             {voucher.notas && (
               <div className="bg-blue-50/50 p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-blue-100 flex gap-3.5 sm:gap-4 items-start">
                 <Info size={18} className="text-blue-500 shrink-0 mt-0.5" />
-                <p className="text-xs sm:text-sm font-medium text-blue-800 leading-relaxed italic break-words">"{voucher.notas}"</p>
+                <p className="text-xs sm:text-sm font-medium text-blue-800 leading-relaxed italic break-words">
+                  "{renderTextWithLinks(voucher.notas)}"
+                </p>
               </div>
             )}
           </div>
