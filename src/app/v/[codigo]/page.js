@@ -136,7 +136,7 @@ export default function VoucherVerificationPage() {
                 <p className="text-[10px] sm:text-xs font-black text-primary uppercase tracking-[0.3em] mb-1 sm:mb-2">Travel Agency</p>
                 <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tighter leading-tight italic break-words">{voucher.agencia || 'CTB Directo'}</h2>
               </div>
-              <img src="/logo.png" alt="CTB" className="h-8 w-8 sm:h-12 sm:w-12 brightness-0 invert shrink-0 object-contain" />
+              <img src="/logo_vouchers.png" alt="CTB" className="h-12 sm:h-16 w-auto shrink-0 object-contain drop-shadow-xl" />
             </div>
 
             <div className="mt-8 sm:mt-12 flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 relative z-10 border-t border-white/10 sm:border-t-0 pt-4 sm:pt-0">

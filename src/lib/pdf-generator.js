@@ -27,7 +27,7 @@ export const generateVoucherPDF = async (voucher, qrBase64) => {
   // Intentar cargar el logo
   let logoBase64 = null
   try {
-    const res = await fetch('/logo.png')
+    const res = await fetch('/logo_vouchers.png')
     const blob = await res.blob()
     logoBase64 = await new Promise((resolve) => {
       const reader = new FileReader()
@@ -43,15 +43,15 @@ export const generateVoucherPDF = async (voucher, qrBase64) => {
   doc.rect(0, 0, 210, 40, 'F')
 
   if (logoBase64) {
-    doc.addImage(logoBase64, 'PNG', 15, 10, 20, 20, undefined, 'FAST')
+    doc.addImage(logoBase64, 'PNG', 15, 10, 25, 20, undefined, 'FAST')
     doc.setTextColor(255, 255, 255)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(24)
-    doc.text('CTB VIAJANDO', 40, 20)
+    doc.text('CTB VIAJANDO', 45, 20)
     
     doc.setFontSize(8)
     doc.setFont('helvetica', 'normal')
-    doc.text('TRAVEL AGENCY & BUSINESS INTELLIGENCE', 40, 26)
+    doc.text('TRAVEL AGENCY & BUSINESS INTELLIGENCE', 45, 26)
   } else {
     doc.setTextColor(255, 255, 255)
     doc.setFont('helvetica', 'bold')
@@ -217,7 +217,7 @@ export const generateProformaPDF = async (venta, qrBase64 = null) => {
   // Intentar cargar el logo
   let logoBase64 = null
   try {
-    const res = await fetch('/logo.png')
+    const res = await fetch('/logo_vouchers.png')
     const blob = await res.blob()
     logoBase64 = await new Promise((resolve) => {
       const reader = new FileReader()
@@ -233,15 +233,15 @@ export const generateProformaPDF = async (venta, qrBase64 = null) => {
   doc.rect(0, 0, 210, 40, 'F')
 
   if (logoBase64) {
-    doc.addImage(logoBase64, 'PNG', 15, 10, 20, 20, undefined, 'FAST')
+    doc.addImage(logoBase64, 'PNG', 15, 10, 25, 20, undefined, 'FAST')
     doc.setTextColor(255, 255, 255)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(24)
-    doc.text('CTB VIAJANDO', 40, 20)
+    doc.text('CTB VIAJANDO', 45, 20)
     
     doc.setFontSize(8)
     doc.setFont('helvetica', 'normal')
-    doc.text('TRAVEL AGENCY & BUSINESS INTELLIGENCE', 40, 26)
+    doc.text('TRAVEL AGENCY & BUSINESS INTELLIGENCE', 45, 26)
   } else {
     doc.setTextColor(255, 255, 255)
     doc.setFont('helvetica', 'bold')
