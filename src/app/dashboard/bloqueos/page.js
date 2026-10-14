@@ -25,16 +25,16 @@ import {
   Trash2,
   Calendar,
   X,
-  Target
+  Target,
+  Edit2
 } from 'lucide-react'
 import { format, differenceInDays, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { showToast } from '@/utils/toast'
 import IataSelector from '@/components/IataSelector'
-import { CTB_CITIES } from '@/data/cities'
 
 export default function BloqueosPage() {
-  const { user, profile, isAdmin, loading: sessionLoading } = useUserSession()
+  const { user, profile, isAdmin } = useUserSession()
   const isSuperAdmin = profile?.rol === 'superadmin'
   const isPrivileged = isAdmin || isSuperAdmin
 
@@ -45,7 +45,6 @@ export default function BloqueosPage() {
   // Filters
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('activo')
-  const [selectedCity, setSelectedCity] = useState('todas')
 
   // Modal State
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -53,7 +52,8 @@ export default function BloqueosPage() {
 
   // Autocomplete Tags for "Otros"
   const [availableTags, setAvailableTags] = useState([])
-  const [customTagInput, setCustomTagInput] = useState('')
+  const [newTagConcepto, setNewTagConcepto] = useState('')
+  const [newTagPrecio, setNewTagPrecio] = useState('')
 
   // Form State for New Bloqueo
   const [formData, setFormData] = useState({
@@ -66,11 +66,11 @@ export default function BloqueosPage() {
     fecha_limite_emision: '',
     fecha_limite_pago: '',
     cupos_totales: 30,
-    precio_vuelo: 0,
-    precio_operador: 0,
+    precio_vuelo: '',
+    precio_operador: '',
     otros_costos: [], // [{ id, concepto, monto }]
     ganancia_unitaria: 100,
-    precio_venta_pax: 0,
+    precio_venta_pax: '',
     notas: ''
   })
 
@@ -143,7 +143,7 @@ export default function BloqueosPage() {
     const utilidadProyectada = ganancia * cupos
     // Break Even: Cuántos cupos a precio_venta_pax para cubrir inversionTotal
     const precioVenta = Number(formData.precio_venta_pax) > 0 ? Number(formData.precio_venta_pax) : precioSugerido
-    const breakEvenPax = precioVenta > 0 ? Math.ceil(inversionTotal / precioVenta) : 0
+    const breakEvenPax = precioVenta > 0 && inversionTotal > 0 ? Math.ceil(inversionTotal / precioVenta) : 0
 
     return {
       costoUnitario,
@@ -155,7 +155,7 @@ export default function BloqueosPage() {
     }
   }, [formData.precio_vuelo, formData.precio_operador, formData.otros_costos, formData.ganancia_unitaria, formData.precio_venta_pax, formData.cupos_totales])
 
-  // Auto-update precio_venta_pax when suggested price changes unless manually overridden
+  // Recalculate suggested public price when cost fields change
   const handleCostChange = (field, val) => {
     setFormData(prev => {
       const updated = { ...prev, [field]: val }
@@ -167,36 +167,82 @@ export default function BloqueosPage() {
       
       return {
         ...updated,
-        precio_venta_pax: sugerido
+        precio_venta_pax: sugerido > 0 ? sugerido : prev.precio_venta_pax
       }
     })
   }
 
-  const handleAddOtherCost = (concepto, monto = 0) => {
-    if (!concepto || !concepto.trim()) return
+  // Adding other cost with explicit price
+  const handleAddOtherCost = () => {
+    if (!newTagConcepto || !newTagConcepto.trim()) {
+      showToast('Ingresa el concepto del servicio adicional.', 'error')
+      return
+    }
+    const montoNum = Number(newTagPrecio) || 0
+
     const newItem = {
       id: Date.now().toString(),
-      concepto: concepto.trim(),
-      monto: Number(monto) || 0
+      concepto: newTagConcepto.trim(),
+      monto: montoNum
     }
     const updatedOtros = [...formData.otros_costos, newItem]
+    
+    // Auto-update precio_venta_pax
+    const vuelo = Number(formData.precio_vuelo) || 0
+    const operador = Number(formData.precio_operador) || 0
+    const otros = updatedOtros.reduce((acc, item) => acc + (Number(item.monto) || 0), 0)
+    const ganancia = Number(formData.ganancia_unitaria) || 0
+    const sugerido = vuelo + operador + otros + ganancia
+
     setFormData(prev => ({
       ...prev,
-      otros_costos: updatedOtros
+      otros_costos: updatedOtros,
+      precio_venta_pax: sugerido
     }))
 
-    // Save to availableTags if not exists
-    if (!availableTags.includes(concepto.trim())) {
-      setAvailableTags(prev => [...prev, concepto.trim()])
-      supabase.from('bloqueo_etiquetas_costos').insert([{ nombre: concepto.trim() }]).then()
+    // Save to predictive tags repository if new
+    if (!availableTags.includes(newTagConcepto.trim())) {
+      setAvailableTags(prev => [...prev, newTagConcepto.trim()])
+      supabase.from('bloqueo_etiquetas_costos').insert([{ nombre: newTagConcepto.trim() }]).then()
     }
-    setCustomTagInput('')
+
+    setNewTagConcepto('')
+    setNewTagPrecio('')
+  }
+
+  const handleUpdateOtherCostPrice = (id, newPrice) => {
+    const updatedOtros = formData.otros_costos.map(item => {
+      if (item.id === id) {
+        return { ...item, monto: Number(newPrice) || 0 }
+      }
+      return item
+    })
+
+    const vuelo = Number(formData.precio_vuelo) || 0
+    const operador = Number(formData.precio_operador) || 0
+    const otros = updatedOtros.reduce((acc, item) => acc + (Number(item.monto) || 0), 0)
+    const ganancia = Number(formData.ganancia_unitaria) || 0
+    const sugerido = vuelo + operador + otros + ganancia
+
+    setFormData(prev => ({
+      ...prev,
+      otros_costos: updatedOtros,
+      precio_venta_pax: sugerido
+    }))
   }
 
   const handleRemoveOtherCost = (id) => {
+    const updatedOtros = formData.otros_costos.filter(i => i.id !== id)
+    const vuelo = Number(formData.precio_vuelo) || 0
+    const operador = Number(formData.precio_operador) || 0
+    const otros = updatedOtros.reduce((acc, item) => acc + (Number(item.monto) || 0), 0)
+    const ganancia = Number(formData.ganancia_unitaria) || 0
+    const sugerido = vuelo + operador + otros + ganancia
+
     setFormData(prev => ({
       ...prev,
-      otros_costos: prev.otros_costos.filter(i => i.id !== id)
+      otros_costos: updatedOtros,
+      precio_venta_pax: sugerido
     }))
   }
 
@@ -275,11 +321,11 @@ export default function BloqueosPage() {
         fecha_limite_emision: '',
         fecha_limite_pago: '',
         cupos_totales: 30,
-        precio_vuelo: 0,
-        precio_operador: 0,
+        precio_vuelo: '',
+        precio_operador: '',
         otros_costos: [],
         ganancia_unitaria: 100,
-        precio_venta_pax: 0,
+        precio_venta_pax: '',
         notas: ''
       })
       fetchBloqueos()
@@ -335,45 +381,84 @@ export default function BloqueosPage() {
     }
   }, [filteredBloqueos, pasajerosStats, isPrivileged])
 
-  const getCountdownBadge = (fechaSalida) => {
+  // PROMINENT COUNTDOWN BANNER BUILDER
+  const renderCountdownBanner = (fechaSalida) => {
     if (!fechaSalida) return null
     const today = new Date()
     today.setHours(0,0,0,0)
     const salida = new Date(fechaSalida + 'T00:00:00')
     const diffDays = differenceInDays(salida, today)
 
+    let theme = {
+      bg: 'bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900',
+      badge: 'bg-blue-500/20 text-blue-300 border-blue-400/30',
+      text: `Faltan ${diffDays} días para el viaje`,
+      iconColor: 'text-blue-400',
+      status: 'En cronograma'
+    }
+
     if (diffDays < 0) {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-gray-100 text-gray-500 uppercase tracking-widest">
-          Viaje Concluido
-        </span>
-      )
+      theme = {
+        bg: 'bg-gradient-to-r from-gray-800 to-gray-900',
+        badge: 'bg-gray-700 text-gray-300 border-gray-600',
+        text: 'Viaje Concluido',
+        iconColor: 'text-gray-400',
+        status: 'Completado'
+      }
+    } else if (diffDays === 0) {
+      theme = {
+        bg: 'bg-gradient-to-r from-emerald-900 to-teal-950',
+        badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30 animate-pulse',
+        text: '¡EL VIAJE ES HOY!',
+        iconColor: 'text-emerald-400',
+        status: '¡Despegue hoy!'
+      }
+    } else if (diffDays <= 7) {
+      theme = {
+        bg: 'bg-gradient-to-r from-red-950 via-rose-950 to-slate-900',
+        badge: 'bg-red-500/20 text-red-300 border-red-400/30 animate-pulse',
+        text: `¡Faltan solo ${diffDays} ${diffDays === 1 ? 'día' : 'días'}!`,
+        iconColor: 'text-red-400',
+        status: 'Última semana'
+      }
+    } else if (diffDays <= 20) {
+      theme = {
+        bg: 'bg-gradient-to-r from-amber-950 via-slate-900 to-slate-900',
+        badge: 'bg-amber-500/20 text-amber-300 border-amber-400/30',
+        text: `Faltan ${diffDays} días para el viaje`,
+        iconColor: 'text-amber-400',
+        status: 'Próximo a salir'
+      }
     }
-    if (diffDays === 0) {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 uppercase tracking-widest animate-pulse">
-          ✈️ ¡Vuela Hoy!
-        </span>
-      )
-    }
-    if (diffDays <= 7) {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-red-100 text-red-700 uppercase tracking-widest">
-          <Clock size={12} className="animate-spin text-red-600" /> Faltan {diffDays} {diffDays === 1 ? 'día' : 'días'}
-        </span>
-      )
-    }
-    if (diffDays <= 20) {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-800 uppercase tracking-widest">
-          <Clock size={12} /> Faltan {diffDays} días
-        </span>
-      )
-    }
+
     return (
-      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-blue-50 text-blue-700 uppercase tracking-widest">
-        <Clock size={12} /> Faltan {diffDays} días
-      </span>
+      <div className={`${theme.bg} text-white p-3.5 rounded-2xl flex items-center justify-between border border-white/10 shadow-lg mt-3`}>
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+            <Clock size={18} className={theme.iconColor} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] uppercase font-black tracking-widest text-gray-400">
+                Cuenta Regresiva
+              </span>
+              <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${theme.badge}`}>
+                {theme.status}
+              </span>
+            </div>
+            <p className="text-sm font-black text-white tracking-tight mt-0.5">
+              {theme.text}
+            </p>
+          </div>
+        </div>
+
+        <div className="text-right shrink-0">
+          <span className="text-[10px] text-gray-400 font-bold block uppercase tracking-wider">Fecha Salida</span>
+          <span className="text-xs font-black text-white">
+            {format(salida, "d MMM yyyy", { locale: es })}
+          </span>
+        </div>
+      </div>
     )
   }
 
@@ -492,7 +577,7 @@ export default function BloqueosPage() {
             placeholder="Buscar por código, destino, aerolínea..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-11 pr-4 py-3 bg-gray-50 rounded-2xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 border border-transparent focus:border-primary/30"
+            className="w-full pl-11 pr-4 py-3 bg-white text-gray-900 placeholder:text-gray-400 font-semibold rounded-2xl text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 border border-gray-200"
           />
         </div>
 
@@ -579,18 +664,20 @@ export default function BloqueosPage() {
               >
                 {/* Header card */}
                 <div className="p-6 pb-4">
-                  <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="flex items-start justify-between gap-3 mb-2">
                     <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-gray-100 text-gray-800">
                       {bloqueo.codigo}
                     </span>
-                    {getCountdownBadge(bloqueo.fecha_salida)}
+                    <span className="text-xs text-gray-400 font-bold uppercase tracking-wider">
+                      {cupos} Cupos Totales
+                    </span>
                   </div>
 
                   <h3 className="text-lg font-black text-gray-900 group-hover:text-primary transition-colors leading-tight line-clamp-1">
                     {bloqueo.titulo}
                   </h3>
 
-                  <div className="flex items-center gap-2 mt-2 text-xs text-gray-500 font-semibold">
+                  <div className="flex items-center gap-2 mt-1.5 text-xs text-gray-500 font-semibold">
                     <MapPin size={14} className="text-primary shrink-0" />
                     <span className="truncate">{bloqueo.destino}</span>
                     {bloqueo.aerolinea && (
@@ -602,26 +689,13 @@ export default function BloqueosPage() {
                     )}
                   </div>
 
-                  {/* Dates Row */}
-                  <div className="mt-4 p-3 bg-gray-50 rounded-2xl flex items-center justify-between text-xs font-semibold text-gray-600">
-                    <div className="flex items-center gap-1.5">
-                      <Calendar size={14} className="text-gray-400" />
-                      <span>Salida:</span>
-                      <strong className="text-gray-900">
-                        {bloqueo.fecha_salida ? format(parseISO(bloqueo.fecha_salida), "d MMM yyyy", { locale: es }) : 'S/F'}
-                      </strong>
-                    </div>
-                    {bloqueo.fecha_retorno && (
-                      <span className="text-[11px] text-gray-400">
-                        Retorno: {format(parseISO(bloqueo.fecha_retorno), "d MMM", { locale: es })}
-                      </span>
-                    )}
-                  </div>
+                  {/* PROMINENT COUNTDOWN BANNER */}
+                  {renderCountdownBanner(bloqueo.fecha_salida)}
 
                   {/* Slot Progress Bar */}
                   <div className="mt-5 space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-gray-500">
+                      <span className="font-bold text-gray-600">
                         Ocupación: <strong className="text-gray-900">{ocupados} / {cupos} PAX</strong>
                       </span>
                       <span className={`font-black ${libres === 0 ? 'text-red-500' : 'text-emerald-600'}`}>
@@ -657,8 +731,8 @@ export default function BloqueosPage() {
 
                   {/* Deadlines Strip */}
                   {bloqueo.fecha_limite_emision && (
-                    <div className="mt-3 flex items-center gap-1.5 text-[11px] text-amber-700 bg-amber-50/80 px-2.5 py-1.5 rounded-xl border border-amber-200/50">
-                      <AlertTriangle size={12} className="shrink-0 text-amber-600" />
+                    <div className="mt-3 flex items-center gap-1.5 text-[11px] text-amber-700 bg-amber-50/80 px-3 py-1.5 rounded-xl border border-amber-200/50">
+                      <AlertTriangle size={13} className="shrink-0 text-amber-600" />
                       <span>
                         Límite emisión nombres: <strong>{format(parseISO(bloqueo.fecha_limite_emision), "d 'de' MMMM", { locale: es })}</strong>
                       </span>
@@ -668,11 +742,11 @@ export default function BloqueosPage() {
                   {/* Confidential Financial Box for Admin */}
                   {isPrivileged && (
                     <div className="mt-4 pt-3 border-t border-dashed border-gray-100 grid grid-cols-2 gap-2 text-[11px]">
-                      <div className="bg-gray-50 p-2 rounded-xl">
+                      <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-100">
                         <span className="text-gray-400 block font-medium">Inversión Total:</span>
                         <strong className="text-gray-800 text-xs">${inversionTotal.toLocaleString('es-EC')}</strong>
                       </div>
-                      <div className="bg-emerald-50 p-2 rounded-xl">
+                      <div className="bg-emerald-50 p-2.5 rounded-xl border border-emerald-100">
                         <span className="text-emerald-700 block font-medium">Ganancia Est. Pax:</span>
                         <strong className="text-emerald-800 text-xs">${bloqueo.ganancia_unitaria || 0} USD</strong>
                       </div>
@@ -680,7 +754,7 @@ export default function BloqueosPage() {
                   )}
                 </div>
 
-                {/* Footer card */}
+                {/* Footer card: "Ver Tabla" */}
                 <div className="p-4 bg-gray-50/70 border-t border-gray-100 flex items-center justify-between">
                   <div>
                     <span className="text-[10px] text-gray-400 uppercase font-black tracking-wider block">
@@ -693,10 +767,10 @@ export default function BloqueosPage() {
 
                   <Link
                     href={`/dashboard/bloqueos/${bloqueo.id}`}
-                    className="inline-flex items-center gap-1.5 bg-gray-900 text-white px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow-lg hover:bg-primary active:scale-95 transition-all"
+                    className="inline-flex items-center gap-2 bg-gray-900 hover:bg-primary text-white px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow-lg hover:shadow-primary/30 active:scale-95 transition-all"
                   >
-                    Ver Grilla
-                    <ArrowUpRight size={14} />
+                    <span>Ver Tabla</span>
+                    <ArrowUpRight size={15} />
                   </Link>
                 </div>
               </div>
@@ -710,19 +784,19 @@ export default function BloqueosPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-3xl rounded-[2rem] shadow-2xl border border-gray-100 max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
             {/* Modal Header */}
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/60">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-black">
                   <CalendarRange size={20} />
                 </div>
                 <div>
                   <h2 className="text-lg font-black text-gray-900 tracking-tight">Armado de Nuevo Bloqueo</h2>
-                  <p className="text-xs text-gray-400 font-medium">Configura costos, margen y cupos para el equipo.</p>
+                  <p className="text-xs text-gray-500 font-medium">Configura costos, margen y cupos para el equipo.</p>
                 </div>
               </div>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="w-9 h-9 rounded-full bg-gray-100 text-gray-400 hover:text-gray-800 flex items-center justify-center transition-colors"
+                className="w-9 h-9 rounded-full bg-gray-100 text-gray-500 hover:text-gray-900 flex items-center justify-center transition-colors"
               >
                 <X size={18} />
               </button>
@@ -737,28 +811,28 @@ export default function BloqueosPage() {
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-gray-700 font-black mb-1">Título del Bloqueo *</label>
+                    <label className="block text-gray-800 font-bold mb-1">Título del Bloqueo *</label>
                     <input
                       type="text"
                       required
                       placeholder="Ej. Cartagena Fin de Año"
                       value={formData.titulo}
                       onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
-                      className="input w-full"
+                      className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
                     />
                   </div>
                   <div>
-                    <label className="block text-gray-700 font-black mb-1">Código Identificador</label>
+                    <label className="block text-gray-800 font-bold mb-1">Código Identificador</label>
                     <input
                       type="text"
-                      placeholder="Ej. BLQ-CTG-OCT26 (Opcional)"
+                      placeholder="Ej. BLQ-CTG-OCT26"
                       value={formData.codigo}
                       onChange={(e) => setFormData({ ...formData, codigo: e.target.value.toUpperCase() })}
-                      className="input w-full uppercase"
+                      className="input w-full uppercase bg-white text-gray-900 border border-gray-200 font-mono font-bold"
                     />
                   </div>
                   <div>
-                    <label className="block text-gray-700 font-black mb-1">Destino IATA *</label>
+                    <label className="block text-gray-800 font-bold mb-1">Destino IATA *</label>
                     <IataSelector
                       value={formData.destino}
                       onChange={(val) => setFormData({ ...formData, destino: val })}
@@ -769,36 +843,36 @@ export default function BloqueosPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mt-3">
                   <div>
-                    <label className="block text-gray-700 font-black mb-1">Aerolínea</label>
+                    <label className="block text-gray-800 font-bold mb-1">Aerolínea</label>
                     <input
                       type="text"
                       placeholder="Avianca, Copa, etc."
                       value={formData.aerolinea}
                       onChange={(e) => setFormData({ ...formData, aerolinea: e.target.value })}
-                      className="input w-full"
+                      className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
                     />
                   </div>
                   <div>
-                    <label className="block text-gray-700 font-black mb-1">Fecha Salida *</label>
+                    <label className="block text-gray-800 font-bold mb-1">Fecha Salida *</label>
                     <input
                       type="date"
                       required
                       value={formData.fecha_salida}
                       onChange={(e) => setFormData({ ...formData, fecha_salida: e.target.value })}
-                      className="input w-full"
+                      className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
                     />
                   </div>
                   <div>
-                    <label className="block text-gray-700 font-black mb-1">Fecha Retorno</label>
+                    <label className="block text-gray-800 font-bold mb-1">Fecha Retorno</label>
                     <input
                       type="date"
                       value={formData.fecha_retorno}
                       onChange={(e) => setFormData({ ...formData, fecha_retorno: e.target.value })}
-                      className="input w-full"
+                      className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
                     />
                   </div>
                   <div>
-                    <label className="block text-gray-700 font-black mb-1">Cupos Totales *</label>
+                    <label className="block text-gray-800 font-bold mb-1">Cupos Totales *</label>
                     <input
                       type="number"
                       min={1}
@@ -806,7 +880,7 @@ export default function BloqueosPage() {
                       required
                       value={formData.cupos_totales}
                       onChange={(e) => setFormData({ ...formData, cupos_totales: e.target.value })}
-                      className="input w-full font-bold"
+                      className="input w-full bg-white text-gray-900 border border-gray-200 font-black"
                     />
                   </div>
                 </div>
@@ -814,33 +888,33 @@ export default function BloqueosPage() {
 
               {/* Sección 2: Fechas Límites y Deadlines */}
               <div>
-                <h4 className="text-xs font-black uppercase tracking-widest text-amber-600 mb-3 flex items-center gap-1.5">
+                <h4 className="text-xs font-black uppercase tracking-widest text-amber-700 mb-3 flex items-center gap-1.5">
                   <Clock size={14} /> 2. Fechas Críticas de Operador / Aerolínea
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-amber-50/50 p-3 rounded-2xl border border-amber-100">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-amber-50/60 p-4 rounded-2xl border border-amber-200/60">
                   <div>
-                    <label className="block text-gray-700 font-bold mb-1">
+                    <label className="block text-gray-800 font-bold mb-1">
                       Fecha Límite Emisión de Nombres (Time Limit)
                     </label>
                     <input
                       type="date"
                       value={formData.fecha_limite_emision}
                       onChange={(e) => setFormData({ ...formData, fecha_limite_emision: e.target.value })}
-                      className="input w-full bg-white"
+                      className="input w-full bg-white text-gray-900 border border-amber-200 font-semibold"
                     />
-                    <span className="text-[10px] text-gray-400">Último día para entregar Rooming List sin penalidad.</span>
+                    <span className="text-[10px] text-gray-500 font-medium mt-1 block">Último día para entregar Rooming List sin penalidad.</span>
                   </div>
                   <div>
-                    <label className="block text-gray-700 font-bold mb-1">
+                    <label className="block text-gray-800 font-bold mb-1">
                       Fecha Límite Pago Total Aerolínea
                     </label>
                     <input
                       type="date"
                       value={formData.fecha_limite_pago}
                       onChange={(e) => setFormData({ ...formData, fecha_limite_pago: e.target.value })}
-                      className="input w-full bg-white"
+                      className="input w-full bg-white text-gray-900 border border-amber-200 font-semibold"
                     />
-                    <span className="text-[10px] text-gray-400">Fecha de liquidación obligatoria con proveedor.</span>
+                    <span className="text-[10px] text-gray-500 font-medium mt-1 block">Fecha de liquidación obligatoria con proveedor.</span>
                   </div>
                 </div>
               </div>
@@ -870,7 +944,7 @@ export default function BloqueosPage() {
                         step="0.01"
                         value={formData.precio_vuelo}
                         onChange={(e) => handleCostChange('precio_vuelo', e.target.value)}
-                        className="input w-full pl-7 bg-slate-800 border-slate-700 text-white font-bold"
+                        className="w-full p-2.5 pl-7 bg-slate-800 border border-slate-700 rounded-xl text-white font-bold text-xs focus:outline-none focus:border-emerald-500 placeholder:text-gray-500"
                         placeholder="0.00"
                       />
                     </div>
@@ -885,7 +959,7 @@ export default function BloqueosPage() {
                         step="0.01"
                         value={formData.precio_operador}
                         onChange={(e) => handleCostChange('precio_operador', e.target.value)}
-                        className="input w-full pl-7 bg-slate-800 border-slate-700 text-white font-bold"
+                        className="w-full p-2.5 pl-7 bg-slate-800 border border-slate-700 rounded-xl text-white font-bold text-xs focus:outline-none focus:border-emerald-500 placeholder:text-gray-500"
                         placeholder="0.00"
                       />
                     </div>
@@ -900,71 +974,98 @@ export default function BloqueosPage() {
                         step="0.01"
                         value={formData.ganancia_unitaria}
                         onChange={(e) => handleCostChange('ganancia_unitaria', e.target.value)}
-                        className="input w-full pl-7 bg-emerald-950/60 border-emerald-600/50 text-emerald-300 font-black"
+                        className="w-full p-2.5 pl-7 bg-emerald-950/60 border border-emerald-600/50 rounded-xl text-emerald-300 font-black text-xs focus:outline-none focus:border-emerald-400 placeholder:text-emerald-700"
                         placeholder="100.00"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Rubro "Otros" con Etiquetas Dinámicas */}
-                <div className="space-y-2 pt-2 border-t border-slate-800">
-                  <label className="block text-gray-300 font-bold">
-                    Otros Rubros / Gastos Adicionales (Etiquetas Dinámicas)
-                  </label>
-                  
-                  {/* Lista de tags aplicados */}
-                  {formData.otros_costos?.length > 0 && (
-                    <div className="flex flex-wrap gap-2 pb-2">
-                      {formData.otros_costos.map((item) => (
-                        <span
-                          key={item.id}
-                          className="inline-flex items-center gap-2 bg-slate-800 text-gray-200 px-3 py-1 rounded-xl text-xs border border-slate-700"
-                        >
-                          <Tag size={12} className="text-primary" />
-                          <span>{item.concepto}: <strong>${item.monto}</strong></span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveOtherCost(item.id)}
-                            className="text-gray-400 hover:text-red-400 ml-1"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                {/* Rubro "Otros" con Etiquetas Dinámicas y Precio */}
+                <div className="space-y-3 pt-3 border-t border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-gray-200 font-bold text-xs">
+                      Otros Rubros / Servicios Adicionales (Con Precio Individual)
+                    </label>
+                    <span className="text-[10px] text-gray-400">Suma automáticamente al costo</span>
+                  </div>
 
-                  {/* Input rápido para agregar tag */}
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      list="predictive-tags"
-                      placeholder="Concepto (ej. Seguro de Asistencia, Traslados...)"
-                      value={customTagInput}
-                      onChange={(e) => setCustomTagInput(e.target.value)}
-                      className="input flex-1 bg-slate-800 border-slate-700 text-white"
-                    />
-                    <datalist id="predictive-tags">
-                      {availableTags.map((tag, idx) => (
-                        <option key={idx} value={tag} />
-                      ))}
-                    </datalist>
+                  {/* Input Side by Side: Concepto + Precio + Botón */}
+                  <div className="flex flex-col sm:flex-row items-center gap-2">
+                    <div className="relative flex-1 w-full">
+                      <input
+                        type="text"
+                        list="predictive-tags"
+                        placeholder="Concepto (ej. Seguro Médico, Traslados In/Out...)"
+                        value={newTagConcepto}
+                        onChange={(e) => setNewTagConcepto(e.target.value)}
+                        className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder:text-gray-400 text-xs font-semibold focus:outline-none focus:border-emerald-500"
+                      />
+                      <datalist id="predictive-tags">
+                        {availableTags.map((tag, idx) => (
+                          <option key={idx} value={tag} />
+                        ))}
+                      </datalist>
+                    </div>
+
+                    <div className="relative w-full sm:w-36">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="Precio Pax"
+                        value={newTagPrecio}
+                        onChange={(e) => setNewTagPrecio(e.target.value)}
+                        className="w-full p-2.5 pl-7 bg-slate-800 border border-slate-700 rounded-xl text-white font-bold text-xs focus:outline-none focus:border-emerald-500 placeholder:text-gray-500"
+                      />
+                    </div>
 
                     <button
                       type="button"
-                      onClick={() => {
-                        const monto = prompt(`Ingresa el monto por pax para "${customTagInput}":`, '25')
-                        if (monto !== null) {
-                          handleAddOtherCost(customTagInput, parseFloat(monto) || 0)
-                        }
-                      }}
-                      disabled={!customTagInput.trim()}
-                      className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-gray-300 rounded-xl font-bold text-xs disabled:opacity-50"
+                      onClick={handleAddOtherCost}
+                      className="w-full sm:w-auto px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all whitespace-nowrap shadow-md shadow-emerald-900/40"
                     >
                       + Agregar Rubro
                     </button>
                   </div>
+
+                  {/* Lista de Servicios / Tags Adicionales con Precio Editable */}
+                  {formData.otros_costos?.length > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                      {formData.otros_costos.map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex items-center justify-between bg-slate-800/90 border border-slate-700 px-3 py-2 rounded-xl text-xs text-gray-200"
+                        >
+                          <div className="flex items-center gap-2 truncate pr-2">
+                            <Tag size={13} className="text-primary shrink-0" />
+                            <span className="font-semibold truncate">{item.concepto}</span>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex items-center gap-1 bg-slate-900 px-2 py-1 rounded-lg border border-slate-700">
+                              <span className="text-gray-400 text-[10px] font-bold">$</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={item.monto}
+                                onChange={(e) => handleUpdateOtherCostPrice(item.id, e.target.value)}
+                                className="w-14 bg-transparent text-white font-bold text-xs focus:outline-none text-right"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveOtherCost(item.id)}
+                              className="text-gray-400 hover:text-red-400 p-1 transition-colors"
+                              title="Eliminar rubro"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Resumen Calculado y Precio Final al Público */}
@@ -991,7 +1092,7 @@ export default function BloqueosPage() {
                       required
                       value={formData.precio_venta_pax}
                       onChange={(e) => setFormData({ ...formData, precio_venta_pax: e.target.value })}
-                      className="input w-full py-1 text-sm font-black text-primary bg-slate-900 border-primary/50"
+                      className="w-full p-2 bg-slate-900 border border-primary/60 rounded-xl text-primary font-black text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                     />
                   </div>
                 </div>
@@ -1002,7 +1103,7 @@ export default function BloqueosPage() {
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-5 py-3 rounded-2xl bg-gray-100 text-gray-600 font-bold hover:bg-gray-200 transition-colors"
+                  className="px-5 py-3 rounded-2xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition-colors"
                 >
                   Cancelar
                 </button>

@@ -97,6 +97,7 @@ CREATE TABLE IF NOT EXISTS bloqueo_pasajeros (
     GREATEST(0, COALESCE(precio_acordado, 0) - (COALESCE(abono_1, 0) + COALESCE(abono_2, 0) + COALESCE(abono_3, 0)))
   ) STORED,
   estado_pago text DEFAULT 'pendiente', -- 'pendiente', 'abono_parcial', 'pagado_total'
+  plan_pagos jsonb DEFAULT '[]'::jsonb, -- Plan de pagos ilimitados [{ id, numero, monto, fecha, estado, nota }]
   fecha_limite_pago_agencia date, -- Fecha de cobro acordada con la agencia
   observaciones text,
 
