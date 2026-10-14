@@ -18,7 +18,8 @@ import {
   Sparkles,
   Menu,
   X,
-  Database
+  Database,
+  CalendarRange
 } from 'lucide-react'
 import SalesModal from '@/components/SalesModal'
 import AIFloatingChat from '@/components/AIFloatingChat'
@@ -59,6 +60,7 @@ export default function DashboardLayout({ children }) {
 
   const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/dashboard/bloqueos', label: 'Bloqueos', icon: CalendarRange },
     { href: '/dashboard/cotizaciones', label: 'Cotizaciones', icon: FileText },
     { href: '/dashboard/ventas', label: 'Vendidas', icon: DollarSign },
     { href: '/dashboard/vouchers', label: 'Vouchers', icon: QrCode },

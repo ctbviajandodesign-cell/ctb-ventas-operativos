@@ -31,3 +31,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# respaldos locales de la base de datos (NO subir a GitHub)
+/respaldos
