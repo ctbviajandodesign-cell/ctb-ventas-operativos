@@ -212,7 +212,20 @@ export default function BloqueoDetallePage() {
         .order('numero_cupo', { ascending: true })
 
       if (pasErr) throw pasErr
-      setPasajeros(pas || [])
+
+      // Auto-extract categoria_habitacion from observaciones if column is null
+      const normalizedPas = (pas || []).map(p => {
+        let cat = p.categoria_habitacion
+        if (!cat && p.observaciones) {
+          const match = p.observaciones.match(/^\[(.*?)\]/)
+          if (match) cat = match[1]
+        }
+        return {
+          ...p,
+          categoria_habitacion: cat || 'Clase 2 (Estándar / 4★)'
+        }
+      })
+      setPasajeros(normalizedPas)
     } catch (err) {
       console.error('Error fetching bloqueo detail:', err)
       showToast('Error al cargar detalle del bloqueo.', 'error')
@@ -221,26 +234,34 @@ export default function BloqueoDetallePage() {
     }
   }
 
-  // Summary Metrics
+  // Summary Metrics (always returns safe numbers)
   const metrics = useMemo(() => {
-    if (!bloqueo) return {}
-    const totalCupos = bloqueo.cupos_totales || 30
+    const totalCupos = Number(bloqueo?.cupos_totales) || 30
     let ocupados = 0
     let totalCobrado = 0
     let totalPendiente = 0
 
-    pasajeros.forEach(p => {
-      if (p.nombres && p.nombres.trim() !== '') {
-        ocupados++
-        const abonos = (Number(p.abono_1) || 0) + (Number(p.abono_2) || 0) + (Number(p.abono_3) || 0)
-        const total = Number(p.precio_acordado) || Number(bloqueo.precio_venta_pax) || 0
-        totalCobrado += abonos
-        totalPendiente += Math.max(0, total - abonos)
-      }
-    })
+    if (bloqueo && Array.isArray(pasajeros)) {
+      pasajeros.forEach(p => {
+        if (p.nombres && p.nombres.trim() !== '') {
+          ocupados++
+          let abonos = 0
+          if (p.plan_pagos && Array.isArray(p.plan_pagos) && p.plan_pagos.length > 0) {
+            abonos = p.plan_pagos
+              .filter(item => item.estado === 'pagado')
+              .reduce((sum, item) => sum + (Number(item.monto) || 0), 0)
+          } else {
+            abonos = (Number(p.abono_1) || 0) + (Number(p.abono_2) || 0) + (Number(p.abono_3) || 0)
+          }
+          const total = Number(p.precio_acordado) || Number(bloqueo.precio_venta_pax) || 0
+          totalCobrado += abonos
+          totalPendiente += Math.max(0, total - abonos)
+        }
+      })
+    }
 
     const disponibles = Math.max(0, totalCupos - ocupados)
-    const porcentaje = Math.round((ocupados / totalCupos) * 100)
+    const porcentaje = totalCupos > 0 ? Math.round((ocupados / totalCupos) * 100) : 0
 
     return {
       totalCupos,
@@ -305,7 +326,7 @@ export default function BloqueoDetallePage() {
       precio_acordado: slot.precio_acordado || bloqueo?.precio_venta_pax || 0,
       plan_pagos: initialPlan,
       fecha_limite_pago_agencia: slot.fecha_limite_pago_agencia || '',
-      observaciones: slot.observaciones || ''
+      observaciones: slot.observaciones?.replace(/^\[.*?\]\s*/, '') || ''
     })
     setShowSingleModal(true)
   }
@@ -871,9 +892,10 @@ export default function BloqueoDetallePage() {
       clean = clean
         .replace(/\b\d{10}\b/, '')
         .replace(/\b[A-Za-z]\d{7,9}\b/, '')
+        .replace(/\b(cedula|cédula|pasaporte|dni|ruc|pax|hab|habitación|habitacion)\b/gi, '')
         .replace(/clase\s*[123]|vip|luxury/gi, '')
         .replace(/simple|sgl|doble|dbl|triple|tpl|matrimonial|mat|cuadruple|twin|twn/gi, '')
-        .replace(/[-–—,]/g, ' ')
+        .replace(/[-–—,:;]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim()
 
@@ -962,6 +984,27 @@ export default function BloqueoDetallePage() {
             .eq('id', slot.id)
         }
       }
+
+      // Notify Telegram on quick paste bulk assignment
+      fetch('/api/notify/bloqueo-venta', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bloqueoTitulo: bloqueo.titulo,
+          bloqueoCodigo: bloqueo.codigo,
+          destino: bloqueo.destino,
+          fechaSalida: bloqueo.fecha_salida,
+          cuposVendidos: parsed.length,
+          pasajerosNombres: `${quickPasteMeta.agencia || 'Carga Rápida'} (${parsed.map(p => `${p.nombres} ${p.apellidos}`.trim()).slice(0, 5).join(', ')}${parsed.length > 5 ? '...' : ''})`,
+          agencia: quickPasteMeta.agencia || 'Directo',
+          ciudad: quickPasteMeta.ciudad,
+          operativoNombre: opNombre,
+          comercialNombre: comNombre,
+          cuposRestantes: Math.max(0, metrics.disponibles - parsed.length),
+          cuposTotales: metrics.totalCupos,
+          hoteles: quickPasteMeta.hoteles
+        })
+      }).catch(e => console.error('Telegram notification error:', e))
 
       showToast(`¡${parsed.length} pasajeros asignados exitosamente con carga rápida!`, 'success')
       setShowQuickPasteModal(false)
@@ -1233,6 +1276,19 @@ export default function BloqueoDetallePage() {
     )
   }
 
+  if (!bloqueo) {
+    return (
+      <div className="text-center p-16 bg-white rounded-3xl border border-gray-100">
+        <AlertTriangle size={40} className="mx-auto text-amber-500 mb-3" />
+        <h3 className="text-base font-black text-gray-800">Bloqueo no encontrado</h3>
+        <p className="text-xs text-gray-400 mt-1 mb-4">El bloqueo solicitado no existe o fue eliminado.</p>
+        <Link href="/dashboard/bloqueos" className="btn-primary inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-black">
+          <ArrowLeft size={16} /> Volver a Bloqueos
+        </Link>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6 pb-28">
       {/* Top Navigation & Bloqueo Overview Header */}
@@ -1270,7 +1326,9 @@ export default function BloqueoDetallePage() {
             <div className="flex flex-wrap items-center gap-4 mt-2 text-xs text-gray-500 font-medium">
               <span className="flex items-center gap-1.5">
                 <Calendar size={14} className="text-gray-400" />
-                Salida: <strong className="text-gray-800">{format(parseISO(bloqueo.fecha_salida), "EEEE d 'de' MMMM, yyyy", { locale: es })}</strong>
+                Salida: <strong className="text-gray-800">
+                  {bloqueo.fecha_salida ? format(parseISO(bloqueo.fecha_salida), "EEEE d 'de' MMMM, yyyy", { locale: es }) : 'Por definir'}
+                </strong>
               </span>
               {bloqueo.fecha_limite_emision && (
                 <span className="flex items-center gap-1.5 text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full font-bold">
