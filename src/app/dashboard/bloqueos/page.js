@@ -33,6 +33,7 @@ import { format, differenceInDays, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { showToast } from '@/utils/toast'
 import IataSelector from '@/components/IataSelector'
+import BloqueoCountdownTimer from '@/components/BloqueoCountdownTimer'
 
 export default function BloqueosPage() {
   const { user, profile, isAdmin } = useUserSession()
@@ -692,87 +693,6 @@ export default function BloqueosPage() {
     }
   }, [filteredBloqueos, pasajerosStats, isPrivileged])
 
-  // PROMINENT COUNTDOWN BANNER BUILDER
-  const renderCountdownBanner = (fechaSalida) => {
-    if (!fechaSalida) return null
-    const today = new Date()
-    today.setHours(0,0,0,0)
-    const salida = new Date(fechaSalida + 'T00:00:00')
-    const diffDays = differenceInDays(salida, today)
-
-    let theme = {
-      bg: 'bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900',
-      badge: 'bg-blue-500/20 text-blue-300 border-blue-400/30',
-      text: `Faltan ${diffDays} días para el viaje`,
-      iconColor: 'text-blue-400',
-      status: 'En cronograma'
-    }
-
-    if (diffDays < 0) {
-      theme = {
-        bg: 'bg-gradient-to-r from-gray-800 to-gray-900',
-        badge: 'bg-gray-700 text-gray-300 border-gray-600',
-        text: 'Viaje Concluido',
-        iconColor: 'text-gray-400',
-        status: 'Completado'
-      }
-    } else if (diffDays === 0) {
-      theme = {
-        bg: 'bg-gradient-to-r from-emerald-900 to-teal-950',
-        badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30 animate-pulse',
-        text: '¡EL VIAJE ES HOY!',
-        iconColor: 'text-emerald-400',
-        status: '¡Despegue hoy!'
-      }
-    } else if (diffDays <= 7) {
-      theme = {
-        bg: 'bg-gradient-to-r from-red-950 via-rose-950 to-slate-900',
-        badge: 'bg-red-500/20 text-red-300 border-red-400/30 animate-pulse',
-        text: `¡Faltan solo ${diffDays} ${diffDays === 1 ? 'día' : 'días'}!`,
-        iconColor: 'text-red-400',
-        status: 'Última semana'
-      }
-    } else if (diffDays <= 20) {
-      theme = {
-        bg: 'bg-gradient-to-r from-amber-950 via-slate-900 to-slate-900',
-        badge: 'bg-amber-500/20 text-amber-300 border-amber-400/30',
-        text: `Faltan ${diffDays} días para el viaje`,
-        iconColor: 'text-amber-400',
-        status: 'Próximo a salir'
-      }
-    }
-
-    return (
-      <div className={`${theme.bg} text-white p-3.5 rounded-2xl flex items-center justify-between border border-white/10 shadow-lg mt-3`}>
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
-            <Clock size={18} className={theme.iconColor} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] uppercase font-black tracking-widest text-gray-400">
-                Cuenta Regresiva
-              </span>
-              <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${theme.badge}`}>
-                {theme.status}
-              </span>
-            </div>
-            <p className="text-sm font-black text-white tracking-tight mt-0.5">
-              {theme.text}
-            </p>
-          </div>
-        </div>
-
-        <div className="text-right shrink-0">
-          <span className="text-[10px] text-gray-400 font-bold block uppercase tracking-wider">Fecha Salida</span>
-          <span className="text-xs font-black text-white">
-            {format(salida, "d MMM yyyy", { locale: es })}
-          </span>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6 pb-20">
       {/* Top Banner & Header */}
@@ -1023,8 +943,8 @@ export default function BloqueosPage() {
                     )}
                   </div>
 
-                  {/* PROMINENT COUNTDOWN BANNER */}
-                  {renderCountdownBanner(bloqueo.fecha_salida)}
+                  {/* PROMINENT COUNTDOWN TIMER */}
+                  <BloqueoCountdownTimer fechaSalida={bloqueo.fecha_salida} />
 
                   {/* Slot Progress Bar */}
                   <div className="mt-5 space-y-1.5">

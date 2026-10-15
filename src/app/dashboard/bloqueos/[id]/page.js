@@ -49,6 +49,7 @@ import { format, parseISO, differenceInDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { showToast } from '@/utils/toast'
 import IataSelector from '@/components/IataSelector'
+import BloqueoCountdownTimer from '@/components/BloqueoCountdownTimer'
 
 export default function BloqueoDetallePage() {
   const { id } = useParams()
@@ -1450,6 +1451,11 @@ export default function BloqueoDetallePage() {
           </button>
         </div>
       </div>
+
+      {/* Flight Countdown Precision Timer */}
+      {bloqueo.fecha_salida && (
+        <BloqueoCountdownTimer fechaSalida={bloqueo.fecha_salida} className="mt-0" />
+      )}
 
       {/* KPI Stats Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
