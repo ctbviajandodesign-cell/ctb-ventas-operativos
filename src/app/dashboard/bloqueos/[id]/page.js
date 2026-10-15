@@ -191,8 +191,8 @@ export default function BloqueoDetallePage() {
     }
   }
 
-  async function fetchBloqueoData() {
-    setLoading(true)
+  async function fetchBloqueoData(showSpinner = true) {
+    if (showSpinner) setLoading(true)
     try {
       const [blqRes, pasRes] = await Promise.all([
         supabase.from('bloqueos').select('*').eq('id', id).single(),
@@ -221,7 +221,7 @@ export default function BloqueoDetallePage() {
       console.error('Error fetching bloqueo detail:', err)
       showToast('Error al cargar detalle del bloqueo.', 'error')
     } finally {
-      setLoading(false)
+      if (showSpinner) setLoading(false)
     }
   }
 
@@ -566,12 +566,12 @@ export default function BloqueoDetallePage() {
       setPasajeros(prev => prev.map(p => {
         if (p.id === singleForm.slot_id) {
           const total = Number(singleForm.precio_acordado) || 0
-          const abonos = p1 + p2 + p3
+          const totalAbonado = (singleForm.plan_pagos || []).filter(item => item.estado === 'pagado').reduce((acc, item) => acc + (Number(item.monto) || 0), 0)
           return {
             ...p,
             ...payload,
             plan_pagos: singleForm.plan_pagos,
-            faltante: Math.max(0, total - abonos)
+            faltante: Math.max(0, total - totalAbonado)
           }
         }
         return p
@@ -582,7 +582,7 @@ export default function BloqueoDetallePage() {
     } catch (err) {
       console.error('Error saving single slot:', err)
       showToast('Error al guardar cupo: ' + err.message, 'error')
-      fetchBloqueoData()
+      fetchBloqueoData(false)
     } finally {
       setSaving(false)
     }
@@ -624,8 +624,7 @@ export default function BloqueoDetallePage() {
       const p2 = groupForm.plan_pagos[1] ? Number(groupForm.plan_pagos[1].monto) || 0 : 0
       const p3 = groupForm.plan_pagos[2] ? Number(groupForm.plan_pagos[2].monto) || 0 : 0
 
-      for (let i = 0; i < targetSlots.length; i++) {
-        const slot = targetSlots[i]
+      const updateOps = targetSlots.map(async (slot, i) => {
         const paxData = paxList[i]
         const isLead = i === 0
 
@@ -648,7 +647,6 @@ export default function BloqueoDetallePage() {
           tipo_habitacion: paxData.tipo_habitacion,
           categoria_habitacion: paxData.categoria_habitacion || groupForm.categoria_habitacion || 'Clase 2 (Estándar / 4★)',
           precio_acordado: Number(groupForm.precio_por_pax) || Number(bloqueo.precio_venta_pax) || 0,
-          // First slot holds shared group payment plan
           abono_1: isLead ? p1 : 0,
           fecha_abono_1: isLead ? groupForm.plan_pagos[0]?.fecha || null : null,
           abono_2: isLead ? p2 : 0,
@@ -673,7 +671,29 @@ export default function BloqueoDetallePage() {
             : cleanPayload.observaciones
           await supabase.from('bloqueo_pasajeros').update({ ...cleanPayload, observaciones: obsWithCat }).eq('id', slot.id)
         }
-      }
+
+        return { slotId: slot.id, payload, isLead }
+      })
+
+      const completedSlots = await Promise.all(updateOps)
+
+      // Optimistic instant state update (0ms delay)
+      setPasajeros(prev => prev.map(slot => {
+        const match = completedSlots.find(c => c.slotId === slot.id)
+        if (match) {
+          const total = Number(match.payload.precio_acordado) || 0
+          const totalAbonos = match.isLead 
+            ? (groupForm.plan_pagos || []).filter(item => item.estado === 'pagado').reduce((acc, item) => acc + (Number(item.monto) || 0), 0)
+            : 0
+          return {
+            ...slot,
+            ...match.payload,
+            plan_pagos: match.isLead ? groupForm.plan_pagos : [],
+            faltante: Math.max(0, total - totalAbonos)
+          }
+        }
+        return slot
+      }))
 
       // Telegram notification
       fetch('/api/notify/bloqueo-venta', {
@@ -698,10 +718,10 @@ export default function BloqueoDetallePage() {
 
       showToast(`¡Grupo "${groupName}" registrado con éxito con ${paxList.length} cupos!`, 'success')
       setShowGroupModal(false)
-      fetchBloqueoData()
     } catch (err) {
       console.error('Error saving group:', err)
       showToast('Error al registrar grupo: ' + err.message, 'error')
+      fetchBloqueoData(false)
     } finally {
       setSaving(false)
     }
@@ -729,11 +749,13 @@ export default function BloqueoDetallePage() {
 
       if (error) throw error
 
+      // Optimistic instant grouping update
+      setPasajeros(prev => prev.map(p => selectedSlotIds.includes(p.id) ? { ...p, grupo_id: groupUid, grupo_nombre: name } : p))
       showToast(`¡${selectedSlotIds.length} pasajeros asociados al grupo "${name}"!`, 'success')
       setSelectedSlotIds([])
       setExistingGroupName('')
       setShowGroupExistingModal(false)
-      fetchBloqueoData()
+      fetchBloqueoData(false)
     } catch (err) {
       console.error('Error grouping passengers:', err)
       showToast('Error al agrupar pasajeros.', 'error')
@@ -955,10 +977,8 @@ export default function BloqueoDetallePage() {
       const comNombre = comObj ? comObj.nombre : ''
 
       const targetSlots = availableSlots.slice(0, parsed.length)
-      for (let i = 0; i < targetSlots.length; i++) {
-        const slot = targetSlots[i]
+      const updateOps = targetSlots.map(async (slot, i) => {
         const p = parsed[i]
-
         const payload = {
           agencia: quickPasteMeta.agencia.trim() || 'Directo',
           ciudad: quickPasteMeta.ciudad,
@@ -990,7 +1010,17 @@ export default function BloqueoDetallePage() {
             .update({ ...cleanPayload, observaciones: `[${p.categoria_habitacion}]` })
             .eq('id', slot.id)
         }
-      }
+
+        return { slotId: slot.id, payload }
+      })
+
+      const completed = await Promise.all(updateOps)
+
+      // Instant optimistic state update
+      setPasajeros(prev => prev.map(s => {
+        const match = completed.find(c => c.slotId === s.id)
+        return match ? { ...s, ...match.payload, faltante: match.payload.precio_acordado } : s
+      }))
 
       // Notify Telegram on quick paste bulk assignment
       fetch('/api/notify/bloqueo-venta', {
@@ -1016,7 +1046,7 @@ export default function BloqueoDetallePage() {
       showToast(`¡${parsed.length} pasajeros asignados exitosamente con carga rápida!`, 'success')
       setShowQuickPasteModal(false)
       setQuickPasteText('')
-      fetchBloqueoData()
+      fetchBloqueoData(false)
     } catch (err) {
       console.error('Error saving quick paste:', err)
       showToast('Error al procesar carga rápida: ' + err.message, 'error')
@@ -1106,7 +1136,7 @@ export default function BloqueoDetallePage() {
 
       showToast('¡Configuración del bloqueo actualizada!', 'success')
       setShowEditBloqueoModal(false)
-      fetchBloqueoData()
+      fetchBloqueoData(false)
     } catch (err) {
       console.error('Error updating bloqueo:', err)
       showToast('Error al actualizar bloqueo: ' + err.message, 'error')
@@ -1253,28 +1283,44 @@ export default function BloqueoDetallePage() {
     showToast('Rooming List exportado a Excel.', 'success')
   }
 
-  // Filtered list
+  // Filtered list with comprehensive search & accurate balance status
   const filteredSlots = useMemo(() => {
     return pasajeros.filter(p => {
       const isOcupado = p.nombres && p.nombres.trim() !== ''
+      const precio = Number(p.precio_acordado) || Number(bloqueo?.precio_venta_pax) || 0
+      const planPagos = p.plan_pagos && Array.isArray(p.plan_pagos) && p.plan_pagos.length > 0
+        ? p.plan_pagos
+        : [
+            { monto: p.abono_1, estado: 'pagado' },
+            { monto: p.abono_2, estado: 'pagado' },
+            { monto: p.abono_3, estado: 'pagado' }
+          ]
+      const totalPagado = planPagos
+        .filter(item => item.estado === 'pagado')
+        .reduce((sum, item) => sum + (Number(item.monto) || 0), 0)
+      const realFaltante = Math.max(0, precio - totalPagado)
+
       if (statusFilter === 'ocupados' && !isOcupado) return false
       if (statusFilter === 'libres' && isOcupado) return false
-      if (statusFilter === 'pendientes' && (!isOcupado || Number(p.faltante) <= 0)) return false
+      if (statusFilter === 'pendientes' && (!isOcupado || realFaltante <= 0)) return false
 
       if (!searchTerm) return true
-      const term = searchTerm.toLowerCase()
+      const term = searchTerm.toLowerCase().trim()
       return (
         p.nombres?.toLowerCase().includes(term) ||
         p.apellidos?.toLowerCase().includes(term) ||
+        p.numero_documento?.toLowerCase().includes(term) ||
+        p.tipo_habitacion?.toLowerCase().includes(term) ||
+        p.categoria_habitacion?.toLowerCase().includes(term) ||
         p.grupo_nombre?.toLowerCase().includes(term) ||
         p.agencia?.toLowerCase().includes(term) ||
         p.operativo_nombre?.toLowerCase().includes(term) ||
         p.comercial_nombre?.toLowerCase().includes(term) ||
         p.codigo_cotizacion?.toLowerCase().includes(term) ||
-        p.numero_cupo.toString() === term
+        p.numero_cupo.toString().includes(term)
       )
     })
-  }, [pasajeros, statusFilter, searchTerm])
+  }, [pasajeros, statusFilter, searchTerm, bloqueo?.precio_venta_pax])
 
   if (loading) {
     return (
@@ -1667,12 +1713,12 @@ export default function BloqueoDetallePage() {
               <tbody className="divide-y divide-gray-50 font-medium">
                 {filteredSlots.map((slot) => {
                   const isOccupied = slot.nombres && slot.nombres.trim() !== ''
-                  const faltante = Number(slot.faltante) || 0
                   const precio = Number(slot.precio_acordado) || 0
-                  const isPaid = isOccupied && faltante === 0 && precio > 0
                   const isSelected = selectedSlotIds.includes(slot.id)
                   const planPagos = getSlotInstallments(slot)
                   const totalPagado = planPagos.filter(p => p.estado === 'pagado').reduce((acc, p) => acc + (Number(p.monto) || 0), 0)
+                  const realFaltante = isOccupied ? Math.max(0, precio - totalPagado) : 0
+                  const isPaid = isOccupied && realFaltante === 0 && precio > 0
                   const readiness = getDataReadiness(slot)
 
                   return (
@@ -1827,8 +1873,8 @@ export default function BloqueoDetallePage() {
                       <td className="py-3 px-4 text-right">
                         {isOccupied ? (
                           <div>
-                            <span className={`font-mono font-black text-sm ${faltante === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                              ${faltante.toLocaleString('es-EC')}
+                            <span className={`font-mono font-black text-sm ${realFaltante === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                              ${realFaltante.toLocaleString('es-EC')}
                             </span>
                             <span className={`block text-[9px] font-black uppercase tracking-wider ${
                               isPaid ? 'text-emerald-600' : 'text-amber-600'

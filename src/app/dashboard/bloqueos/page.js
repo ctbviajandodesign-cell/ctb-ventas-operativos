@@ -115,8 +115,8 @@ export default function BloqueosPage() {
     }
   }
 
-  async function fetchBloqueos() {
-    setLoading(true)
+  async function fetchBloqueos(showSpinner = true) {
+    if (showSpinner) setLoading(true)
     try {
       // Parallelize queries and filter ONLY occupied passengers for stats calculation (huge speedup)
       const [blqRes, pasRes] = await Promise.all([
@@ -126,7 +126,7 @@ export default function BloqueosPage() {
           .order('fecha_salida', { ascending: true }),
         supabase
           .from('bloqueo_pasajeros')
-          .select('bloqueo_id, faltante, precio_acordado')
+          .select('bloqueo_id, faltante, precio_acordado, plan_pagos, abono_1, abono_2, abono_3')
           .not('nombres', 'is', null)
           .neq('nombres', '')
       ])
@@ -140,10 +140,19 @@ export default function BloqueosPage() {
             statsMap[p.bloqueo_id] = { ocupados: 0, cobrado: 0, pendiente: 0 }
           }
           statsMap[p.bloqueo_id].ocupados++
-          const faltante = Number(p.faltante) || 0
+          
+          let totalPagado = 0
+          if (Array.isArray(p.plan_pagos) && p.plan_pagos.length > 0) {
+            totalPagado = p.plan_pagos
+              .filter(item => item.estado === 'pagado')
+              .reduce((acc, item) => acc + (Number(item.monto) || 0), 0)
+          } else {
+            totalPagado = (Number(p.abono_1) || 0) + (Number(p.abono_2) || 0) + (Number(p.abono_3) || 0)
+          }
           const total = Number(p.precio_acordado) || 0
+          const faltante = Math.max(0, total - totalPagado)
           statsMap[p.bloqueo_id].pendiente += faltante
-          statsMap[p.bloqueo_id].cobrado += Math.max(0, total - faltante)
+          statsMap[p.bloqueo_id].cobrado += totalPagado
         })
       }
 
@@ -153,7 +162,7 @@ export default function BloqueosPage() {
       console.error('Error loading bloqueos:', err)
       showToast('Error al cargar bloqueos: ' + err.message, 'error')
     } finally {
-      setLoading(false)
+      if (showSpinner) setLoading(false)
     }
   }
 
@@ -576,7 +585,7 @@ export default function BloqueosPage() {
 
       showToast(`¡Bloqueo ${editFormData.codigo} actualizado con éxito!`, 'success')
       setShowEditModal(false)
-      fetchBloqueos()
+      fetchBloqueos(false)
     } catch (err) {
       console.error('Error updating bloqueo:', err)
       showToast('No se pudo actualizar el bloqueo: ' + err.message, 'error')
