@@ -43,7 +43,9 @@ import {
   Check,
   AlertCircle,
   Copy,
-  ClipboardPaste
+  ClipboardPaste,
+  ChevronDown,
+  Settings
 } from 'lucide-react'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -81,6 +83,7 @@ export default function BloqueoDetallePage() {
   const [showGroupModal, setShowGroupModal] = useState(false)
   const [showQuickPasteModal, setShowQuickPasteModal] = useState(false)
   const [showEditBloqueoModal, setShowEditBloqueoModal] = useState(false)
+  const [showAddPaxMenu, setShowAddPaxMenu] = useState(false)
   const [selectedSlotNumber, setSelectedSlotNumber] = useState(null)
 
   // Quick Paste text & metadata
@@ -1397,58 +1400,135 @@ export default function BloqueoDetallePage() {
           </div>
         </div>
 
-        {/* Action Buttons: 2 Tipos de Ingreso + Carga Rápida + Rooming List + Editar Bloqueo */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Action Buttons: Configurar + Rooming List + Menú Primario "Registrar Pasajeros" */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          {/* Botón 1: Configurar Parámetros (Para Admins) */}
           {isPrivileged && (
             <button
               onClick={handleOpenEditBloqueoModal}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gray-900 text-white hover:bg-primary font-black text-xs uppercase tracking-wider transition-colors shadow-sm"
-              title="Editar parámetros del bloqueo"
+              className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-white border border-gray-200/90 text-gray-700 hover:text-gray-900 hover:bg-gray-50/90 font-black text-xs uppercase tracking-wider transition-all shadow-xs active:scale-95"
+              title="Editar parámetros, fechas y costos del bloqueo"
             >
-              <Edit2 size={15} />
-              Editar Bloqueo
+              <Settings size={15} className="text-gray-400" />
+              <span className="hidden sm:inline">Configuración</span>
             </button>
           )}
 
+          {/* Botón 2: Exportar Rooming List en Excel */}
           <button
             onClick={handleExportRoomingList}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-50 text-emerald-800 hover:bg-emerald-100 font-black text-xs uppercase tracking-wider transition-colors border border-emerald-200/60"
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-white border border-gray-200/90 text-gray-700 hover:text-emerald-700 hover:bg-emerald-50/50 hover:border-emerald-200 font-black text-xs uppercase tracking-wider transition-all shadow-xs active:scale-95"
+            title="Exportar Rooming List en formato Excel para aerolíneas y hoteles"
           >
-            <FileSpreadsheet size={16} />
-            Rooming List
+            <FileSpreadsheet size={15} className="text-emerald-600" />
+            <span>Rooming List</span>
           </button>
 
-          <button
-            onClick={() => setShowQuickPasteModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-amber-50 text-amber-900 hover:bg-amber-100 font-black text-xs uppercase tracking-wider transition-colors border border-amber-300"
-            title="Pegar nombres desde WhatsApp o Excel"
-          >
-            <Zap size={16} className="text-amber-600" />
-            Carga Rápida
-          </button>
+          {/* Botón 3 (ACCIÓN PRINCIPAL): Registrar Pasajeros con Menú Desplegable Inteligente */}
+          <div className="relative">
+            <button
+              onClick={() => setShowAddPaxMenu(prev => !prev)}
+              className="btn-primary flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-2xl shadow-lg shadow-primary/25 hover:shadow-primary/40 active:scale-95 transition-all text-xs font-black uppercase tracking-wider whitespace-nowrap"
+            >
+              <Plus size={16} />
+              <span>Registrar Pasajeros</span>
+              <ChevronDown size={14} className={`transition-transform duration-200 ${showAddPaxMenu ? 'rotate-180' : ''}`} />
+            </button>
 
-          <button
-            onClick={() => {
-              const freeSlot = pasajeros.find(p => !p.nombres || p.nombres.trim() === '')
-              if (!freeSlot) {
-                showToast('Todos los cupos de este bloqueo están ocupados.', 'error')
-                return
-              }
-              handleOpenSingleSlot(freeSlot)
-            }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 font-black text-xs uppercase tracking-wider shadow-sm transition-all"
-          >
-            <User size={16} className="text-primary" />
-            + Ingreso Individual
-          </button>
+            {showAddPaxMenu && (
+              <>
+                {/* Backdrop invisible para cerrar al hacer clic afuera */}
+                <div 
+                  className="fixed inset-0 z-40 bg-transparent" 
+                  onClick={() => setShowAddPaxMenu(false)} 
+                />
 
-          <button
-            onClick={handleOpenGroupModal}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-primary text-white hover:bg-primary/90 font-black text-xs uppercase tracking-wider shadow-lg shadow-primary/25 transition-all"
-          >
-            <Layers size={16} />
-            + Ingreso por Grupo
-          </button>
+                {/* Menú Desplegable Flotante */}
+                <div className="absolute right-0 mt-2 w-80 bg-white rounded-3xl shadow-2xl border border-gray-100 p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="px-3 py-2 border-b border-gray-100">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                      Modalidad de Asignación
+                    </span>
+                  </div>
+
+                  {/* Opción A: Ingreso Individual */}
+                  <button
+                    onClick={() => {
+                      setShowAddPaxMenu(false)
+                      const freeSlot = pasajeros.find(p => !p.nombres || p.nombres.trim() === '')
+                      if (!freeSlot) {
+                        showToast('Todos los cupos de este bloqueo están ocupados.', 'error')
+                        return
+                      }
+                      handleOpenSingleSlot(freeSlot)
+                    }}
+                    className="w-full text-left p-3 rounded-2xl hover:bg-blue-50/60 flex items-start gap-3 transition-colors group mt-1"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-white transition-all shadow-xs">
+                      <User size={17} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black text-gray-900 group-hover:text-primary">
+                        Ingreso Individual (1 a 1)
+                      </p>
+                      <p className="text-[10px] text-gray-500 mt-0.5 leading-snug">
+                        Asigna datos y documentos de un pasajero en el siguiente cupo disponible.
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Opción B: Ingreso por Grupo */}
+                  <button
+                    onClick={() => {
+                      setShowAddPaxMenu(false)
+                      handleOpenGroupModal()
+                    }}
+                    className="w-full text-left p-3 rounded-2xl hover:bg-purple-50/60 flex items-start gap-3 transition-colors group"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 group-hover:bg-purple-600 group-hover:text-white transition-all shadow-xs">
+                      <Layers size={17} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black text-gray-900 group-hover:text-purple-600">
+                        Ingreso por Grupo
+                      </p>
+                      <p className="text-[10px] text-gray-500 mt-0.5 leading-snug">
+                        Crea un grupo con nombre oficial (ej. Tercera Edad) y múltiples pasajeros.
+                      </p>
+                    </div>
+                  </button>
+
+                  <div className="my-1.5 border-t border-gray-100"></div>
+
+                  {/* Opción C: Carga Rápida */}
+                  <button
+                    onClick={() => {
+                      setShowAddPaxMenu(false)
+                      setShowQuickPasteModal(true)
+                    }}
+                    className="w-full text-left p-3 rounded-2xl hover:bg-amber-50/70 flex items-start gap-3 transition-colors group"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 group-hover:bg-amber-500 group-hover:text-white transition-all shadow-xs">
+                      <Zap size={17} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs font-black text-gray-900 group-hover:text-amber-800">
+                          Carga Rápida Masiva
+                        </p>
+                        <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded-md bg-amber-100 text-amber-700">
+                          Pegar
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-gray-500 mt-0.5 leading-snug">
+                        Pega listas completas de nombres directo desde WhatsApp o Excel.
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
