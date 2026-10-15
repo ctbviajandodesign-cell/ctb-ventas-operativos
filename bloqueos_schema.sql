@@ -116,6 +116,7 @@ CREATE INDEX IF NOT EXISTS idx_bloqueo_pasajeros_bloqueo_id ON bloqueo_pasajeros
 CREATE INDEX IF NOT EXISTS idx_bloqueo_pasajeros_operativo ON bloqueo_pasajeros(operativo_id);
 CREATE INDEX IF NOT EXISTS idx_bloqueo_pasajeros_grupo ON bloqueo_pasajeros(grupo_id);
 CREATE INDEX IF NOT EXISTS idx_bloqueo_pasajeros_codigo_cotiz ON bloqueo_pasajeros(codigo_cotizacion);
+CREATE INDEX IF NOT EXISTS idx_bloqueo_pasajeros_ocupados ON bloqueo_pasajeros(bloqueo_id) WHERE nombres IS NOT NULL AND nombres != '';
 
 -- 5. Habilitar Row Level Security (RLS)
 ALTER TABLE bloqueo_etiquetas_costos ENABLE ROW LEVEL SECURITY;

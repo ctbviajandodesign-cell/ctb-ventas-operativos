@@ -103,10 +103,10 @@ export default function BloqueosPage() {
 
   useEffect(() => {
     fetchBloqueos()
-    fetchTags()
   }, [])
 
   async function fetchTags() {
+    if (availableTags.length > 0) return
     try {
       const { data } = await supabase.from('bloqueo_etiquetas_costos').select('nombre').order('nombre')
       if (data) setAvailableTags(data.map(t => t.nombre))
@@ -118,36 +118,36 @@ export default function BloqueosPage() {
   async function fetchBloqueos() {
     setLoading(true)
     try {
-      // 1. Fetch bloqueos
-      const { data: blqData, error: blqError } = await supabase
-        .from('bloqueos')
-        .select('*')
-        .order('fecha_salida', { ascending: true })
+      // Parallelize queries and filter ONLY occupied passengers for stats calculation (huge speedup)
+      const [blqRes, pasRes] = await Promise.all([
+        supabase
+          .from('bloqueos')
+          .select('*')
+          .order('fecha_salida', { ascending: true }),
+        supabase
+          .from('bloqueo_pasajeros')
+          .select('bloqueo_id, faltante, precio_acordado')
+          .not('nombres', 'is', null)
+          .neq('nombres', '')
+      ])
 
-      if (blqError) throw blqError
-
-      // 2. Fetch occupied slots stats for all bloqueos
-      const { data: pasData, error: pasError } = await supabase
-        .from('bloqueo_pasajeros')
-        .select('bloqueo_id, numero_cupo, nombres, faltante, precio_acordado')
+      if (blqRes.error) throw blqRes.error
 
       const statsMap = {}
-      if (pasData) {
-        pasData.forEach(p => {
+      if (pasRes.data) {
+        pasRes.data.forEach(p => {
           if (!statsMap[p.bloqueo_id]) {
             statsMap[p.bloqueo_id] = { ocupados: 0, cobrado: 0, pendiente: 0 }
           }
-          if (p.nombres && p.nombres.trim() !== '') {
-            statsMap[p.bloqueo_id].ocupados++
-            const faltante = Number(p.faltante) || 0
-            const total = Number(p.precio_acordado) || 0
-            statsMap[p.bloqueo_id].pendiente += faltante
-            statsMap[p.bloqueo_id].cobrado += Math.max(0, total - faltante)
-          }
+          statsMap[p.bloqueo_id].ocupados++
+          const faltante = Number(p.faltante) || 0
+          const total = Number(p.precio_acordado) || 0
+          statsMap[p.bloqueo_id].pendiente += faltante
+          statsMap[p.bloqueo_id].cobrado += Math.max(0, total - faltante)
         })
       }
 
-      setBloqueos(blqData || [])
+      setBloqueos(blqRes.data || [])
       setPasajerosStats(statsMap)
     } catch (err) {
       console.error('Error loading bloqueos:', err)
@@ -476,6 +476,7 @@ export default function BloqueosPage() {
   }
 
   const handleOpenEditBloqueo = (bloqueo) => {
+    fetchTags()
     setEditingBloqueo(bloqueo)
     setEditFormData({
       id: bloqueo.id,
@@ -788,7 +789,7 @@ export default function BloqueosPage() {
 
         {isPrivileged && (
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => { fetchTags(); setShowCreateModal(true); }}
             className="btn-primary flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl shadow-xl shadow-primary/25 hover:shadow-primary/40 active:scale-95 transition-all text-xs font-black uppercase tracking-widest whitespace-nowrap"
           >
             <Plus size={18} />

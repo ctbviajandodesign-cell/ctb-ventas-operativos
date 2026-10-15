@@ -48,8 +48,6 @@ import {
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { showToast } from '@/utils/toast'
-import ExcelJS from 'exceljs'
-import { saveAs } from 'file-saver'
 import IataSelector from '@/components/IataSelector'
 
 export default function BloqueoDetallePage() {
@@ -196,25 +194,18 @@ export default function BloqueoDetallePage() {
   async function fetchBloqueoData() {
     setLoading(true)
     try {
-      const { data: blq, error: blqErr } = await supabase
-        .from('bloqueos')
-        .select('*')
-        .eq('id', id)
-        .single()
+      const [blqRes, pasRes] = await Promise.all([
+        supabase.from('bloqueos').select('*').eq('id', id).single(),
+        supabase.from('bloqueo_pasajeros').select('*').eq('bloqueo_id', id).order('numero_cupo', { ascending: true })
+      ])
 
-      if (blqErr) throw blqErr
-      setBloqueo(blq)
+      if (blqRes.error) throw blqRes.error
+      setBloqueo(blqRes.data)
 
-      const { data: pas, error: pasErr } = await supabase
-        .from('bloqueo_pasajeros')
-        .select('*')
-        .eq('bloqueo_id', id)
-        .order('numero_cupo', { ascending: true })
-
-      if (pasErr) throw pasErr
+      if (pasRes.error) throw pasRes.error
 
       // Auto-extract categoria_habitacion from observaciones if column is null
-      const normalizedPas = (pas || []).map(p => {
+      const normalizedPas = (pasRes.data || []).map(p => {
         let cat = p.categoria_habitacion
         if (!cat && p.observaciones) {
           const match = p.observaciones.match(/^\[(.*?)\]/)
@@ -571,12 +562,27 @@ export default function BloqueoDetallePage() {
         }).catch(e => console.error('Telegram error:', e))
       }
 
+      // Optimistic local state update (instant 0ms response)
+      setPasajeros(prev => prev.map(p => {
+        if (p.id === singleForm.slot_id) {
+          const total = Number(singleForm.precio_acordado) || 0
+          const abonos = p1 + p2 + p3
+          return {
+            ...p,
+            ...payload,
+            plan_pagos: singleForm.plan_pagos,
+            faltante: Math.max(0, total - abonos)
+          }
+        }
+        return p
+      }))
+
       showToast(`Cupo #${singleForm.numero_cupo} guardado con éxito.`, 'success')
       setShowSingleModal(false)
-      fetchBloqueoData()
     } catch (err) {
       console.error('Error saving single slot:', err)
       showToast('Error al guardar cupo: ' + err.message, 'error')
+      fetchBloqueoData()
     } finally {
       setSaving(false)
     }
@@ -794,8 +800,9 @@ export default function BloqueoDetallePage() {
         .update(resetPayload)
         .eq('id', slot.id)
 
+      // Optimistic instant release
+      setPasajeros(prev => prev.map(p => p.id === slot.id ? { ...p, ...resetPayload, faltante: 0 } : p))
       showToast(`Cupo #${slot.numero_cupo} liberado.`, 'success')
-      fetchBloqueoData()
     } catch (err) {
       console.error('Error releasing slot:', err)
       showToast('Error al liberar cupo.', 'error')
@@ -1174,9 +1181,13 @@ export default function BloqueoDetallePage() {
     return result
   }, [pasajeros])
 
-  // Export Rooming List to Excel
+  // Export Rooming List to Excel (Loaded dynamically for ultra-fast page load)
   const handleExportRoomingList = async () => {
     if (!bloqueo || pasajeros.length === 0) return
+    showToast('Generando Rooming List...', 'info')
+    const ExcelJSModule = await import('exceljs')
+    const ExcelJS = ExcelJSModule.default || ExcelJSModule
+    const { saveAs } = await import('file-saver')
     const workbook = new ExcelJS.Workbook()
     const sheet = workbook.addWorksheet('Rooming List')
 
