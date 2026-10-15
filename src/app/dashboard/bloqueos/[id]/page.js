@@ -45,7 +45,8 @@ import {
   Copy,
   ClipboardPaste,
   ChevronDown,
-  Settings
+  Settings,
+  Target
 } from 'lucide-react'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -258,13 +259,30 @@ export default function BloqueoDetallePage() {
     const disponibles = Math.max(0, totalCupos - ocupados)
     const porcentaje = totalCupos > 0 ? Math.round((ocupados / totalCupos) * 100) : 0
 
+    const costoUnitario = Number(bloqueo?.costo_total_unitario) || 0
+    const inversionTotal = costoUnitario * totalCupos
+    const precioVenta = Number(bloqueo?.precio_venta_pax) || 0
+    const breakEvenPax = precioVenta > 0 && costoUnitario > 0 ? Math.ceil(inversionTotal / precioVenta) : Math.round(totalCupos * 0.6)
+    const faltaRecuperarDinero = Math.max(0, inversionTotal - totalCobrado)
+    const gananciaLiquidaActual = Math.max(0, totalCobrado - inversionTotal)
+    const inversionCubierta = inversionTotal > 0 && totalCobrado >= inversionTotal
+    const porcentajeRecuperado = inversionTotal > 0 ? Math.min(100, Math.round((totalCobrado / inversionTotal) * 100)) : 0
+    const faltanPaxMeta = Math.max(0, breakEvenPax - ocupados)
+
     return {
       totalCupos,
       ocupados,
       disponibles,
       porcentaje,
       totalCobrado,
-      totalPendiente
+      totalPendiente,
+      costoUnitario,
+      inversionTotal,
+      faltaRecuperarDinero,
+      gananciaLiquidaActual,
+      inversionCubierta,
+      porcentajeRecuperado,
+      faltanPaxMeta
     }
   }, [bloqueo, pasajeros])
 
@@ -1568,6 +1586,106 @@ export default function BloqueoDetallePage() {
           <span className="text-xs text-gray-400 font-medium">Pendiente de cobro</span>
         </div>
       </div>
+
+      {/* Control Financiero Administrativo: Inversión, Recuperado y Meta */}
+      {isPrivileged && metrics.inversionTotal > 0 && (
+        <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className={`p-2.5 rounded-2xl ${metrics.inversionCubierta ? 'bg-emerald-50 text-emerald-600' : 'bg-primary/10 text-primary'}`}>
+                <Target size={18} />
+              </div>
+              <div>
+                <span className="text-[10px] text-gray-400 uppercase font-black tracking-wider block">
+                  Control de Inversión (Administración)
+                </span>
+                <p className="text-sm font-black text-gray-900">
+                  {metrics.inversionCubierta ? (
+                    <span className="text-emerald-700 flex items-center gap-1.5 font-bold">
+                      <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
+                      ¡Meta de inversión 100% recuperada!
+                    </span>
+                  ) : (
+                    <span>
+                      Falta para la meta: <strong className="text-amber-800">${metrics.faltaRecuperarDinero.toLocaleString('es-EC')} USD</strong>
+                      {metrics.faltanPaxMeta > 0 && (
+                        <span className="text-gray-400 font-normal text-xs ml-1.5">
+                          (Faltan {metrics.faltanPaxMeta} cupos a precio de venta)
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <span className={`text-xs font-black px-3 py-1 rounded-full ${
+                metrics.inversionCubierta ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+              }`}>
+                {metrics.porcentajeRecuperado}% recuperado
+              </span>
+              {metrics.inversionCubierta && metrics.gananciaLiquidaActual > 0 && (
+                <span className="text-xs font-black px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  +${metrics.gananciaLiquidaActual.toLocaleString('es-EC')} ganancia
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Barra visual de progreso de inversión */}
+          <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                metrics.inversionCubierta ? 'bg-emerald-500' : metrics.porcentajeRecuperado >= 50 ? 'bg-primary' : 'bg-amber-500'
+              }`}
+              style={{ width: `${Math.min(100, metrics.porcentajeRecuperado)}%` }}
+            />
+          </div>
+
+          {/* Cuadrícula de 3 datos financieros */}
+          <div className="grid grid-cols-3 gap-2 text-center pt-1">
+            <div className="bg-gray-50/80 p-2.5 rounded-2xl border border-gray-150">
+              <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Inversión Total</span>
+              <strong className="text-xs sm:text-sm font-black text-gray-900 mt-0.5 block">
+                ${metrics.inversionTotal.toLocaleString('es-EC')} USD
+              </strong>
+              <span className="text-[9px] text-gray-400 font-medium">Costo de cupos</span>
+            </div>
+
+            <div className="bg-emerald-50/70 p-2.5 rounded-2xl border border-emerald-200/60">
+              <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider block">Dinero Recuperado</span>
+              <strong className="text-xs sm:text-sm font-black text-emerald-800 mt-0.5 block">
+                ${metrics.totalCobrado.toLocaleString('es-EC')} USD
+              </strong>
+              <span className="text-[9px] text-emerald-600 font-medium">Cobrado real</span>
+            </div>
+
+            <div className={`p-2.5 rounded-2xl border ${
+              metrics.inversionCubierta ? 'bg-emerald-50/70 border-emerald-200/60' : 'bg-amber-50/70 border-amber-200/60'
+            }`}>
+              <span className={`text-[10px] font-bold uppercase tracking-wider block ${
+                metrics.inversionCubierta ? 'text-emerald-700' : 'text-amber-700'
+              }`}>
+                {metrics.inversionCubierta ? 'Ganancia Líquida' : 'Falta por Recuperar'}
+              </span>
+              <strong className={`text-xs sm:text-sm font-black mt-0.5 block ${
+                metrics.inversionCubierta ? 'text-emerald-800' : 'text-amber-900'
+              }`}>
+                {metrics.inversionCubierta 
+                  ? `+$${metrics.gananciaLiquidaActual.toLocaleString('es-EC')} USD` 
+                  : `$${metrics.faltaRecuperarDinero.toLocaleString('es-EC')} USD`
+                }
+              </strong>
+              <span className={`text-[9px] font-medium ${
+                metrics.inversionCubierta ? 'text-emerald-600' : 'text-amber-700'
+              }`}>
+                {metrics.inversionCubierta ? 'En caja CTB' : 'Para no perder'}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* View Mode Toggle Strip: Vista Tabla vs Distribución Rooming */}
       <div className="bg-white p-2.5 rounded-3xl border border-gray-100 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">

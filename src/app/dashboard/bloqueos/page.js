@@ -669,19 +669,28 @@ export default function BloqueosPage() {
     let totalOcupados = 0
     let totalDisponibles = 0
     let gananciaPotencialTotal = 0
+    let inversionGlobalTotal = 0
+    let cobradoGlobalTotal = 0
 
     filteredBloqueos.forEach(b => {
       const cupos = b.cupos_totales || 0
-      const st = pasajerosStats[b.id] || { ocupados: 0 }
+      const st = pasajerosStats[b.id] || { ocupados: 0, cobrado: 0, pendiente: 0 }
       totalCupos += cupos
       totalOcupados += st.ocupados
       totalDisponibles += Math.max(0, cupos - st.ocupados)
       if (isPrivileged) {
         gananciaPotencialTotal += (Number(b.ganancia_unitaria) || 0) * cupos
+        const costoUnit = Number(b.costo_total_unitario) || 0
+        inversionGlobalTotal += costoUnit * cupos
+        cobradoGlobalTotal += (Number(st.cobrado) || 0)
       }
     })
 
     const porcentajeOcupacion = totalCupos > 0 ? Math.round((totalOcupados / totalCupos) * 100) : 0
+    const faltaRecuperarGlobal = Math.max(0, inversionGlobalTotal - cobradoGlobalTotal)
+    const porcentajeRecuperadoGlobal = inversionGlobalTotal > 0 
+      ? Math.min(100, Math.round((cobradoGlobalTotal / inversionGlobalTotal) * 100)) 
+      : 0
 
     return {
       bloqueosCount: filteredBloqueos.length,
@@ -689,7 +698,11 @@ export default function BloqueosPage() {
       totalOcupados,
       totalDisponibles,
       porcentajeOcupacion,
-      gananciaPotencialTotal
+      gananciaPotencialTotal,
+      inversionGlobalTotal,
+      cobradoGlobalTotal,
+      faltaRecuperarGlobal,
+      porcentajeRecuperadoGlobal
     }
   }, [filteredBloqueos, pasajerosStats, isPrivileged])
 
@@ -779,22 +792,50 @@ export default function BloqueosPage() {
         <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between text-gray-400 mb-2">
             <span className="text-xs font-black uppercase tracking-wider">
-              {isPrivileged ? 'Utilidad Proyectada' : 'Total en Catálogo'}
+              {isPrivileged ? 'Recuperación de Inversión' : 'Total en Catálogo'}
             </span>
-            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
-              <Target size={16} />
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+              <DollarSign size={16} />
             </div>
           </div>
           <div>
-            <p className="text-2xl sm:text-3xl font-black text-gray-900">
-              {isPrivileged 
-                ? `$${summary.gananciaPotencialTotal.toLocaleString('es-EC')}`
-                : `${summary.totalCupos} Cupos`
-              }
-            </p>
-            <p className="text-xs text-gray-400 font-bold mt-1">
-              {isPrivileged ? 'Margen neto si se llena el 100%' : 'Capacidad contratada para agencias'}
-            </p>
+            {isPrivileged ? (
+              <>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-2xl sm:text-3xl font-black text-gray-900">
+                    ${summary.cobradoGlobalTotal.toLocaleString('es-EC')}
+                  </p>
+                  <span className="text-xs font-black text-emerald-600">
+                    ({summary.porcentajeRecuperadoGlobal}%)
+                  </span>
+                </div>
+                <div className="w-full bg-gray-100 h-2 rounded-full mt-2 overflow-hidden">
+                  <div 
+                    className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, summary.porcentajeRecuperadoGlobal)}%` }}
+                  />
+                </div>
+                <div className="text-xs text-gray-400 font-bold mt-2 flex flex-wrap items-center justify-between gap-1">
+                  <span>Inversión: ${summary.inversionGlobalTotal.toLocaleString('es-EC')}</span>
+                  {summary.faltaRecuperarGlobal > 0 ? (
+                    <span className="text-amber-600 font-semibold">
+                      Falta: ${summary.faltaRecuperarGlobal.toLocaleString('es-EC')}
+                    </span>
+                  ) : (
+                    <span className="text-emerald-600 font-bold">✓ 100% Cubierta</span>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-2xl sm:text-3xl font-black text-gray-900">
+                  {summary.totalCupos} Cupos
+                </p>
+                <p className="text-xs text-gray-400 font-bold mt-1">
+                  Capacidad contratada para agencias
+                </p>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -888,6 +929,17 @@ export default function BloqueosPage() {
             const breakEvenPax = precioVenta > 0 && costoUnitario > 0 ? Math.ceil(inversionTotal / precioVenta) : Math.round(cupos * 0.6)
             const breakEvenCubierto = ocupados >= breakEvenPax
 
+            // Recuperación de Inversión y Dinero Real
+            const dineroRecuperado = Number(stats.cobrado) || 0
+            const dineroPendiente = Number(stats.pendiente) || 0
+            const porcentajeRecuperado = inversionTotal > 0 
+              ? Math.min(100, Math.round((dineroRecuperado / inversionTotal) * 100)) 
+              : 0
+            const faltaRecuperarDinero = Math.max(0, inversionTotal - dineroRecuperado)
+            const gananciaLiquidaActual = Math.max(0, dineroRecuperado - inversionTotal)
+            const inversionCubierta = inversionTotal > 0 && dineroRecuperado >= inversionTotal
+            const faltanPaxMeta = Math.max(0, breakEvenPax - ocupados)
+
             return (
               <div
                 key={bloqueo.id}
@@ -966,21 +1018,6 @@ export default function BloqueosPage() {
                       />
                     </div>
 
-                    {/* Meta de equilibrio para cubrir costos (Admin) */}
-                    {isPrivileged && (
-                      <div className="flex items-center justify-between text-[11px] text-gray-400 pt-1">
-                        <span>Meta para no perder: {breakEvenPax} cupos</span>
-                        {breakEvenCubierto ? (
-                          <span className="text-emerald-600 font-bold flex items-center gap-1">
-                            ✓ Costos cubiertos (En ganancias)
-                          </span>
-                        ) : (
-                          <span className="text-amber-600 font-semibold">
-                            Faltan {breakEvenPax - ocupados} cupos para cubrir costos
-                          </span>
-                        )}
-                      </div>
-                    )}
                   </div>
 
                   {/* Fecha límite nombres */}
@@ -993,16 +1030,135 @@ export default function BloqueosPage() {
                     </div>
                   )}
 
-                  {/* Resumen financiero administrativo */}
+                  {/* Resumen financiero administrativo y recuperación de inversión */}
                   {isPrivileged && (
-                    <div className="mt-4 pt-3 border-t border-dashed border-gray-100 grid grid-cols-2 gap-2 text-[11px]">
-                      <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-100">
-                        <span className="text-gray-400 block font-medium">Inversión Total:</span>
-                        <strong className="text-gray-800 text-xs">${inversionTotal.toLocaleString('es-EC')}</strong>
+                    <div className="mt-4 pt-3 border-t border-dashed border-gray-150 space-y-2.5">
+                      {/* Estado de la meta de inversión con barra de recuperación */}
+                      <div className={`p-3 rounded-2xl border ${
+                        inversionCubierta 
+                          ? 'bg-emerald-50/70 border-emerald-200/80' 
+                          : 'bg-slate-50/90 border-slate-200/80'
+                      }`}>
+                        <div className="flex items-center justify-between text-xs mb-1.5">
+                          <span className="font-extrabold text-gray-700 flex items-center gap-1.5">
+                            <Target size={14} className={inversionCubierta ? 'text-emerald-600' : 'text-primary'} />
+                            Meta de Inversión:
+                          </span>
+                          <span className={`text-[11px] font-black px-2 py-0.5 rounded-full ${
+                            inversionCubierta 
+                              ? 'bg-emerald-100 text-emerald-800' 
+                              : 'bg-amber-100 text-amber-800'
+                          }`}>
+                            {porcentajeRecuperado}% recuperado
+                          </span>
+                        </div>
+
+                        {/* Barra visual de recuperación de dinero */}
+                        <div className="w-full bg-gray-200/80 h-2 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${
+                              inversionCubierta 
+                                ? 'bg-emerald-500' 
+                                : porcentajeRecuperado >= 60 
+                                  ? 'bg-primary' 
+                                  : 'bg-amber-500'
+                            }`}
+                            style={{ width: `${Math.min(100, porcentajeRecuperado)}%` }}
+                          />
+                        </div>
+
+                        {/* Texto explicativo sin tecnicismos */}
+                        <div className="mt-2 text-xs flex flex-wrap items-center justify-between gap-1">
+                          {inversionCubierta ? (
+                            <div className="flex items-center gap-1.5 text-emerald-700 font-bold">
+                              <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
+                              <span>✓ ¡Meta cumplida! Inversión 100% recuperada</span>
+                            </div>
+                          ) : (
+                            <span className="text-gray-600 font-semibold text-[11px] sm:text-xs">
+                              Falta para la meta: <strong className="text-amber-800 font-black">${faltaRecuperarDinero.toLocaleString('es-EC')} USD</strong>
+                            </span>
+                          )}
+
+                          {inversionCubierta && gananciaLiquidaActual > 0 && (
+                            <span className="text-[11px] font-black text-emerald-800 bg-white/80 px-2 py-0.5 rounded-md border border-emerald-200">
+                              +${gananciaLiquidaActual.toLocaleString('es-EC')} ganancia
+                            </span>
+                          )}
+
+                          {!inversionCubierta && faltanPaxMeta > 0 && (
+                            <span className="text-[10px] text-gray-400 font-medium">
+                              ({faltanPaxMeta} cupos a precio de venta)
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="bg-emerald-50 p-2.5 rounded-xl border border-emerald-100">
-                        <span className="text-emerald-700 block font-medium">Ganancia por Pasajero:</span>
-                        <strong className="text-emerald-800 text-xs">${bloqueo.ganancia_unitaria || 0} USD</strong>
+
+                      {/* Cuadrícula de 3 columnas: Inversión Total | Recuperado | Falta o Ganancia */}
+                      <div className="grid grid-cols-3 gap-1.5 sm:gap-2 text-center">
+                        {/* 1. Inversión Total */}
+                        <div className="bg-gray-50/90 p-2 sm:p-2.5 rounded-2xl border border-gray-150 flex flex-col justify-between">
+                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                            Inversión Total
+                          </span>
+                          <strong className="text-gray-900 text-xs sm:text-sm font-black mt-1">
+                            ${inversionTotal.toLocaleString('es-EC')}
+                          </strong>
+                          <span className="text-[9px] text-gray-400 font-medium mt-0.5">
+                            Costo cupos
+                          </span>
+                        </div>
+
+                        {/* 2. Dinero Recuperado */}
+                        <div className="bg-emerald-50/70 p-2 sm:p-2.5 rounded-2xl border border-emerald-200/60 flex flex-col justify-between">
+                          <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider block">
+                            Recuperado
+                          </span>
+                          <strong className="text-emerald-800 text-xs sm:text-sm font-black mt-1">
+                            ${dineroRecuperado.toLocaleString('es-EC')}
+                          </strong>
+                          <span className="text-[9px] text-emerald-600 font-medium mt-0.5">
+                            Cobrado real
+                          </span>
+                        </div>
+
+                        {/* 3. Falta para Meta o Ganancia Neta */}
+                        <div className={`p-2 sm:p-2.5 rounded-2xl border flex flex-col justify-between ${
+                          inversionCubierta 
+                            ? 'bg-emerald-50/70 border-emerald-200/60' 
+                            : 'bg-amber-50/70 border-amber-200/60'
+                        }`}>
+                          <span className={`text-[10px] font-bold uppercase tracking-wider block ${
+                            inversionCubierta ? 'text-emerald-700' : 'text-amber-700'
+                          }`}>
+                            {inversionCubierta ? 'Ganancia' : 'Falta Meta'}
+                          </span>
+                          <strong className={`text-xs sm:text-sm font-black mt-1 ${
+                            inversionCubierta ? 'text-emerald-800' : 'text-amber-900'
+                          }`}>
+                            {inversionCubierta 
+                              ? `+$${gananciaLiquidaActual.toLocaleString('es-EC')}` 
+                              : `$${faltaRecuperarDinero.toLocaleString('es-EC')}`
+                            }
+                          </strong>
+                          <span className={`text-[9px] font-medium mt-0.5 ${
+                            inversionCubierta ? 'text-emerald-600' : 'text-amber-700'
+                          }`}>
+                            {inversionCubierta ? 'Líquida cobrada' : 'Para no perder'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Ganancia por Pasajero & Saldo pendiente en cartera */}
+                      <div className="flex flex-wrap items-center justify-between text-[11px] px-1 text-gray-500 gap-1 pt-0.5">
+                        <span>
+                          Ganancia x cupo: <strong className="text-gray-800">${bloqueo.ganancia_unitaria || 0} USD</strong>
+                        </span>
+                        {dineroPendiente > 0 && (
+                          <span className="text-amber-700 font-semibold">
+                            Por cobrar: <strong>${dineroPendiente.toLocaleString('es-EC')}</strong>
+                          </span>
+                        )}
                       </div>
                     </div>
                   )}
