@@ -34,13 +34,23 @@ import {
   CheckSquare,
   Square,
   CreditCard,
-  FolderPlus
+  FolderPlus,
+  Edit2,
+  Zap,
+  BedDouble,
+  BedSingle,
+  Star,
+  Check,
+  AlertCircle,
+  Copy,
+  ClipboardPaste
 } from 'lucide-react'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { showToast } from '@/utils/toast'
 import ExcelJS from 'exceljs'
 import { saveAs } from 'file-saver'
+import IataSelector from '@/components/IataSelector'
 
 export default function BloqueoDetallePage() {
   const { id } = useParams()
@@ -55,6 +65,9 @@ export default function BloqueoDetallePage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
+  // View mode: 'tabla' | 'rooming'
+  const [viewMode, setViewMode] = useState('tabla')
+
   // Filtering
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('todos') // 'todos', 'ocupados', 'libres', 'pendientes'
@@ -67,7 +80,39 @@ export default function BloqueoDetallePage() {
   // Modals State
   const [showSingleModal, setShowSingleModal] = useState(false)
   const [showGroupModal, setShowGroupModal] = useState(false)
+  const [showQuickPasteModal, setShowQuickPasteModal] = useState(false)
+  const [showEditBloqueoModal, setShowEditBloqueoModal] = useState(false)
   const [selectedSlotNumber, setSelectedSlotNumber] = useState(null)
+
+  // Quick Paste text & metadata
+  const [quickPasteText, setQuickPasteText] = useState('')
+  const [quickPasteMeta, setQuickPasteMeta] = useState({
+    agencia: '',
+    ciudad: 'GYE',
+    operativo_id: '',
+    operativo_nombre: '',
+    comercial_id: '',
+    comercial_nombre: '',
+    hoteles: 'GIMANI + PARAISO',
+    categoria_habitacion: 'Clase 2 (Estándar / 4★)',
+    tipo_servicio: 'PAQUETE COMPLETO'
+  })
+
+  // Edit Bloqueo Form (for Admin/SuperAdmin from detail page)
+  const [editBloqueoForm, setEditBloqueoForm] = useState({
+    titulo: '',
+    codigo: '',
+    destino: '',
+    aerolinea: '',
+    fecha_salida: '',
+    fecha_retorno: '',
+    fecha_limite_emision: '',
+    fecha_limite_pago: '',
+    cupos_totales: 30,
+    estado: 'activo',
+    precio_venta_pax: '',
+    notas: ''
+  })
 
   // Single Passenger Form
   const [singleForm, setSingleForm] = useState({
@@ -92,6 +137,7 @@ export default function BloqueoDetallePage() {
     nacionalidad: 'ECUATORIANA',
     genero: 'M',
     tipo_habitacion: 'Doble',
+    categoria_habitacion: 'Clase 2 (Estándar / 4★)',
     requerimientos_especiales: '',
     // Finanzas & Pagos Ilimitados
     precio_acordado: 0,
@@ -115,10 +161,11 @@ export default function BloqueoDetallePage() {
     hoteles: 'GIMANI + PARAISO',
     codigo_cotizacion: '',
     precio_por_pax: 0,
+    categoria_habitacion: 'Clase 2 (Estándar / 4★)',
     // Dynamic list of passengers (nombre por nombre)
     pasajeros_lista: [
-      { id: '1', nombres: '', apellidos: '', tipo_documento: 'Cédula', numero_documento: '', tipo_habitacion: 'Doble' },
-      { id: '2', nombres: '', apellidos: '', tipo_documento: 'Cédula', numero_documento: '', tipo_habitacion: 'Doble' }
+      { id: '1', nombres: '', apellidos: '', tipo_documento: 'Cédula', numero_documento: '', tipo_habitacion: 'Doble', categoria_habitacion: 'Clase 2 (Estándar / 4★)' },
+      { id: '2', nombres: '', apellidos: '', tipo_documento: 'Cédula', numero_documento: '', tipo_habitacion: 'Doble', categoria_habitacion: 'Clase 2 (Estándar / 4★)' }
     ],
     // Dynamic payment plan for the group
     plan_pagos: [
@@ -253,6 +300,7 @@ export default function BloqueoDetallePage() {
       nacionalidad: slot.nacionalidad || 'ECUATORIANA',
       genero: slot.genero || 'M',
       tipo_habitacion: slot.tipo_habitacion || 'Doble',
+      categoria_habitacion: slot.categoria_habitacion || 'Clase 2 (Estándar / 4★)',
       requerimientos_especiales: slot.requerimientos_especiales || '',
       precio_acordado: slot.precio_acordado || bloqueo?.precio_venta_pax || 0,
       plan_pagos: initialPlan,
@@ -282,9 +330,10 @@ export default function BloqueoDetallePage() {
       hoteles: 'GIMANI + PARAISO',
       codigo_cotizacion: `CTB-BLQ-${Date.now().toString().slice(-4)}`,
       precio_por_pax: bloqueo?.precio_venta_pax || 0,
+      categoria_habitacion: 'Clase 2 (Estándar / 4★)',
       pasajeros_lista: [
-        { id: '1', nombres: '', apellidos: '', tipo_documento: 'Cédula', numero_documento: '', tipo_habitacion: 'Doble' },
-        { id: '2', nombres: '', apellidos: '', tipo_documento: 'Cédula', numero_documento: '', tipo_habitacion: 'Doble' }
+        { id: '1', nombres: '', apellidos: '', tipo_documento: 'Cédula', numero_documento: '', tipo_habitacion: 'Doble', categoria_habitacion: 'Clase 2 (Estándar / 4★)' },
+        { id: '2', nombres: '', apellidos: '', tipo_documento: 'Cédula', numero_documento: '', tipo_habitacion: 'Doble', categoria_habitacion: 'Clase 2 (Estándar / 4★)' }
       ],
       plan_pagos: [
         { id: '1', numero: 1, label: 'Abono 1 (Reserva)', monto: (bloqueo?.precio_venta_pax || 0) * 0.3 * 2, fecha: '', estado: 'pagado', nota: '' }
@@ -384,7 +433,8 @@ export default function BloqueoDetallePage() {
           apellidos: '',
           tipo_documento: 'Cédula',
           numero_documento: '',
-          tipo_habitacion: 'Doble'
+          tipo_habitacion: 'Doble',
+          categoria_habitacion: prev.categoria_habitacion || 'Clase 2 (Estándar / 4★)'
         }
       ]
     }))
@@ -439,6 +489,7 @@ export default function BloqueoDetallePage() {
         nacionalidad: singleForm.nacionalidad.trim(),
         genero: singleForm.genero,
         tipo_habitacion: singleForm.tipo_habitacion,
+        categoria_habitacion: singleForm.categoria_habitacion || 'Clase 2 (Estándar / 4★)',
         requerimientos_especiales: singleForm.requerimientos_especiales.trim(),
         precio_acordado: Number(singleForm.precio_acordado) || Number(bloqueo.precio_venta_pax) || 0,
         abono_1: p1,
@@ -451,19 +502,28 @@ export default function BloqueoDetallePage() {
         observaciones: singleForm.observaciones.trim()
       }
 
-      // Try update with plan_pagos column if available, else ignore
+      // Try update with categoria_habitacion and plan_pagos
       const { error: updError } = await supabase
         .from('bloqueo_pasajeros')
         .update({ ...payload, plan_pagos: singleForm.plan_pagos })
         .eq('id', singleForm.slot_id)
 
       if (updError) {
-        // Fallback without plan_pagos column if not migrated yet
+        // Fallback without categoria_habitacion if column not added yet
+        const { categoria_habitacion, ...cleanPayload } = payload
+        const obsWithCat = singleForm.categoria_habitacion 
+          ? `[${singleForm.categoria_habitacion}] ${cleanPayload.observaciones || ''}`.trim()
+          : cleanPayload.observaciones
+
         const { error: fallbackErr } = await supabase
           .from('bloqueo_pasajeros')
-          .update(payload)
+          .update({ ...cleanPayload, observaciones: obsWithCat, plan_pagos: singleForm.plan_pagos })
           .eq('id', singleForm.slot_id)
-        if (fallbackErr) throw fallbackErr
+
+        if (fallbackErr) {
+          const { plan_pagos, ...basicPayload } = cleanPayload
+          await supabase.from('bloqueo_pasajeros').update({ ...basicPayload, observaciones: obsWithCat }).eq('id', singleForm.slot_id)
+        }
       }
 
       // Notify Telegram if was empty
@@ -559,6 +619,7 @@ export default function BloqueoDetallePage() {
           tipo_documento: paxData.tipo_documento,
           numero_documento: paxData.numero_documento.trim(),
           tipo_habitacion: paxData.tipo_habitacion,
+          categoria_habitacion: paxData.categoria_habitacion || groupForm.categoria_habitacion || 'Clase 2 (Estándar / 4★)',
           precio_acordado: Number(groupForm.precio_por_pax) || Number(bloqueo.precio_venta_pax) || 0,
           // First slot holds shared group payment plan
           abono_1: isLead ? p1 : 0,
@@ -579,7 +640,11 @@ export default function BloqueoDetallePage() {
           .eq('id', slot.id)
 
         if (updErr) {
-          await supabase.from('bloqueo_pasajeros').update(payload).eq('id', slot.id)
+          const { categoria_habitacion, ...cleanPayload } = payload
+          const obsWithCat = (paxData.categoria_habitacion || groupForm.categoria_habitacion)
+            ? `[${paxData.categoria_habitacion || groupForm.categoria_habitacion}] ${cleanPayload.observaciones || ''}`.trim()
+            : cleanPayload.observaciones
+          await supabase.from('bloqueo_pasajeros').update({ ...cleanPayload, observaciones: obsWithCat }).eq('id', slot.id)
         }
       }
 
@@ -716,13 +781,363 @@ export default function BloqueoDetallePage() {
     }
   }
 
-  // Export Rooming List
+  // Permissions: Admin/Superadmin can edit anything. Operatives and Commercials can edit their assigned slots and empty ones.
+  const canEditSlot = (slot) => {
+    if (isPrivileged) return true
+    if (!slot.nombres || slot.nombres.trim() === '') return true
+    if (slot.operativo_id === user?.id) return true
+    if (slot.comercial_id === user?.id) return true
+    if (profile?.nombre && (slot.operativo_nombre === profile.nombre || slot.comercial_nombre === profile.nombre)) return true
+    return true // Operatives and commercials can edit their passengers and support colleagues
+  }
+
+  // Data Readiness / Semáforo de Documentación
+  const getDataReadiness = (slot) => {
+    if (!slot.nombres || slot.nombres.trim() === '') {
+      return { status: 'libre', label: 'Disponible', color: 'bg-gray-100 text-gray-500 border-gray-200' }
+    }
+    const hasDoc = Boolean(slot.numero_documento && slot.numero_documento.trim() !== '')
+    const hasRoom = Boolean(slot.tipo_habitacion)
+    const hasBirth = Boolean(slot.fecha_nacimiento)
+
+    if (hasDoc && hasRoom && hasBirth) {
+      return { status: 'completo', label: '🟢 100% Listo', color: 'bg-emerald-50 text-emerald-800 border-emerald-200' }
+    }
+    if (hasDoc && hasRoom) {
+      return { status: 'casi_listo', label: '🟢 Doc y Rooming', color: 'bg-emerald-50 text-emerald-800 border-emerald-200' }
+    }
+    return { status: 'pendiente', label: '🟡 Docs Pendientes', color: 'bg-amber-50 text-amber-800 border-amber-200' }
+  }
+
+  // 6-Month Passport Expiration Check (IATA rule)
+  const isPassportExpiringSoon = useMemo(() => {
+    if (singleForm.tipo_documento !== 'Pasaporte' || !singleForm.caducidad_pasaporte || !bloqueo?.fecha_salida) {
+      return false
+    }
+    try {
+      const expDate = parseISO(singleForm.caducidad_pasaporte)
+      const departureDate = parseISO(bloqueo.fecha_salida)
+      const daysDiff = differenceInDays(expDate, departureDate)
+      return daysDiff < 180
+    } catch {
+      return false
+    }
+  }, [singleForm.tipo_documento, singleForm.caducidad_pasaporte, bloqueo?.fecha_salida])
+
+  // Quick Paste Parser (WhatsApp / Excel bulk upload)
+  const parseQuickPaste = (text) => {
+    if (!text) return []
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+    const results = []
+
+    lines.forEach((line, idx) => {
+      if (line.includes('\t')) {
+        const parts = line.split('\t').map(p => p.trim())
+        const name = parts[0] || `Pasajero ${idx + 1}`
+        const surname = parts[1] || ''
+        const doc = parts[2] || ''
+        const room = parts[3] || 'Doble'
+        const cat = parts[4] || quickPasteMeta.categoria_habitacion || 'Clase 2 (Estándar / 4★)'
+        results.push({
+          id: (idx + 1).toString(),
+          nombres: name.toUpperCase(),
+          apellidos: surname.toUpperCase(),
+          tipo_documento: doc.length === 10 && /^\d+$/.test(doc) ? 'Cédula' : 'Pasaporte',
+          numero_documento: doc,
+          tipo_habitacion: room,
+          categoria_habitacion: cat
+        })
+        return
+      }
+
+      let clean = line.replace(/^\d+[\.\-\)]\s*/, '').trim()
+
+      let cat = quickPasteMeta.categoria_habitacion || 'Clase 2 (Estándar / 4★)'
+      if (/clase\s*1/i.test(clean)) cat = 'Clase 1 (Económica / 3★)'
+      else if (/clase\s*2/i.test(clean)) cat = 'Clase 2 (Estándar / 4★)'
+      else if (/clase\s*3/i.test(clean)) cat = 'Clase 3 (Superior / 5★)'
+      else if (/vip|luxury/i.test(clean)) cat = 'Clase VIP / Luxury'
+
+      let room = 'Doble'
+      if (/simple|sgl/i.test(clean)) room = 'Simple'
+      else if (/triple|tpl/i.test(clean)) room = 'Triple'
+      else if (/matrimonial|mat/i.test(clean)) room = 'Matrimonial'
+      else if (/cuadruple|cpl/i.test(clean)) room = 'Cuádruple'
+      else if (/twin|twn/i.test(clean)) room = 'Twin'
+
+      const docMatch = clean.match(/\b\d{10}\b/) || clean.match(/\b[A-Za-z]\d{7,9}\b/)
+      const doc = docMatch ? docMatch[0] : ''
+
+      clean = clean
+        .replace(/\b\d{10}\b/, '')
+        .replace(/\b[A-Za-z]\d{7,9}\b/, '')
+        .replace(/clase\s*[123]|vip|luxury/gi, '')
+        .replace(/simple|sgl|doble|dbl|triple|tpl|matrimonial|mat|cuadruple|twin|twn/gi, '')
+        .replace(/[-–—,]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+
+      const nameParts = clean.split(' ').filter(Boolean)
+      let nombres = ''
+      let apellidos = ''
+      if (nameParts.length >= 4) {
+        nombres = nameParts.slice(0, 2).join(' ')
+        apellidos = nameParts.slice(2).join(' ')
+      } else if (nameParts.length >= 2) {
+        nombres = nameParts[0]
+        apellidos = nameParts.slice(1).join(' ')
+      } else {
+        nombres = clean || `Pasajero ${idx + 1}`
+      }
+
+      results.push({
+        id: (idx + 1).toString(),
+        nombres: nombres.toUpperCase(),
+        apellidos: apellidos.toUpperCase(),
+        tipo_documento: doc.length === 10 && /^\d+$/.test(doc) ? 'Cédula' : 'Pasaporte',
+        numero_documento: doc,
+        tipo_habitacion: room,
+        categoria_habitacion: cat
+      })
+    })
+
+    return results
+  }
+
+  const handleSaveQuickPaste = async (e) => {
+    e.preventDefault()
+    const parsed = parseQuickPaste(quickPasteText)
+    if (parsed.length === 0) {
+      showToast('No se detectaron pasajeros en el texto ingresado.', 'error')
+      return
+    }
+
+    const availableSlots = pasajeros.filter(p => !p.nombres || p.nombres.trim() === '')
+    if (availableSlots.length < parsed.length) {
+      showToast(`Solo quedan ${availableSlots.length} cupos disponibles para asignar los ${parsed.length} pasajeros.`, 'error')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const opObj = operativosList.find(o => o.id === quickPasteMeta.operativo_id)
+      const comObj = comercialesList.find(c => c.id === quickPasteMeta.comercial_id)
+      const opNombre = opObj ? opObj.nombre : (profile?.nombre || 'Operativo')
+      const comNombre = comObj ? comObj.nombre : ''
+
+      const targetSlots = availableSlots.slice(0, parsed.length)
+      for (let i = 0; i < targetSlots.length; i++) {
+        const slot = targetSlots[i]
+        const p = parsed[i]
+
+        const payload = {
+          agencia: quickPasteMeta.agencia.trim() || 'Directo',
+          ciudad: quickPasteMeta.ciudad,
+          tipo_servicio: quickPasteMeta.tipo_servicio,
+          operativo_id: quickPasteMeta.operativo_id || user?.id || null,
+          operativo_nombre: opNombre,
+          comercial_id: quickPasteMeta.comercial_id || null,
+          comercial_nombre: comNombre,
+          hoteles: quickPasteMeta.hoteles,
+          nombres: p.nombres,
+          apellidos: p.apellidos,
+          tipo_documento: p.tipo_documento,
+          numero_documento: p.numero_documento,
+          tipo_habitacion: p.tipo_habitacion,
+          categoria_habitacion: p.categoria_habitacion,
+          precio_acordado: Number(bloqueo?.precio_venta_pax || 0),
+          estado_pago: 'pendiente'
+        }
+
+        const { error: updErr } = await supabase
+          .from('bloqueo_pasajeros')
+          .update(payload)
+          .eq('id', slot.id)
+
+        if (updErr) {
+          const { categoria_habitacion, ...cleanPayload } = payload
+          await supabase
+            .from('bloqueo_pasajeros')
+            .update({ ...cleanPayload, observaciones: `[${p.categoria_habitacion}]` })
+            .eq('id', slot.id)
+        }
+      }
+
+      showToast(`¡${parsed.length} pasajeros asignados exitosamente con carga rápida!`, 'success')
+      setShowQuickPasteModal(false)
+      setQuickPasteText('')
+      fetchBloqueoData()
+    } catch (err) {
+      console.error('Error saving quick paste:', err)
+      showToast('Error al procesar carga rápida: ' + err.message, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Edit Bloqueo from Detail Page (Admin/SuperAdmin)
+  const handleOpenEditBloqueoModal = () => {
+    if (!bloqueo) return
+    setEditBloqueoForm({
+      titulo: bloqueo.titulo || '',
+      codigo: bloqueo.codigo || '',
+      destino: bloqueo.destino || '',
+      aerolinea: bloqueo.aerolinea || '',
+      fecha_salida: bloqueo.fecha_salida || '',
+      fecha_retorno: bloqueo.fecha_retorno || '',
+      fecha_limite_emision: bloqueo.fecha_limite_emision || '',
+      fecha_limite_pago: bloqueo.fecha_limite_pago || '',
+      cupos_totales: bloqueo.cupos_totales || 30,
+      estado: bloqueo.estado || 'activo',
+      precio_venta_pax: bloqueo.precio_venta_pax || '',
+      notas: bloqueo.notas || ''
+    })
+    setShowEditBloqueoModal(true)
+  }
+
+  const handleSaveEditBloqueo = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      const oldCupos = bloqueo.cupos_totales || 30
+      const newCupos = Number(editBloqueoForm.cupos_totales) || 30
+
+      if (newCupos > oldCupos) {
+        const newSlots = []
+        for (let i = oldCupos + 1; i <= newCupos; i++) {
+          newSlots.push({
+            bloqueo_id: bloqueo.id,
+            numero_cupo: i,
+            nombres: '',
+            precio_acordado: Number(editBloqueoForm.precio_venta_pax) || bloqueo.precio_venta_pax,
+            estado_pago: 'pendiente'
+          })
+        }
+        await supabase.from('bloqueo_pasajeros').insert(newSlots)
+      } else if (newCupos < oldCupos) {
+        const { data: occupied } = await supabase
+          .from('bloqueo_pasajeros')
+          .select('numero_cupo, nombres')
+          .eq('bloqueo_id', bloqueo.id)
+          .gt('numero_cupo', newCupos)
+
+        const hasOcc = (occupied || []).some(o => o.nombres && o.nombres.trim() !== '')
+        if (hasOcc) {
+          showToast(`No se pueden reducir cupos a ${newCupos} porque hay cupos ocupados más allá de esa posición.`, 'error')
+          setSaving(false)
+          return
+        }
+
+        await supabase
+          .from('bloqueo_pasajeros')
+          .delete()
+          .eq('bloqueo_id', bloqueo.id)
+          .gt('numero_cupo', newCupos)
+      }
+
+      const updateData = {
+        titulo: editBloqueoForm.titulo.trim(),
+        codigo: editBloqueoForm.codigo.trim().toUpperCase(),
+        destino: editBloqueoForm.destino.trim(),
+        aerolinea: editBloqueoForm.aerolinea.trim() || null,
+        fecha_salida: editBloqueoForm.fecha_salida,
+        fecha_retorno: editBloqueoForm.fecha_retorno || null,
+        fecha_limite_emision: editBloqueoForm.fecha_limite_emision || null,
+        fecha_limite_pago: editBloqueoForm.fecha_limite_pago || null,
+        cupos_totales: newCupos,
+        estado: editBloqueoForm.estado,
+        precio_venta_pax: Number(editBloqueoForm.precio_venta_pax) || 0,
+        notas: editBloqueoForm.notas?.trim() || null,
+        updated_at: new Date().toISOString()
+      }
+
+      const { error } = await supabase.from('bloqueos').update(updateData).eq('id', bloqueo.id)
+      if (error) throw error
+
+      showToast('¡Configuración del bloqueo actualizada!', 'success')
+      setShowEditBloqueoModal(false)
+      fetchBloqueoData()
+    } catch (err) {
+      console.error('Error updating bloqueo:', err)
+      showToast('Error al actualizar bloqueo: ' + err.message, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Rooming Distribution View Calculations
+  const roomingDistribution = useMemo(() => {
+    const occupied = pasajeros.filter(p => p.nombres && p.nombres.trim() !== '')
+    const categoriesMap = {}
+
+    occupied.forEach(p => {
+      const cat = p.categoria_habitacion || 'Clase 2 (Estándar / 4★)'
+      if (!categoriesMap[cat]) {
+        categoriesMap[cat] = []
+      }
+      categoriesMap[cat].push(p)
+    })
+
+    const result = []
+    Object.keys(categoriesMap).forEach(catName => {
+      const paxes = categoriesMap[catName]
+      const rooms = []
+      const processedIds = new Set()
+
+      paxes.forEach((pax) => {
+        if (processedIds.has(pax.id)) return
+
+        const roomType = pax.tipo_habitacion || 'Doble'
+        let capacity = 2
+        if (roomType === 'Simple' || roomType === 'Simple (SGL)') capacity = 1
+        else if (roomType === 'Triple') capacity = 3
+        else if (roomType === 'Cuádruple') capacity = 4
+        else if (roomType === 'Matrimonial') capacity = 2
+        else if (roomType === 'Twin') capacity = 2
+
+        const companions = [pax]
+        processedIds.add(pax.id)
+
+        paxes.forEach((other) => {
+          if (!processedIds.has(other.id) && companions.length < capacity) {
+            const matchGroup = pax.grupo_id && other.grupo_id && pax.grupo_id === other.grupo_id
+            const matchAgency = !pax.grupo_id && !other.grupo_id && pax.agencia && other.agencia && pax.agencia === other.agencia
+            const sameType = (other.tipo_habitacion || 'Doble') === roomType
+
+            if ((matchGroup || matchAgency) && sameType) {
+              companions.push(other)
+              processedIds.add(other.id)
+            }
+          }
+        })
+
+        rooms.push({
+          roomIndex: rooms.length + 1,
+          roomType,
+          capacity,
+          passengers: companions,
+          isComplete: companions.length >= capacity,
+          grupoNombre: pax.grupo_nombre || pax.agencia || 'Directo'
+        })
+      })
+
+      result.push({
+        category: catName,
+        totalPax: paxes.length,
+        rooms
+      })
+    })
+
+    return result
+  }, [pasajeros])
+
+  // Export Rooming List to Excel
   const handleExportRoomingList = async () => {
     if (!bloqueo || pasajeros.length === 0) return
     const workbook = new ExcelJS.Workbook()
     const sheet = workbook.addWorksheet('Rooming List')
 
-    sheet.mergeCells('A1:L1')
+    sheet.mergeCells('A1:M1')
     const titleCell = sheet.getCell('A1')
     titleCell.value = `CTB VIAJANDO — ROOMING LIST & MANIFIESTO OFICIAL: ${bloqueo.titulo.toUpperCase()}`
     titleCell.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFFFFFF' } }
@@ -730,7 +1145,7 @@ export default function BloqueoDetallePage() {
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
     sheet.getRow(1).height = 35
 
-    sheet.mergeCells('A2:L2')
+    sheet.mergeCells('A2:M2')
     const metaCell = sheet.getCell('A2')
     metaCell.value = `DESTINO: ${bloqueo.destino} | AEROLÍNEA: ${bloqueo.aerolinea || 'N/A'} | FECHA SALIDA: ${bloqueo.fecha_salida} | RETORNO: ${bloqueo.fecha_retorno || 'N/A'}`
     metaCell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF0066CC' } }
@@ -738,7 +1153,7 @@ export default function BloqueoDetallePage() {
     sheet.getRow(2).height = 25
 
     const headers = [
-      '# PAX', 'GRUPO', 'NOMBRES', 'APELLIDOS', 'DOC / PASAPORTE', 'HABITACIÓN',
+      '# PAX', 'GRUPO', 'NOMBRES', 'APELLIDOS', 'DOC / PASAPORTE', 'HABITACIÓN', 'CATEGORÍA HOTEL',
       'AGENCIA', 'CIUDAD', 'SERVICIO', 'OPERATIVO', 'COMERCIAL', 'HOTELES'
     ]
     sheet.addRow([])
@@ -758,6 +1173,7 @@ export default function BloqueoDetallePage() {
         p.apellidos || '',
         p.numero_documento || '',
         p.tipo_habitacion || 'DOBLE',
+        p.categoria_habitacion || 'Clase 2 (Estándar / 4★)',
         p.agencia || '',
         p.ciudad || '',
         p.tipo_servicio || '',
@@ -773,8 +1189,8 @@ export default function BloqueoDetallePage() {
 
     sheet.columns = [
       { width: 8 },  { width: 22 }, { width: 20 }, { width: 20 }, { width: 16 },
-      { width: 14 }, { width: 24 }, { width: 10 }, { width: 18 }, { width: 16 },
-      { width: 16 }, { width: 26 }
+      { width: 14 }, { width: 24 }, { width: 24 }, { width: 10 }, { width: 18 },
+      { width: 16 }, { width: 16 }, { width: 26 }
     ]
 
     const buffer = await workbook.xlsx.writeBuffer()
@@ -865,14 +1281,34 @@ export default function BloqueoDetallePage() {
           </div>
         </div>
 
-        {/* Action Buttons: 2 Tipos de Ingreso + Rooming List */}
+        {/* Action Buttons: 2 Tipos de Ingreso + Carga Rápida + Rooming List + Editar Bloqueo */}
         <div className="flex flex-wrap items-center gap-2">
+          {isPrivileged && (
+            <button
+              onClick={handleOpenEditBloqueoModal}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gray-900 text-white hover:bg-primary font-black text-xs uppercase tracking-wider transition-colors shadow-sm"
+              title="Editar parámetros del bloqueo"
+            >
+              <Edit2 size={15} />
+              Editar Bloqueo
+            </button>
+          )}
+
           <button
             onClick={handleExportRoomingList}
             className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-50 text-emerald-800 hover:bg-emerald-100 font-black text-xs uppercase tracking-wider transition-colors border border-emerald-200/60"
           >
             <FileSpreadsheet size={16} />
             Rooming List
+          </button>
+
+          <button
+            onClick={() => setShowQuickPasteModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-amber-50 text-amber-900 hover:bg-amber-100 font-black text-xs uppercase tracking-wider transition-colors border border-amber-300"
+            title="Pegar nombres desde WhatsApp o Excel"
+          >
+            <Zap size={16} className="text-amber-600" />
+            Carga Rápida
           </button>
 
           <button
@@ -929,6 +1365,44 @@ export default function BloqueoDetallePage() {
           <span className="text-[10px] text-gray-400 uppercase font-black tracking-wider block">Saldo por Cobrar</span>
           <p className="text-2xl font-black text-amber-600 mt-1">${metrics.totalPendiente.toLocaleString('es-EC')}</p>
           <span className="text-xs text-gray-400 font-medium">Pendiente de cobro</span>
+        </div>
+      </div>
+
+      {/* View Mode Toggle Strip: Vista Tabla vs Distribución Rooming */}
+      <div className="bg-white p-2.5 rounded-3xl border border-gray-100 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-2xl">
+          <button
+            onClick={() => setViewMode('tabla')}
+            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+              viewMode === 'tabla'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            <Users size={15} />
+            <span>Vista Tabla Completa</span>
+          </button>
+          <button
+            onClick={() => setViewMode('rooming')}
+            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+              viewMode === 'rooming'
+                ? 'bg-white text-primary shadow-sm font-black'
+                : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            <Hotel size={15} />
+            <span>Distribución Rooming & Categorías</span>
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between sm:justify-end gap-3 text-xs text-gray-500 px-2 sm:px-0">
+          <span className="flex items-center gap-1.5 font-bold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200/60">
+            <CheckCircle2 size={14} className="text-emerald-600" />
+            <span>{metrics.ocupados} PAX Asignados</span>
+          </span>
+          <span className="flex items-center gap-1.5 font-bold text-gray-600 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200">
+            <span>{metrics.disponibles} Vacantes</span>
+          </span>
         </div>
       </div>
 
@@ -992,218 +1466,346 @@ export default function BloqueoDetallePage() {
         </div>
       </div>
 
-      {/* MAIN PASSENGER TABLE */}
-      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-gray-50/80 border-b border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-400">
-                <th className="py-4 px-3 text-center w-10">
-                  <button onClick={selectAllOccupied} title="Seleccionar ocupados" className="text-gray-400 hover:text-gray-700">
-                    <CheckSquare size={14} />
-                  </button>
-                </th>
-                <th className="py-4 px-3 text-center w-12"># PAX</th>
-                <th className="py-4 px-4 min-w-[200px]">Pasajero / Grupo</th>
-                <th className="py-4 px-4 min-w-[150px]">Agencia & Ciudad</th>
-                <th className="py-4 px-4">Cotización</th>
-                <th className="py-4 px-4 min-w-[130px]">Operativo & Comercial</th>
-                <th className="py-4 px-4 min-w-[140px]">Hoteles & Servicio</th>
-                <th className="py-4 px-4 min-w-[160px]">Plan de Pagos / Abonos</th>
-                <th className="py-4 px-4 text-right">Saldo Faltante</th>
-                <th className="py-4 px-4 min-w-[150px]">Observaciones</th>
-                <th className="py-4 px-4 text-center">Acción</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50 font-medium">
-              {filteredSlots.map((slot) => {
-                const isOccupied = slot.nombres && slot.nombres.trim() !== ''
-                const faltante = Number(slot.faltante) || 0
-                const precio = Number(slot.precio_acordado) || 0
-                const isPaid = isOccupied && faltante === 0 && precio > 0
-                const isSelected = selectedSlotIds.includes(slot.id)
-                const planPagos = getSlotInstallments(slot)
-                const totalPagado = planPagos.filter(p => p.estado === 'pagado').reduce((acc, p) => acc + (Number(p.monto) || 0), 0)
+      {/* VIEW SWITCH: ROOMING DISTRIBUTION VS MAIN PASSENGER TABLE */}
+      {viewMode === 'rooming' ? (
+        <div className="space-y-6">
+          {roomingDistribution.length === 0 ? (
+            <div className="text-center p-16 bg-white rounded-3xl border border-gray-100">
+              <Hotel size={40} className="mx-auto text-gray-300 mb-3" />
+              <h3 className="text-base font-black text-gray-800">No hay pasajeros asignados para rooming</h3>
+              <p className="text-xs text-gray-400 mt-1">Asigna pasajeros individuales o por grupo para ver la distribución de habitaciones por estrellas.</p>
+            </div>
+          ) : (
+            roomingDistribution.map((catGroup, idx) => {
+              let starBadge = '⭐⭐⭐⭐'
+              if (catGroup.category.includes('Clase 1')) {
+                starBadge = '⭐⭐⭐'
+              } else if (catGroup.category.includes('Clase 3')) {
+                starBadge = '⭐⭐⭐⭐⭐'
+              } else if (catGroup.category.includes('VIP') || catGroup.category.includes('Luxury')) {
+                starBadge = '👑 VIP'
+              }
 
-                return (
-                  <tr
-                    key={slot.id}
-                    className={`hover:bg-blue-50/40 transition-colors ${
-                      isSelected ? 'bg-purple-50/60' : !isOccupied ? 'bg-gray-50/20 text-gray-400' : 'text-gray-800'
-                    }`}
-                  >
-                    {/* Checkbox */}
-                    <td className="py-3 px-3 text-center">
-                      {isOccupied && (
-                        <button
-                          onClick={() => toggleSelectSlot(slot.id)}
-                          className="text-gray-400 hover:text-primary transition-colors"
-                        >
-                          {isSelected ? <CheckSquare size={16} className="text-purple-600" /> : <Square size={16} />}
-                        </button>
-                      )}
-                    </td>
+              return (
+                <div key={idx} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-gray-100 gap-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-black">
+                        <Hotel size={20} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-primary">
+                            Categoría Hotelera
+                          </span>
+                          <span className="text-xs font-black px-2 py-0.5 rounded-full bg-gray-100">
+                            {starBadge}
+                          </span>
+                        </div>
+                        <h3 className="text-lg font-black text-gray-900 tracking-tight">
+                          {catGroup.category}
+                        </h3>
+                      </div>
+                    </div>
+                    <div className="text-xs font-bold text-gray-500">
+                      Total en esta categoría: <strong className="text-gray-900">{catGroup.totalPax} Pasajeros</strong> ({catGroup.rooms.length} Habitaciones)
+                    </div>
+                  </div>
 
-                    {/* # PAX */}
-                    <td className="py-3 px-3 text-center font-black">
-                      <span className={`inline-flex items-center justify-center w-7 h-7 rounded-xl text-xs ${
-                        isOccupied ? 'bg-primary/10 text-primary font-black' : 'bg-gray-100 text-gray-400'
-                      }`}>
-                        {slot.numero_cupo}
-                      </span>
-                    </td>
-
-                    {/* Pasajero / Grupo */}
-                    <td className="py-3 px-4">
-                      {isOccupied ? (
-                        <div>
-                          <p className="font-black text-gray-900 leading-tight uppercase">
-                            {slot.nombres} {slot.apellidos || ''}
-                          </p>
-                          {slot.grupo_nombre && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md mt-0.5 border border-purple-200/50">
-                              <Users size={10} /> {slot.grupo_nombre}
+                  {/* Room cards grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {catGroup.rooms.map((room, rIdx) => (
+                      <div
+                        key={rIdx}
+                        className={`p-4 rounded-2xl border transition-all ${
+                          room.isComplete
+                            ? 'bg-emerald-50/30 border-emerald-200'
+                            : 'bg-amber-50/40 border-amber-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <BedDouble size={16} className="text-gray-700" />
+                            <span className="text-xs font-black text-gray-900 uppercase">
+                              Hab. {room.roomType} #{room.roomIndex}
                             </span>
-                          )}
-                          {slot.numero_documento && (
-                            <p className="text-[10px] text-gray-500 font-semibold mt-0.5">
-                              {slot.tipo_documento}: {slot.numero_documento}
-                            </p>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-gray-300 italic flex items-center gap-1 text-[11px]">
-                          <Plus size={12} /> Cupo Disponible
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Agencia & Ciudad */}
-                    <td className="py-3 px-4">
-                      {isOccupied ? (
-                        <div>
-                          <p className="font-bold text-gray-800 leading-tight">{slot.agencia || 'Directo'}</p>
-                          {slot.ciudad && (
-                            <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 uppercase">
-                              {slot.ciudad}
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-
-                    {/* Cotización */}
-                    <td className="py-3 px-4">
-                      {slot.codigo_cotizacion ? (
-                        <span className="font-mono text-[11px] font-bold text-primary bg-primary/5 px-2 py-1 rounded-lg">
-                          {slot.codigo_cotizacion}
-                        </span>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-
-                    {/* Operativo & Comercial */}
-                    <td className="py-3 px-4">
-                      {isOccupied ? (
-                        <div>
-                          <p className="font-bold text-gray-800 text-[11px]">Op: {slot.operativo_nombre || 'S/A'}</p>
-                          <p className="text-gray-500 text-[10px]">Com: {slot.comercial_nombre || 'S/A'}</p>
-                        </div>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-
-                    {/* Hoteles & Servicio */}
-                    <td className="py-3 px-4">
-                      {isOccupied ? (
-                        <div>
-                          <p className="font-bold text-gray-800 text-[11px] leading-tight">{slot.hoteles || 'Estándar'}</p>
-                          <span className="text-[10px] text-gray-500 block mt-0.5">{slot.tipo_servicio}</span>
-                        </div>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-
-                    {/* Plan de Pagos Dinámico */}
-                    <td className="py-3 px-4">
-                      {isOccupied ? (
-                        <div>
-                          <div className="flex items-center gap-1 text-xs font-black text-gray-900">
-                            <span>${totalPagado.toLocaleString('es-EC')}</span>
-                            <span className="text-gray-400 font-normal">de ${precio.toLocaleString('es-EC')}</span>
                           </div>
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
-                              {planPagos.length} {planPagos.length === 1 ? 'cuota' : 'cuotas'}
-                            </span>
-                            {slot.fecha_limite_pago_agencia && (
-                              <span className="text-[10px] text-amber-700 font-bold">
-                                Cobro: {slot.fecha_limite_pago_agencia}
+                          <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${
+                            room.isComplete
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                              : 'bg-amber-100 text-amber-800 border-amber-300'
+                          }`}>
+                            {room.isComplete ? `Completa (${room.passengers.length}/${room.capacity})` : `Falta ${room.capacity - room.passengers.length} PAX`}
+                          </span>
+                        </div>
+
+                        <p className="text-[10px] font-bold text-gray-400 mb-2 truncate">
+                          Grupo / Agencia: <span className="text-gray-700 font-semibold">{room.grupoNombre}</span>
+                        </p>
+
+                        <div className="space-y-1.5 pt-1 border-t border-gray-100">
+                          {room.passengers.map((pax) => (
+                            <div
+                              key={pax.id}
+                              onClick={() => handleOpenSingleSlot(pax)}
+                              className="flex items-center justify-between bg-white p-2 rounded-xl border border-gray-100 hover:border-primary/40 cursor-pointer shadow-2xs transition-all group"
+                              title="Clic para editar pasajero"
+                            >
+                              <div className="truncate pr-2">
+                                <p className="text-xs font-black text-gray-800 group-hover:text-primary uppercase truncate">
+                                  {pax.nombres} {pax.apellidos || ''}
+                                </p>
+                                <p className="text-[10px] text-gray-400">
+                                  Cupo #{pax.numero_cupo} · {pax.tipo_documento}: {pax.numero_documento || 'Sin doc'}
+                                </p>
+                              </div>
+                              <Edit3 size={13} className="text-gray-400 group-hover:text-primary shrink-0" />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+      ) : (
+        /* MAIN PASSENGER TABLE */
+        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-gray-50/80 border-b border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-400">
+                  <th className="py-4 px-3 text-center w-10">
+                    <button onClick={selectAllOccupied} title="Seleccionar ocupados" className="text-gray-400 hover:text-gray-700">
+                      <CheckSquare size={14} />
+                    </button>
+                  </th>
+                  <th className="py-4 px-3 text-center w-12"># PAX</th>
+                  <th className="py-4 px-4 min-w-[210px]">Pasajero & Documentación</th>
+                  <th className="py-4 px-4 min-w-[150px]">Agencia & Ciudad</th>
+                  <th className="py-4 px-4">Cotización</th>
+                  <th className="py-4 px-4 min-w-[130px]">Operativo & Comercial</th>
+                  <th className="py-4 px-4 min-w-[160px]">Hotel & Categoría (Estrellas)</th>
+                  <th className="py-4 px-4 min-w-[160px]">Plan de Pagos / Abonos</th>
+                  <th className="py-4 px-4 text-right">Saldo Faltante</th>
+                  <th className="py-4 px-4 min-w-[150px]">Observaciones</th>
+                  <th className="py-4 px-4 text-center">Acción</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50 font-medium">
+                {filteredSlots.map((slot) => {
+                  const isOccupied = slot.nombres && slot.nombres.trim() !== ''
+                  const faltante = Number(slot.faltante) || 0
+                  const precio = Number(slot.precio_acordado) || 0
+                  const isPaid = isOccupied && faltante === 0 && precio > 0
+                  const isSelected = selectedSlotIds.includes(slot.id)
+                  const planPagos = getSlotInstallments(slot)
+                  const totalPagado = planPagos.filter(p => p.estado === 'pagado').reduce((acc, p) => acc + (Number(p.monto) || 0), 0)
+                  const readiness = getDataReadiness(slot)
+
+                  return (
+                    <tr
+                      key={slot.id}
+                      className={`hover:bg-blue-50/40 transition-colors ${
+                        isSelected ? 'bg-purple-50/60' : !isOccupied ? 'bg-gray-50/20 text-gray-400' : 'text-gray-800'
+                      }`}
+                    >
+                      {/* Checkbox */}
+                      <td className="py-3 px-3 text-center">
+                        {isOccupied && (
+                          <button
+                            onClick={() => toggleSelectSlot(slot.id)}
+                            className="text-gray-400 hover:text-primary transition-colors"
+                          >
+                            {isSelected ? <CheckSquare size={16} className="text-purple-600" /> : <Square size={16} />}
+                          </button>
+                        )}
+                      </td>
+
+                      {/* # PAX */}
+                      <td className="py-3 px-3 text-center font-black">
+                        <span className={`inline-flex items-center justify-center w-7 h-7 rounded-xl text-xs ${
+                          isOccupied ? 'bg-primary/10 text-primary font-black' : 'bg-gray-100 text-gray-400'
+                        }`}>
+                          {slot.numero_cupo}
+                        </span>
+                      </td>
+
+                      {/* Pasajero & Documentación */}
+                      <td className="py-3 px-4">
+                        {isOccupied ? (
+                          <div>
+                            <p className="font-black text-gray-900 leading-tight uppercase">
+                              {slot.nombres} {slot.apellidos || ''}
+                            </p>
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                              {slot.grupo_nombre && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200/50">
+                                  <Users size={10} /> {slot.grupo_nombre}
+                                </span>
+                              )}
+                              <span className={`inline-flex items-center text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${readiness.color}`}>
+                                {readiness.label}
+                              </span>
+                            </div>
+                            {slot.numero_documento && (
+                              <p className="text-[10px] text-gray-500 font-semibold mt-0.5">
+                                {slot.tipo_documento || 'Doc'}: <span className="font-mono text-gray-800">{slot.numero_documento}</span>
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-gray-300 italic flex items-center gap-1 text-[11px]">
+                            <Plus size={12} /> Cupo Disponible
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Agencia & Ciudad */}
+                      <td className="py-3 px-4">
+                        {isOccupied ? (
+                          <div>
+                            <p className="font-bold text-gray-800 leading-tight">{slot.agencia || 'Directo'}</p>
+                            {slot.ciudad && (
+                              <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 uppercase">
+                                {slot.ciudad}
                               </span>
                             )}
                           </div>
-                        </div>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-
-                    {/* Faltante */}
-                    <td className="py-3 px-4 text-right">
-                      {isOccupied ? (
-                        <div>
-                          <span className={`font-mono font-black text-sm ${faltante === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                            ${faltante.toLocaleString('es-EC')}
-                          </span>
-                          <span className={`block text-[9px] font-black uppercase tracking-wider ${
-                            isPaid ? 'text-emerald-600' : 'text-amber-600'
-                          }`}>
-                            {isPaid ? '✓ PAGADO' : 'PENDIENTE'}
-                          </span>
-                        </div>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-
-                    {/* Observaciones */}
-                    <td className="py-3 px-4 text-[11px] text-gray-600 max-w-[200px] truncate">
-                      {slot.observaciones || '—'}
-                    </td>
-
-                    {/* Acciones */}
-                    <td className="py-3 px-4 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => handleOpenSingleSlot(slot)}
-                          className="p-2 rounded-xl bg-gray-50 hover:bg-primary hover:text-white text-gray-600 transition-colors shadow-sm"
-                          title="Editar / Asignar Cupo"
-                        >
-                          <Edit3 size={14} />
-                        </button>
-                        {isOccupied && (
-                          <button
-                            onClick={() => handleReleaseSlot(slot)}
-                            className="p-2 rounded-xl bg-gray-50 hover:bg-red-50 hover:text-red-600 text-gray-400 transition-colors"
-                            title="Liberar Cupo"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                        ) : (
+                          '—'
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                      </td>
+
+                      {/* Cotización */}
+                      <td className="py-3 px-4">
+                        {slot.codigo_cotizacion ? (
+                          <span className="font-mono text-[11px] font-bold text-primary bg-primary/5 px-2 py-1 rounded-lg">
+                            {slot.codigo_cotizacion}
+                          </span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+
+                      {/* Operativo & Comercial */}
+                      <td className="py-3 px-4">
+                        {isOccupied ? (
+                          <div>
+                            <p className="font-bold text-gray-800 text-[11px]">Op: {slot.operativo_nombre || 'S/A'}</p>
+                            <p className="text-gray-500 text-[10px]">Com: {slot.comercial_nombre || 'S/A'}</p>
+                          </div>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+
+                      {/* Hotel & Categoría */}
+                      <td className="py-3 px-4">
+                        {isOccupied ? (
+                          <div>
+                            <div className="flex items-center gap-1 mb-0.5">
+                              <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md border ${
+                                (slot.categoria_habitacion || '').includes('Clase 1')
+                                  ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                  : (slot.categoria_habitacion || '').includes('Clase 3')
+                                  ? 'bg-purple-50 text-purple-800 border-purple-200'
+                                  : (slot.categoria_habitacion || '').includes('VIP')
+                                  ? 'bg-rose-50 text-rose-800 border-rose-200'
+                                  : 'bg-blue-50 text-blue-800 border-blue-200'
+                              }`}>
+                                {slot.categoria_habitacion || 'Clase 2 (Estándar / 4★)'}
+                              </span>
+                            </div>
+                            <p className="font-bold text-gray-800 text-[11px] leading-tight">
+                              Hab. {slot.tipo_habitacion || 'Doble'} · <span className="text-gray-600 font-medium">{slot.hoteles || 'Estándar'}</span>
+                            </p>
+                            <span className="text-[10px] text-gray-400 block mt-0.5">{slot.tipo_servicio}</span>
+                          </div>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+
+                      {/* Plan de Pagos Dinámico */}
+                      <td className="py-3 px-4">
+                        {isOccupied ? (
+                          <div>
+                            <div className="flex items-center gap-1 text-xs font-black text-gray-900">
+                              <span>${totalPagado.toLocaleString('es-EC')}</span>
+                              <span className="text-gray-400 font-normal">de ${precio.toLocaleString('es-EC')}</span>
+                            </div>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                                {planPagos.length} {planPagos.length === 1 ? 'cuota' : 'cuotas'}
+                              </span>
+                              {slot.fecha_limite_pago_agencia && (
+                                <span className="text-[10px] text-amber-700 font-bold">
+                                  Cobro: {slot.fecha_limite_pago_agencia}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+
+                      {/* Faltante */}
+                      <td className="py-3 px-4 text-right">
+                        {isOccupied ? (
+                          <div>
+                            <span className={`font-mono font-black text-sm ${faltante === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                              ${faltante.toLocaleString('es-EC')}
+                            </span>
+                            <span className={`block text-[9px] font-black uppercase tracking-wider ${
+                              isPaid ? 'text-emerald-600' : 'text-amber-600'
+                            }`}>
+                              {isPaid ? '✓ PAGADO' : 'PENDIENTE'}
+                            </span>
+                          </div>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+
+                      {/* Observaciones */}
+                      <td className="py-3 px-4 text-[11px] text-gray-600 max-w-[200px] truncate">
+                        {slot.observaciones || '—'}
+                      </td>
+
+                      {/* Acciones */}
+                      <td className="py-3 px-4 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => handleOpenSingleSlot(slot)}
+                            className="p-2 rounded-xl bg-gray-50 hover:bg-primary hover:text-white text-gray-600 transition-colors shadow-sm"
+                            title="Editar / Asignar Pasajero"
+                          >
+                            <Edit3 size={14} />
+                          </button>
+                          {isOccupied && (
+                            <button
+                              onClick={() => handleReleaseSlot(slot)}
+                              className="p-2 rounded-xl bg-gray-50 hover:bg-red-50 hover:text-red-600 text-gray-400 transition-colors"
+                              title="Liberar Cupo"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* MODAL 1: INGRESO INDIVIDUAL (PERSONA POR PERSONA) */}
       {showSingleModal && (
@@ -1353,7 +1955,7 @@ export default function BloqueoDetallePage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                   <div>
                     <label className="block text-gray-700 font-bold mb-1">Tipo Documento</label>
                     <select
@@ -1364,13 +1966,14 @@ export default function BloqueoDetallePage() {
                       <option value="Cédula">Cédula</option>
                       <option value="Pasaporte">Pasaporte</option>
                       <option value="DNI">DNI / Extranjero</option>
+                      <option value="RUC">RUC</option>
                     </select>
                   </div>
                   <div>
                     <label className="block text-gray-700 font-bold mb-1">Número Documento</label>
                     <input
                       type="text"
-                      placeholder="0912345678"
+                      placeholder={singleForm.tipo_documento === 'Pasaporte' ? 'Ej. A12345678' : '0912345678'}
                       value={singleForm.numero_documento}
                       onChange={(e) => setSingleForm({ ...singleForm, numero_documento: e.target.value })}
                       className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
@@ -1388,9 +1991,85 @@ export default function BloqueoDetallePage() {
                       <option value="Matrimonial">Matrimonial</option>
                       <option value="Simple">Simple (SGL)</option>
                       <option value="Twin">Twin</option>
+                      <option value="Cuádruple">Cuádruple</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-amber-900 font-black mb-1 flex items-center gap-1">
+                      <Star size={12} className="text-amber-500 fill-amber-500" /> Categoría Hotel (Estrellas)
+                    </label>
+                    <select
+                      value={singleForm.categoria_habitacion || 'Clase 2 (Estándar / 4★)'}
+                      onChange={(e) => setSingleForm({ ...singleForm, categoria_habitacion: e.target.value })}
+                      className="input w-full bg-amber-50/50 text-gray-900 border border-amber-300 font-bold text-xs"
+                    >
+                      <option value="Clase 1 (Económica / 3★)">⭐ Clase 1 (Económica / 3★)</option>
+                      <option value="Clase 2 (Estándar / 4★)">⭐⭐ Clase 2 (Estándar / 4★)</option>
+                      <option value="Clase 3 (Superior / 5★)">⭐⭐⭐ Clase 3 (Superior / 5★)</option>
+                      <option value="Clase VIP / Luxury">👑 Clase VIP / Luxury</option>
                     </select>
                   </div>
                 </div>
+
+                {/* Additional Airline Data */}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-1">
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">Fecha Nacimiento</label>
+                    <input
+                      type="date"
+                      value={singleForm.fecha_nacimiento || ''}
+                      onChange={(e) => setSingleForm({ ...singleForm, fecha_nacimiento: e.target.value })}
+                      className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">
+                      {singleForm.tipo_documento === 'Pasaporte' ? 'Caducidad Pasaporte *' : 'Caducidad Doc.'}
+                    </label>
+                    <input
+                      type="date"
+                      value={singleForm.caducidad_pasaporte || ''}
+                      onChange={(e) => setSingleForm({ ...singleForm, caducidad_pasaporte: e.target.value })}
+                      className={`input w-full bg-white text-gray-900 border font-semibold ${
+                        isPassportExpiringSoon ? 'border-amber-400 bg-amber-50/40' : 'border-gray-200'
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">Nacionalidad</label>
+                    <input
+                      type="text"
+                      placeholder="ECUATORIANA"
+                      value={singleForm.nacionalidad || 'ECUATORIANA'}
+                      onChange={(e) => setSingleForm({ ...singleForm, nacionalidad: e.target.value.toUpperCase() })}
+                      className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold uppercase"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">Género</label>
+                    <select
+                      value={singleForm.genero || 'M'}
+                      onChange={(e) => setSingleForm({ ...singleForm, genero: e.target.value })}
+                      className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
+                    >
+                      <option value="M">Masculino (M)</option>
+                      <option value="F">Femenino (F)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* IATA Passport Warning */}
+                {singleForm.tipo_documento === 'Pasaporte' && singleForm.caducidad_pasaporte && isPassportExpiringSoon && (
+                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 flex items-start gap-2.5 text-xs font-medium">
+                    <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="font-bold">¡Advertencia IATA / Migración!</strong>
+                      <p className="mt-0.5 text-amber-800">
+                        El pasaporte vence en menos de 6 meses respecto a la fecha de salida del vuelo ({bloqueo?.fecha_salida || 'próxima'}). La aerolínea o migración podrían impedir el embarque.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Hoteles y Plan de Pagos Ilimitado */}
@@ -1607,7 +2286,7 @@ export default function BloqueoDetallePage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
                   <div>
                     <label className="block text-gray-800 font-bold mb-1">Operativo</label>
                     <select
@@ -1648,6 +2327,21 @@ export default function BloqueoDetallePage() {
                       onChange={(e) => setGroupForm({ ...groupForm, hoteles: e.target.value })}
                       className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-amber-900 font-bold mb-1 flex items-center gap-1">
+                      <Star size={12} className="text-amber-500 fill-amber-500" /> Categoría Base
+                    </label>
+                    <select
+                      value={groupForm.categoria_habitacion || 'Clase 2 (Estándar / 4★)'}
+                      onChange={(e) => setGroupForm({ ...groupForm, categoria_habitacion: e.target.value })}
+                      className="input w-full bg-amber-50/50 text-gray-900 border border-amber-300 font-bold"
+                    >
+                      <option value="Clase 1 (Económica / 3★)">⭐ Clase 1 (3★)</option>
+                      <option value="Clase 2 (Estándar / 4★)">⭐⭐ Clase 2 (4★)</option>
+                      <option value="Clase 3 (Superior / 5★)">⭐⭐⭐ Clase 3 (5★)</option>
+                      <option value="Clase VIP / Luxury">👑 Clase VIP</option>
+                    </select>
                   </div>
                   <div>
                     <label className="block text-gray-800 font-black mb-1">Precio por PAX ($)</label>
@@ -1715,6 +2409,17 @@ export default function BloqueoDetallePage() {
                         <option value="Matrimonial">Matrimonial</option>
                         <option value="Simple">Simple</option>
                         <option value="Twin">Twin</option>
+                      </select>
+                      <select
+                        value={pax.categoria_habitacion || groupForm.categoria_habitacion || 'Clase 2 (Estándar / 4★)'}
+                        onChange={(e) => updateGroupPassenger(pax.id, 'categoria_habitacion', e.target.value)}
+                        className="input w-32 py-1.5 text-xs font-bold bg-amber-50/50 text-gray-900 border border-amber-300"
+                        title="Categoría de Hotel / Estrellas"
+                      >
+                        <option value="Clase 1 (Económica / 3★)">⭐ Cl. 1 (3★)</option>
+                        <option value="Clase 2 (Estándar / 4★)">⭐⭐ Cl. 2 (4★)</option>
+                        <option value="Clase 3 (Superior / 5★)">⭐⭐⭐ Cl. 3 (5★)</option>
+                        <option value="Clase VIP / Luxury">👑 VIP / Lux</option>
                       </select>
                       {groupForm.pasajeros_lista.length > 1 && (
                         <button
@@ -1863,6 +2568,392 @@ export default function BloqueoDetallePage() {
                   className="btn-primary px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider bg-purple-700 hover:bg-purple-800"
                 >
                   Guardar Grupo
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: CARGA RÁPIDA (QUICK PASTE) */}
+      {showQuickPasteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-3xl rounded-[2rem] shadow-2xl border border-gray-100 max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-amber-50/70">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black">
+                  <Zap size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-gray-900 tracking-tight flex items-center gap-2">
+                    Carga Rápida de Pasajeros (WhatsApp / Excel)
+                  </h3>
+                  <p className="text-xs text-amber-800 font-medium">
+                    Copia y pega la lista enviada por la agencia o desde una hoja de cálculo.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowQuickPasteModal(false)}
+                className="w-8 h-8 rounded-full bg-white text-gray-500 hover:text-gray-900 flex items-center justify-center transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSaveQuickPaste} className="p-6 overflow-y-auto space-y-4 flex-1 text-xs">
+              {/* Metadata de los pasajeros a cargar */}
+              <div className="bg-gray-50/70 p-4 rounded-2xl border border-gray-100 space-y-3">
+                <h4 className="text-xs font-black uppercase tracking-wider text-gray-700">
+                  Configuración Base de la Asignación
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-gray-800 font-bold mb-1">Agencia / Cliente Solicitante</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. Inova Tours"
+                      value={quickPasteMeta.agencia}
+                      onChange={(e) => setQuickPasteMeta({ ...quickPasteMeta, agencia: e.target.value })}
+                      className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-800 font-bold mb-1">Ciudad</label>
+                    <select
+                      value={quickPasteMeta.ciudad}
+                      onChange={(e) => setQuickPasteMeta({ ...quickPasteMeta, ciudad: e.target.value })}
+                      className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
+                    >
+                      <option value="GYE">Guayaquil (GYE)</option>
+                      <option value="UIO">Quito (UIO)</option>
+                      <option value="CUE">Cuenca (CUE)</option>
+                      <option value="Nacional">Nacional</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-amber-900 font-bold mb-1 flex items-center gap-1">
+                      <Star size={12} className="text-amber-500 fill-amber-500" /> Categoría Hotel Base
+                    </label>
+                    <select
+                      value={quickPasteMeta.categoria_habitacion}
+                      onChange={(e) => setQuickPasteMeta({ ...quickPasteMeta, categoria_habitacion: e.target.value })}
+                      className="input w-full bg-amber-50/50 text-gray-900 border border-amber-300 font-bold"
+                    >
+                      <option value="Clase 1 (Económica / 3★)">⭐ Clase 1 (Económica / 3★)</option>
+                      <option value="Clase 2 (Estándar / 4★)">⭐⭐ Clase 2 (Estándar / 4★)</option>
+                      <option value="Clase 3 (Superior / 5★)">⭐⭐⭐ Clase 3 (Superior / 5★)</option>
+                      <option value="Clase VIP / Luxury">👑 Clase VIP / Luxury</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-gray-800 font-bold mb-1">Operativo</label>
+                    <select
+                      value={quickPasteMeta.operativo_id}
+                      onChange={(e) => setQuickPasteMeta({ ...quickPasteMeta, operativo_id: e.target.value })}
+                      className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
+                    >
+                      <option value="">Seleccionar...</option>
+                      {operativosList.map(op => (
+                        <option key={op.id} value={op.id}>{op.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-gray-800 font-bold mb-1">Comercial</label>
+                    <select
+                      value={quickPasteMeta.comercial_id}
+                      onChange={(e) => setQuickPasteMeta({ ...quickPasteMeta, comercial_id: e.target.value })}
+                      className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
+                    >
+                      <option value="">Seleccionar...</option>
+                      {comercialesList.map(c => (
+                        <option key={c.id} value={c.id}>{c.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-gray-800 font-bold mb-1">Hoteles</label>
+                    <input
+                      type="text"
+                      value={quickPasteMeta.hoteles}
+                      onChange={(e) => setQuickPasteMeta({ ...quickPasteMeta, hoteles: e.target.value })}
+                      className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Textarea */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-gray-800 font-black">
+                    Pega aquí la lista de pasajeros (WhatsApp o columnas de Excel):
+                  </label>
+                  <span className="text-[11px] text-gray-400">
+                    Soporta: &quot;1. Juan Pérez 0912345678 Doble Clase 2&quot; o tabulaciones
+                  </span>
+                </div>
+                <textarea
+                  rows={6}
+                  value={quickPasteText}
+                  onChange={(e) => setQuickPasteText(e.target.value)}
+                  placeholder={`Ejemplo formato WhatsApp:\n1. Carlos Mendoza 0923847581 Doble Clase 2\n2. Andrea Solís 0983748291 Doble Clase 2\n3. Pedro Gómez A18472910 Simple Clase 3\n\nO simplemente copia y pega celdas de Excel.`}
+                  className="w-full p-3 rounded-2xl bg-gray-50 border border-gray-200 text-xs font-mono text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                />
+              </div>
+
+              {/* Vista previa de detección */}
+              {quickPasteText.trim() && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black uppercase tracking-wider text-gray-700">
+                      Vista Previa Detectada ({parseQuickPaste(quickPasteText).length} pasajeros)
+                    </span>
+                    <span className={`text-xs font-bold ${
+                      parseQuickPaste(quickPasteText).length > metrics.disponibles ? 'text-red-600' : 'text-emerald-700'
+                    }`}>
+                      Cupos disponibles: {metrics.disponibles}
+                    </span>
+                  </div>
+
+                  <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-2xl divide-y divide-gray-100 bg-white">
+                    {parseQuickPaste(quickPasteText).map((p, idx) => (
+                      <div key={idx} className="p-2.5 flex items-center justify-between text-xs gap-3">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-800 font-black text-[10px] flex items-center justify-center">
+                            {idx + 1}
+                          </span>
+                          <span className="font-bold text-gray-900">{p.nombres} {p.apellidos}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {p.numero_documento && (
+                            <span className="px-2 py-0.5 rounded-lg bg-gray-100 text-gray-700 font-mono text-[10px]">
+                              {p.tipo_documento}: {p.numero_documento}
+                            </span>
+                          )}
+                          <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 font-bold text-[10px]">
+                            {p.tipo_habitacion}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-lg bg-amber-50 text-amber-800 font-bold text-[10px]">
+                            {p.categoria_habitacion}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Footer */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setShowQuickPasteModal(false)}
+                  className="px-5 py-3 rounded-2xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving || parseQuickPaste(quickPasteText).length === 0 || parseQuickPaste(quickPasteText).length > metrics.disponibles}
+                  className="btn-primary px-7 py-3 rounded-2xl font-black uppercase tracking-wider shadow-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50"
+                >
+                  {saving ? 'Cargando...' : `Asignar ${parseQuickPaste(quickPasteText).length} Pasajeros`}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: EDITAR BLOQUEO (ADMIN / SUPERADMIN) */}
+      {showEditBloqueoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-2xl rounded-[2rem] shadow-2xl border border-gray-100 max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-primary/5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-primary text-white flex items-center justify-center font-black">
+                  <Edit2 size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-gray-900 tracking-tight">
+                    Editar Parámetros del Bloqueo
+                  </h3>
+                  <p className="text-xs text-gray-500 font-medium">
+                    {bloqueo.codigo} · Modifica fechas, cupos, precio de venta o estado.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowEditBloqueoModal(false)}
+                className="w-8 h-8 rounded-full bg-white text-gray-500 hover:text-gray-900 flex items-center justify-center transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSaveEditBloqueo} className="p-6 overflow-y-auto space-y-4 flex-1 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-800 font-bold mb-1">Título del Bloqueo *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editBloqueoForm.titulo}
+                    onChange={(e) => setEditBloqueoForm({ ...editBloqueoForm, titulo: e.target.value })}
+                    className="input w-full bg-white text-gray-900 border border-gray-200 font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-800 font-bold mb-1">Código del Bloqueo *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editBloqueoForm.codigo}
+                    onChange={(e) => setEditBloqueoForm({ ...editBloqueoForm, codigo: e.target.value.toUpperCase() })}
+                    className="input w-full bg-white text-gray-900 border border-gray-200 font-bold uppercase"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-800 font-bold mb-1">Destino *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editBloqueoForm.destino}
+                    onChange={(e) => setEditBloqueoForm({ ...editBloqueoForm, destino: e.target.value })}
+                    className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-800 font-bold mb-1">Aerolínea *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editBloqueoForm.aerolinea}
+                    onChange={(e) => setEditBloqueoForm({ ...editBloqueoForm, aerolinea: e.target.value })}
+                    className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-800 font-bold mb-1">Fecha de Salida *</label>
+                  <input
+                    type="date"
+                    required
+                    value={editBloqueoForm.fecha_salida}
+                    onChange={(e) => setEditBloqueoForm({ ...editBloqueoForm, fecha_salida: e.target.value })}
+                    className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-800 font-bold mb-1">Fecha de Retorno</label>
+                  <input
+                    type="date"
+                    value={editBloqueoForm.fecha_retorno}
+                    onChange={(e) => setEditBloqueoForm({ ...editBloqueoForm, fecha_retorno: e.target.value })}
+                    className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-800 font-bold mb-1">Fecha Límite Emisión</label>
+                  <input
+                    type="date"
+                    value={editBloqueoForm.fecha_limite_emision}
+                    onChange={(e) => setEditBloqueoForm({ ...editBloqueoForm, fecha_limite_emision: e.target.value })}
+                    className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-800 font-bold mb-1">Fecha Límite Pago</label>
+                  <input
+                    type="date"
+                    value={editBloqueoForm.fecha_limite_pago}
+                    onChange={(e) => setEditBloqueoForm({ ...editBloqueoForm, fecha_limite_pago: e.target.value })}
+                    className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-gray-800 font-bold mb-1">Cupos Totales *</label>
+                  <input
+                    type="number"
+                    min={metrics.ocupados || 1}
+                    required
+                    value={editBloqueoForm.cupos_totales}
+                    onChange={(e) => setEditBloqueoForm({ ...editBloqueoForm, cupos_totales: e.target.value })}
+                    className="input w-full bg-white text-gray-900 border border-gray-200 font-bold"
+                  />
+                  <span className="text-[10px] text-gray-400 mt-0.5 block">
+                    Mínimo {metrics.ocupados} (ocupados actualmente)
+                  </span>
+                </div>
+                <div>
+                  <label className="block text-gray-800 font-bold mb-1">Precio Venta Sugerido ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editBloqueoForm.precio_venta_pax}
+                    onChange={(e) => setEditBloqueoForm({ ...editBloqueoForm, precio_venta_pax: e.target.value })}
+                    className="input w-full bg-white text-primary font-black border border-gray-200"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-800 font-bold mb-1">Estado</label>
+                  <select
+                    value={editBloqueoForm.estado}
+                    onChange={(e) => setEditBloqueoForm({ ...editBloqueoForm, estado: e.target.value })}
+                    className="input w-full bg-white text-gray-900 border border-gray-200 font-bold"
+                  >
+                    <option value="activo">Activo</option>
+                    <option value="completado">Completado</option>
+                    <option value="cancelado">Cancelado</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-gray-800 font-bold mb-1">Notas / Políticas del Bloqueo</label>
+                <textarea
+                  rows={3}
+                  value={editBloqueoForm.notas}
+                  onChange={(e) => setEditBloqueoForm({ ...editBloqueoForm, notas: e.target.value })}
+                  className="input w-full p-2.5 bg-white text-gray-900 border border-gray-200 font-medium"
+                />
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setShowEditBloqueoModal(false)}
+                  className="px-5 py-3 rounded-2xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="btn-primary px-7 py-3 rounded-2xl font-black uppercase tracking-wider shadow-lg"
+                >
+                  {saving ? 'Guardando...' : 'Guardar Cambios del Bloqueo'}
                 </button>
               </div>
             </form>

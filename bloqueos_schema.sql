@@ -83,6 +83,7 @@ CREATE TABLE IF NOT EXISTS bloqueo_pasajeros (
   nacionalidad text DEFAULT 'ECUATORIANA',
   genero text, -- 'M', 'F', 'Otro'
   tipo_habitacion text DEFAULT 'Doble', -- 'Simple', 'Doble', 'Triple', 'Matrimonial', 'Twin'
+  categoria_habitacion text DEFAULT 'Clase 2 (Estándar / 4★)', -- 'Clase 1 (Económica / 3★)', 'Clase 2 (Estándar / 4★)', 'Clase 3 (Superior / 5★)', 'Clase VIP / Luxury'
   requerimientos_especiales text,
 
   -- Finanzas y Plan de Pagos
@@ -128,3 +129,10 @@ CREATE POLICY "Permitir todo a usuarios autenticados en bloqueos" ON bloqueos FO
 ALTER TABLE bloqueo_pasajeros ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Permitir todo a usuarios autenticados en pasajeros" ON bloqueo_pasajeros;
 CREATE POLICY "Permitir todo a usuarios autenticados en pasajeros" ON bloqueo_pasajeros FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- ==============================================================================
+-- MIGRACIONES INCREMENTALES (Si ya creaste las tablas antes)
+-- ==============================================================================
+ALTER TABLE bloqueo_pasajeros ADD COLUMN IF NOT EXISTS categoria_habitacion text DEFAULT 'Clase 2 (Estándar / 4★)';
+ALTER TABLE bloqueo_pasajeros ADD COLUMN IF NOT EXISTS plan_pagos jsonb DEFAULT '[]'::jsonb;
+
