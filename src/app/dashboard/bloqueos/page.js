@@ -704,7 +704,7 @@ export default function BloqueosPage() {
             </span>
             <span className="text-gray-300">•</span>
             <span className="text-xs text-gray-400 font-bold uppercase tracking-wider">
-              CTB Allotments & Grupos
+              Grupos y Cupos Confirmados
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight mt-1 flex items-center gap-3">
@@ -950,7 +950,7 @@ export default function BloqueosPage() {
                   <div className="mt-5 space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-bold text-gray-600">
-                        Ocupación: <strong className="text-gray-900">{ocupados} / {cupos} PAX</strong>
+                        Ocupación: <strong className="text-gray-900">{ocupados} / {cupos} Pasajeros</strong>
                       </span>
                       <span className={`font-black ${libres === 0 ? 'text-red-500' : 'text-emerald-600'}`}>
                         {libres === 0 ? '¡AGOTADO!' : `Quedan ${libres} libres`}
@@ -966,34 +966,34 @@ export default function BloqueosPage() {
                       />
                     </div>
 
-                    {/* Break Even Indicator (Admin only) */}
+                    {/* Meta de equilibrio para cubrir costos (Admin) */}
                     {isPrivileged && (
                       <div className="flex items-center justify-between text-[11px] text-gray-400 pt-1">
-                        <span>Punto de equilibrio: {breakEvenPax} cupos</span>
+                        <span>Meta para no perder: {breakEvenPax} cupos</span>
                         {breakEvenCubierto ? (
                           <span className="text-emerald-600 font-bold flex items-center gap-1">
-                            ✓ Costos cubiertos
+                            ✓ Costos cubiertos (En ganancias)
                           </span>
                         ) : (
                           <span className="text-amber-600 font-semibold">
-                            Faltan {breakEvenPax - ocupados} para cubrir costos
+                            Faltan {breakEvenPax - ocupados} cupos para cubrir costos
                           </span>
                         )}
                       </div>
                     )}
                   </div>
 
-                  {/* Deadlines Strip */}
+                  {/* Fecha límite nombres */}
                   {bloqueo.fecha_limite_emision && (
                     <div className="mt-3 flex items-center gap-1.5 text-[11px] text-amber-700 bg-amber-50/80 px-3 py-1.5 rounded-xl border border-amber-200/50">
                       <AlertTriangle size={13} className="shrink-0 text-amber-600" />
                       <span>
-                        Límite emisión nombres: <strong>{format(parseISO(bloqueo.fecha_limite_emision), "d 'de' MMMM", { locale: es })}</strong>
+                        Límite para ingresar nombres: <strong>{format(parseISO(bloqueo.fecha_limite_emision), "d 'de' MMMM", { locale: es })}</strong>
                       </span>
                     </div>
                   )}
 
-                  {/* Confidential Financial Box for Admin */}
+                  {/* Resumen financiero administrativo */}
                   {isPrivileged && (
                     <div className="mt-4 pt-3 border-t border-dashed border-gray-100 grid grid-cols-2 gap-2 text-[11px]">
                       <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-100">
@@ -1001,39 +1001,39 @@ export default function BloqueosPage() {
                         <strong className="text-gray-800 text-xs">${inversionTotal.toLocaleString('es-EC')}</strong>
                       </div>
                       <div className="bg-emerald-50 p-2.5 rounded-xl border border-emerald-100">
-                        <span className="text-emerald-700 block font-medium">Ganancia Est. Pax:</span>
+                        <span className="text-emerald-700 block font-medium">Ganancia por Pasajero:</span>
                         <strong className="text-emerald-800 text-xs">${bloqueo.ganancia_unitaria || 0} USD</strong>
                       </div>
                     </div>
                   )}
                 </div>
 
-                {/* Footer card: "WhatsApp" & "Ver Tabla" */}
-                <div className="p-4 bg-gray-50/70 border-t border-gray-100 flex items-center justify-between">
+                {/* Footer card: "WhatsApp" & "Ver Pasajeros / Cupos" */}
+                <div className="p-4 bg-gray-50/70 border-t border-gray-100 flex items-center justify-between gap-2">
                   <div>
                     <span className="text-[10px] text-gray-400 uppercase font-black tracking-wider block">
-                      Tarifa Venta Agencia
+                      Precio de Venta
                     </span>
                     <span className="text-xl font-black text-primary">
                       ${Number(bloqueo.precio_venta_pax || 0).toLocaleString('es-EC')} <span className="text-xs font-semibold text-gray-400">USD</span>
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                     <button
                       onClick={() => handleShareWhatsApp(bloqueo)}
-                      className="hidden sm:inline-flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-3 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider border border-emerald-200/60 transition-all active:scale-95"
-                      title="Copiar texto formateado para WhatsApp"
+                      className="inline-flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-3 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider border border-emerald-200/60 transition-all active:scale-95"
+                      title="Copiar texto de venta para WhatsApp"
                     >
-                      <Share2 size={13} className="text-emerald-600" />
-                      <span>WhatsApp</span>
+                      <Share2 size={14} className="text-emerald-600" />
+                      <span className="hidden xs:inline sm:inline">WhatsApp</span>
                     </button>
 
                     <Link
                       href={`/dashboard/bloqueos/${bloqueo.id}`}
-                      className="inline-flex items-center gap-2 bg-gray-900 hover:bg-primary text-white px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow-lg hover:shadow-primary/30 active:scale-95 transition-all"
+                      className="inline-flex items-center gap-1.5 sm:gap-2 bg-gray-900 hover:bg-primary text-white px-4 sm:px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow-lg hover:shadow-primary/30 active:scale-95 transition-all whitespace-nowrap"
                     >
-                      <span>Ver Tabla</span>
+                      <span>Ver Pasajeros</span>
                       <ArrowUpRight size={15} />
                     </Link>
                   </div>

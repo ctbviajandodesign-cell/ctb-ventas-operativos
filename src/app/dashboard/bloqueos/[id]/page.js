@@ -1393,7 +1393,7 @@ export default function BloqueoDetallePage() {
               </span>
               {bloqueo.fecha_limite_emision && (
                 <span className="flex items-center gap-1.5 text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full font-bold">
-                  <Clock size={12} /> Deadline Nombres: {format(parseISO(bloqueo.fecha_limite_emision), "d 'de' MMMM", { locale: es })}
+                  <Clock size={12} /> Fecha límite para nombres: {format(parseISO(bloqueo.fecha_limite_emision), "d 'de' MMMM", { locale: es })}
                 </span>
               )}
             </div>
@@ -1581,7 +1581,7 @@ export default function BloqueoDetallePage() {
             }`}
           >
             <Users size={15} />
-            <span>Vista Tabla Completa</span>
+            <span>Lista de Pasajeros</span>
           </button>
           <button
             onClick={() => setViewMode('rooming')}
@@ -1592,17 +1592,17 @@ export default function BloqueoDetallePage() {
             }`}
           >
             <Hotel size={15} />
-            <span>Distribución Rooming & Categorías</span>
+            <span>Habitaciones & Hoteles</span>
           </button>
         </div>
 
         <div className="flex items-center justify-between sm:justify-end gap-3 text-xs text-gray-500 px-2 sm:px-0">
           <span className="flex items-center gap-1.5 font-bold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200/60">
             <CheckCircle2 size={14} className="text-emerald-600" />
-            <span>{metrics.ocupados} PAX Asignados</span>
+            <span>{metrics.ocupados} Pasajeros Registrados</span>
           </span>
           <span className="flex items-center gap-1.5 font-bold text-gray-600 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200">
-            <span>{metrics.disponibles} Vacantes</span>
+            <span>{metrics.disponibles} Cupos Libres</span>
           </span>
         </div>
       </div>
@@ -1661,7 +1661,7 @@ export default function BloqueoDetallePage() {
                   : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
               }`}
             >
-              {st === 'todos' ? 'Todos los Cupos' : st === 'ocupados' ? 'Ocupados' : st === 'libres' ? 'Disponibles' : 'Con Saldo'}
+              {st === 'todos' ? 'Todos los Cupos' : st === 'ocupados' ? 'Ocupados' : st === 'libres' ? 'Cupos Libres' : 'Saldo Pendiente'}
             </button>
           ))}
         </div>
@@ -1775,6 +1775,11 @@ export default function BloqueoDetallePage() {
       ) : (
         /* MAIN PASSENGER TABLE */
         <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+          {/* Mobile responsive scroll hint */}
+          <div className="md:hidden flex items-center justify-between px-4 py-2 bg-slate-50 border-b border-slate-100 text-[11px] text-slate-500 font-medium">
+            <span>👉 Desliza horizontalmente para ver toda la tabla 👈</span>
+          </div>
+
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
@@ -1784,16 +1789,16 @@ export default function BloqueoDetallePage() {
                       <CheckSquare size={14} />
                     </button>
                   </th>
-                  <th className="py-4 px-3 text-center w-12"># PAX</th>
-                  <th className="py-4 px-4 min-w-[210px]">Pasajero & Documentación</th>
-                  <th className="py-4 px-4 min-w-[150px]">Agencia & Ciudad</th>
-                  <th className="py-4 px-4">Cotización</th>
-                  <th className="py-4 px-4 min-w-[130px]">Operativo & Comercial</th>
-                  <th className="py-4 px-4 min-w-[160px]">Hotel & Categoría (Estrellas)</th>
-                  <th className="py-4 px-4 min-w-[160px]">Plan de Pagos / Abonos</th>
-                  <th className="py-4 px-4 text-right">Saldo Faltante</th>
-                  <th className="py-4 px-4 min-w-[150px]">Observaciones</th>
-                  <th className="py-4 px-4 text-center">Acción</th>
+                  <th className="py-4 px-3 text-center w-12"># Cupo</th>
+                  <th className="py-4 px-4 min-w-[210px]">Pasajero (Nombre y Documento)</th>
+                  <th className="py-4 px-4 min-w-[150px]">Agencia y Ciudad</th>
+                  <th className="py-4 px-4">Nº Cotización</th>
+                  <th className="py-4 px-4 min-w-[130px]">Operativo y Vendedor</th>
+                  <th className="py-4 px-4 min-w-[160px]">Hotel y Habitación</th>
+                  <th className="py-4 px-4 min-w-[160px]">Pagos y Cuotas</th>
+                  <th className="py-4 px-4 text-right">Falta por Pagar</th>
+                  <th className="py-4 px-4 min-w-[150px]">Notas</th>
+                  <th className="py-4 px-4 text-center">Gestionar</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50 font-medium">
