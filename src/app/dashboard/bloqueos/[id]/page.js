@@ -65,11 +65,11 @@ export default function BloqueoDetallePage() {
   const { user, profile, isAdmin } = useUserSession()
   const isPrivileged = isAdmin || profile?.rol === 'superadmin'
 
-  const [bloqueo, setBloqueo] = useState(() => memoryCacheBloqueoDetail[id]?.bloqueo || null)
-  const [pasajeros, setPasajeros] = useState(() => memoryCacheBloqueoDetail[id]?.pasajeros || [])
-  const [operativosList, setOperativosList] = useState(() => memoryCacheHelpers?.operativos || [])
-  const [comercialesList, setComercialesList] = useState(() => memoryCacheHelpers?.comerciales || [])
-  const [loading, setLoading] = useState(() => !memoryCacheBloqueoDetail[id])
+  const [bloqueo, setBloqueo] = useState(null)
+  const [pasajeros, setPasajeros] = useState([])
+  const [operativosList, setOperativosList] = useState([])
+  const [comercialesList, setComercialesList] = useState([])
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
   // View mode: 'tabla' | 'rooming'
@@ -185,7 +185,15 @@ export default function BloqueoDetallePage() {
   })
 
   useEffect(() => {
-    fetchBloqueoData()
+    if (!id) return
+    if (memoryCacheBloqueoDetail[id]) {
+      setBloqueo(memoryCacheBloqueoDetail[id].bloqueo)
+      setPasajeros(memoryCacheBloqueoDetail[id].pasajeros)
+      setLoading(false)
+      fetchBloqueoData(false)
+    } else {
+      fetchBloqueoData(true)
+    }
     fetchHelpers()
   }, [id])
 
@@ -209,7 +217,7 @@ export default function BloqueoDetallePage() {
   }
 
   async function fetchBloqueoData(showSpinner = true) {
-    if (showSpinner && !memoryCacheBloqueoDetail[id]) setLoading(true)
+    if (showSpinner) setLoading(true)
     try {
       const [blqRes, pasRes] = await Promise.all([
         supabase.from('bloqueos').select('*').eq('id', id).single(),
@@ -217,6 +225,8 @@ export default function BloqueoDetallePage() {
       ])
 
       if (blqRes.error) throw blqRes.error
+      setBloqueo(blqRes.data)
+
       if (pasRes.error) throw pasRes.error
 
       // Auto-extract categoria_habitacion from observaciones if column is null
@@ -233,7 +243,6 @@ export default function BloqueoDetallePage() {
       })
 
       memoryCacheBloqueoDetail[id] = { bloqueo: blqRes.data, pasajeros: normalizedPas }
-      setBloqueo(blqRes.data)
       setPasajeros(normalizedPas)
     } catch (err) {
       console.error('Error fetching bloqueo detail:', err)
@@ -321,15 +330,17 @@ export default function BloqueoDetallePage() {
     return list
   }
 
-  // Hoteles configurados en el bloqueo
+  // Hoteles configurados en el bloqueo (solo hoteles válidos con nombre no vacío)
   const configuredHoteles = useMemo(() => {
-    return Array.isArray(bloqueo?.hoteles) ? bloqueo.hoteles : []
+    if (!Array.isArray(bloqueo?.hoteles)) return []
+    return bloqueo.hoteles.filter(h => h && typeof h.nombre === 'string' && h.nombre.trim() !== '')
   }, [bloqueo?.hoteles])
 
   // Hotel seleccionado en Single Form
   const selectedSingleHotelObj = useMemo(() => {
     if (!singleForm.hoteles) return null
-    return configuredHoteles.find(h => h.nombre?.trim().toLowerCase() === singleForm.hoteles?.trim().toLowerCase()) || null
+    const sName = (singleForm.hoteles || '').trim().toLowerCase()
+    return configuredHoteles.find(h => (h.nombre || '').trim().toLowerCase() === sName) || null
   }, [configuredHoteles, singleForm.hoteles])
 
   // Habitaciones disponibles para Single Form
@@ -351,7 +362,8 @@ export default function BloqueoDetallePage() {
   // Hotel seleccionado en Group Form
   const selectedGroupHotelObj = useMemo(() => {
     if (!groupForm.hoteles) return null
-    return configuredHoteles.find(h => h.nombre?.trim().toLowerCase() === groupForm.hoteles?.trim().toLowerCase()) || null
+    const gName = (groupForm.hoteles || '').trim().toLowerCase()
+    return configuredHoteles.find(h => (h.nombre || '').trim().toLowerCase() === gName) || null
   }, [configuredHoteles, groupForm.hoteles])
 
   // Habitaciones disponibles para Group Form
@@ -375,10 +387,12 @@ export default function BloqueoDetallePage() {
     const stats = {}
     const occupiedList = (pasajeros || []).filter(p => p.nombres && p.nombres.trim() !== '')
 
-    // Inicializar hoteles configurados
+    // Inicializar hoteles configurados de forma segura
     (configuredHoteles || []).forEach(h => {
+      const hKey = (h.nombre || '').trim().toLowerCase()
+      if (!hKey) return
       const totCupos = Number(h.cupos) || 0
-      stats[h.nombre.trim().toLowerCase()] = {
+      stats[hKey] = {
         hotel: h,
         nombre: h.nombre,
         categoria: h.categoria,
@@ -1500,11 +1514,13 @@ export default function BloqueoDetallePage() {
     showToast('Rooming List exportado a Excel.', 'success')
   }
 
-  // Filtered list with comprehensive search & accurate balance status (optimized)
+  // Filtered list with comprehensive search & accurate balance status (optimized & 100% safe)
   const filteredSlots = useMemo(() => {
     const term = searchTerm ? searchTerm.toLowerCase().trim() : ''
+    const list = Array.isArray(pasajeros) ? pasajeros : []
 
-    return pasajeros.filter(p => {
+    return list.filter(p => {
+      if (!p) return false
       const isOcupado = Boolean(p.nombres && p.nombres.trim() !== '')
 
       if (statusFilter === 'ocupados' && !isOcupado) return false
@@ -1535,7 +1551,7 @@ export default function BloqueoDetallePage() {
         (p.operativo_nombre && p.operativo_nombre.toLowerCase().includes(term)) ||
         (p.comercial_nombre && p.comercial_nombre.toLowerCase().includes(term)) ||
         (p.codigo_cotizacion && p.codigo_cotizacion.toLowerCase().includes(term)) ||
-        p.numero_cupo.toString().includes(term)
+        String(p.numero_cupo ?? '').includes(term)
       )
     })
   }, [pasajeros, statusFilter, searchTerm, bloqueo?.precio_venta_pax])
@@ -1919,8 +1935,9 @@ export default function BloqueoDetallePage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {configuredHoteles.map((h) => {
-              const stat = hotelStats[h.nombre.trim().toLowerCase()] || { ocupados: 0, disponibles: Number(h.cupos) || 0 }
-              const totCupos = Number(h.cupos) || 0
+              const hKey = (h?.nombre || '').trim().toLowerCase()
+              const stat = hotelStats[hKey] || { ocupados: 0, disponibles: Number(h?.cupos) || 0 }
+              const totCupos = Number(h?.cupos) || 0
               const ocupados = stat.ocupados
               const disponibles = stat.disponibles
               const pct = totCupos > 0 ? Math.min(100, Math.round((ocupados / totCupos) * 100)) : 0
@@ -2264,7 +2281,7 @@ export default function BloqueoDetallePage() {
                   const isOccupied = Boolean(slot.nombres && slot.nombres.trim() !== '')
                   const precio = Number(slot.precio_acordado) || 0
                   const isSelected = selectedSlotIds.includes(slot.id)
-                  const planPagos = isOccupied ? getSlotInstallments(slot) : []
+                  const planPagos = getSlotInstallments(slot) || []
                   const totalPagado = isOccupied
                     ? (slot.plan_pagos && Array.isArray(slot.plan_pagos) && slot.plan_pagos.length > 0
                         ? slot.plan_pagos.filter(p => p.estado === 'pagado').reduce((acc, p) => acc + (Number(p.monto) || 0), 0)
@@ -2272,7 +2289,7 @@ export default function BloqueoDetallePage() {
                     : 0
                   const realFaltante = isOccupied ? Math.max(0, precio - totalPagado) : 0
                   const isPaid = isOccupied && realFaltante === 0 && precio > 0
-                  const readiness = isOccupied ? getDataReadiness(slot) : null
+                  const readiness = getDataReadiness(slot) || { status: 'libre', label: 'Disponible', color: 'bg-gray-100 text-gray-500 border-gray-200' }
 
                   return (
                     <tr
@@ -2315,8 +2332,8 @@ export default function BloqueoDetallePage() {
                                   <Users size={10} /> {slot.grupo_nombre}
                                 </span>
                               )}
-                              <span className={`inline-flex items-center text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${readiness.color}`}>
-                                {readiness.label}
+                              <span className={`inline-flex items-center text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${readiness?.color || 'bg-gray-100 text-gray-500 border-gray-200'}`}>
+                                {readiness?.label || 'Disponible'}
                               </span>
                             </div>
                             {slot.numero_documento && (
@@ -2768,7 +2785,8 @@ export default function BloqueoDetallePage() {
                         <Hotel size={13} className="text-blue-600" /> Hotel Asignado
                       </span>
                       {selectedSingleHotelObj && (() => {
-                        const stat = hotelStats[selectedSingleHotelObj.nombre.trim().toLowerCase()]
+                        const hKey = (selectedSingleHotelObj.nombre || '').trim().toLowerCase()
+                        const stat = hotelStats[hKey]
                         const tot = Number(selectedSingleHotelObj.cupos) || 0
                         const disp = stat ? stat.disponibles : tot
                         return (
@@ -2787,7 +2805,8 @@ export default function BloqueoDetallePage() {
                         >
                           <option value="">-- Seleccionar Hotel del Bloqueo --</option>
                           {configuredHoteles.map(h => {
-                            const stat = hotelStats[h.nombre.trim().toLowerCase()]
+                            const hKey = (h?.nombre || '').trim().toLowerCase()
+                            const stat = hotelStats[hKey]
                             const tot = Number(h.cupos) || 0
                             const disp = stat ? stat.disponibles : tot
                             const isAgotado = tot > 0 && disp <= 0
@@ -3047,7 +3066,8 @@ export default function BloqueoDetallePage() {
                         <Hotel size={13} className="text-purple-600" /> Hotel Asignado
                       </span>
                       {selectedGroupHotelObj && (() => {
-                        const stat = hotelStats[selectedGroupHotelObj.nombre.trim().toLowerCase()]
+                        const hKey = (selectedGroupHotelObj.nombre || '').trim().toLowerCase()
+                        const stat = hotelStats[hKey]
                         const tot = Number(selectedGroupHotelObj.cupos) || 0
                         const disp = stat ? stat.disponibles : tot
                         const isOver = tot > 0 && groupForm.pasajeros_lista.length > disp
@@ -3067,7 +3087,8 @@ export default function BloqueoDetallePage() {
                         >
                           <option value="">-- Seleccionar Hotel --</option>
                           {configuredHoteles.map(h => {
-                            const stat = hotelStats[h.nombre.trim().toLowerCase()]
+                            const hKey = (h?.nombre || '').trim().toLowerCase()
+                            const stat = hotelStats[hKey]
                             const tot = Number(h.cupos) || 0
                             const disp = stat ? stat.disponibles : tot
                             const isAgotado = tot > 0 && disp <= 0
@@ -3081,10 +3102,10 @@ export default function BloqueoDetallePage() {
                           <option value="__custom__">➕ Otro hotel no listado...</option>
                         </select>
 
-                        {selectedGroupHotelObj && Number(selectedGroupHotelObj.cupos) > 0 && groupForm.pasajeros_lista.length > (hotelStats[selectedGroupHotelObj.nombre.trim().toLowerCase()]?.disponibles ?? 0) && (
+                        {selectedGroupHotelObj && Number(selectedGroupHotelObj.cupos) > 0 && groupForm.pasajeros_lista.length > (hotelStats[(selectedGroupHotelObj.nombre || '').trim().toLowerCase()]?.disponibles ?? 0) && (
                           <div className="p-2 bg-amber-50 border border-amber-200 rounded-xl text-[10px] text-amber-900 flex items-center gap-1.5 font-bold">
                             <AlertTriangle size={13} className="shrink-0 text-amber-600" />
-                            <span>Alerta: El grupo ({groupForm.pasajeros_lista.length} pax) supera los {hotelStats[selectedGroupHotelObj.nombre.trim().toLowerCase()]?.disponibles ?? 0} cupos libres de este hotel.</span>
+                            <span>Alerta: El grupo ({groupForm.pasajeros_lista.length} pax) supera los {hotelStats[(selectedGroupHotelObj.nombre || '').trim().toLowerCase()]?.disponibles ?? 0} cupos libres de este hotel.</span>
                           </div>
                         )}
 

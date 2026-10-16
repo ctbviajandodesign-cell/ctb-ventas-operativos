@@ -46,9 +46,9 @@ export default function BloqueosPage() {
   const isSuperAdmin = profile?.rol === 'superadmin'
   const isPrivileged = isAdmin || isSuperAdmin
 
-  const [bloqueos, setBloqueos] = useState(() => memoryCacheBloqueos || [])
-  const [pasajerosStats, setPasajerosStats] = useState(() => memoryCacheStats || {})
-  const [loading, setLoading] = useState(() => !memoryCacheBloqueos)
+  const [bloqueos, setBloqueos] = useState([])
+  const [pasajerosStats, setPasajerosStats] = useState({})
+  const [loading, setLoading] = useState(true)
 
   // Filters
   const [search, setSearch] = useState('')
@@ -171,7 +171,14 @@ export default function BloqueosPage() {
   }
 
   useEffect(() => {
-    fetchBloqueos()
+    if (memoryCacheBloqueos) {
+      setBloqueos(memoryCacheBloqueos)
+      setPasajerosStats(memoryCacheStats || {})
+      setLoading(false)
+      fetchBloqueos(false)
+    } else {
+      fetchBloqueos(true)
+    }
   }, [])
 
   async function fetchTags() {
