@@ -44,6 +44,9 @@ CREATE TABLE IF NOT EXISTS bloqueos (
   ganancia_unitaria numeric(12,2) DEFAULT 0,
   costo_total_unitario numeric(12,2) DEFAULT 0,
 
+  -- Catálogo de Hoteles y Habitaciones Disponibles para el Bloqueo
+  hoteles jsonb DEFAULT '[]'::jsonb, -- Array [{ id, nombre, categoria, regimen, habitaciones: [{ id, tipo, precio }] }]
+
   creado_por uuid REFERENCES profiles(id) ON DELETE SET NULL,
   created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
@@ -136,4 +139,5 @@ CREATE POLICY "Permitir todo a usuarios autenticados en pasajeros" ON bloqueo_pa
 -- ==============================================================================
 ALTER TABLE bloqueo_pasajeros ADD COLUMN IF NOT EXISTS categoria_habitacion text DEFAULT 'Clase 2 (Estándar / 4★)';
 ALTER TABLE bloqueo_pasajeros ADD COLUMN IF NOT EXISTS plan_pagos jsonb DEFAULT '[]'::jsonb;
+ALTER TABLE bloqueos ADD COLUMN IF NOT EXISTS hoteles jsonb DEFAULT '[]'::jsonb;
 

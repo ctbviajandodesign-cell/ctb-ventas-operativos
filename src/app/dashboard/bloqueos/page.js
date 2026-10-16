@@ -27,13 +27,15 @@ import {
   X,
   Target,
   Edit2,
-  Share2
+  Share2,
+  Hotel
 } from 'lucide-react'
 import { format, differenceInDays, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { showToast } from '@/utils/toast'
 import IataSelector from '@/components/IataSelector'
 import BloqueoCountdownTimer from '@/components/BloqueoCountdownTimer'
+import BloqueoHotelesConfig from '@/components/dashboard/BloqueoHotelesConfig'
 
 export default function BloqueosPage() {
   const { user, profile, isAdmin } = useUserSession()
@@ -73,7 +75,8 @@ export default function BloqueosPage() {
     otros_costos: [],
     ganancia_unitaria: 100,
     precio_venta_pax: '',
-    notas: ''
+    notas: '',
+    hoteles: []
   })
   const [editNewTagConcepto, setEditNewTagConcepto] = useState('')
   const [editNewTagPrecio, setEditNewTagPrecio] = useState('')
@@ -99,7 +102,8 @@ export default function BloqueosPage() {
     otros_costos: [], // [{ id, concepto, monto }]
     ganancia_unitaria: 100,
     precio_venta_pax: '',
-    notas: ''
+    notas: '',
+    hoteles: []
   })
 
   useEffect(() => {
@@ -296,6 +300,15 @@ export default function BloqueosPage() {
       const cupos = Number(formData.cupos_totales) || 30
       const precioVenta = Number(formData.precio_venta_pax) || costCalculations.precioSugerido
 
+      if (formData.hoteles && formData.hoteles.length > 0) {
+        const totalAsignado = formData.hoteles.reduce((acc, h) => acc + (Number(h.cupos) || 0), 0)
+        if (totalAsignado !== cupos) {
+          showToast(`Los espacios asignados a los hoteles (${totalAsignado}) deben coincidir con los ${cupos} cupos totales del bloqueo. Ajusta los espacios antes de guardar.`, 'error')
+          setCreating(false)
+          return
+        }
+      }
+
       const insertPayload = {
         codigo: genCodigo.toUpperCase(),
         titulo: formData.titulo.trim(),
@@ -314,16 +327,26 @@ export default function BloqueosPage() {
         otros_costos: formData.otros_costos || [],
         ganancia_unitaria: Number(formData.ganancia_unitaria) || 0,
         costo_total_unitario: costCalculations.costoUnitario,
+        hoteles: formData.hoteles || [],
         creado_por: user?.id || null
       }
 
-      const { data: newBloqueo, error: blqError } = await supabase
+      let newBloqueo = null
+      let { data: blqData, error: blqError } = await supabase
         .from('bloqueos')
         .insert([insertPayload])
         .select()
         .single()
 
+      if (blqError && (blqError.message?.includes('hoteles') || blqError.code === '42703')) {
+        const { hoteles: _ignored, ...cleanPayload } = insertPayload
+        const retry = await supabase.from('bloqueos').insert([cleanPayload]).select().single()
+        blqData = retry.data
+        blqError = retry.error
+      }
+
       if (blqError) throw blqError
+      newBloqueo = blqData
 
       // Initialize empty slots (1 to cupos)
       const slotsPayload = []
@@ -363,7 +386,8 @@ export default function BloqueosPage() {
         otros_costos: [],
         ganancia_unitaria: 100,
         precio_venta_pax: '',
-        notas: ''
+        notas: '',
+        hoteles: []
       })
       fetchBloqueos()
     } catch (err) {
@@ -505,7 +529,8 @@ export default function BloqueosPage() {
       otros_costos: Array.isArray(bloqueo.otros_costos) ? bloqueo.otros_costos : [],
       ganancia_unitaria: bloqueo.ganancia_unitaria || 0,
       precio_venta_pax: bloqueo.precio_venta_pax || '',
-      notas: bloqueo.notas || ''
+      notas: bloqueo.notas || '',
+      hoteles: Array.isArray(bloqueo.hoteles) ? bloqueo.hoteles : []
     })
     setShowEditModal(true)
   }
@@ -521,6 +546,15 @@ export default function BloqueosPage() {
     try {
       const oldCupos = editingBloqueo?.cupos_totales || 30
       const newCupos = Number(editFormData.cupos_totales) || 30
+
+      if (editFormData.hoteles && editFormData.hoteles.length > 0) {
+        const totalAsignado = editFormData.hoteles.reduce((acc, h) => acc + (Number(h.cupos) || 0), 0)
+        if (totalAsignado !== newCupos) {
+          showToast(`Los espacios asignados a los hoteles (${totalAsignado}) deben coincidir con los ${newCupos} cupos totales del bloqueo.`, 'error')
+          setUpdating(false)
+          return
+        }
+      }
 
       if (newCupos > oldCupos) {
         const newSlots = []
@@ -574,13 +608,20 @@ export default function BloqueosPage() {
         otros_costos: editFormData.otros_costos || [],
         ganancia_unitaria: Number(editFormData.ganancia_unitaria) || 0,
         costo_total_unitario: editCostCalculations.costoUnitario,
+        hoteles: editFormData.hoteles || [],
         updated_at: new Date().toISOString()
       }
 
-      const { error: updError } = await supabase
+      let { error: updError } = await supabase
         .from('bloqueos')
         .update(updatePayload)
         .eq('id', editFormData.id)
+
+      if (updError && (updError.message?.includes('hoteles') || updError.code === '42703')) {
+        const { hoteles: _ignored, ...cleanUpdate } = updatePayload
+        const retry = await supabase.from('bloqueos').update(cleanUpdate).eq('id', editFormData.id)
+        updError = retry.error
+      }
 
       if (updError) throw updError
 
@@ -607,6 +648,21 @@ export default function BloqueosPage() {
     const fechaSalidaStr = salida ? format(salida, "d 'de' MMMM, yyyy", { locale: es }) : 'Por definir'
     const fechaRetornoStr = retorno ? format(retorno, "d 'de' MMMM, yyyy", { locale: es }) : 'Por definir'
 
+    let hotelesTexto = ''
+    if (Array.isArray(bloqueo.hoteles) && bloqueo.hoteles.length > 0) {
+      hotelesTexto = '🏨 *Hoteles Disponibles y Tarifas por Pax:*\n' + bloqueo.hoteles.map(h => {
+        const habs = (h.habitaciones || []).map(r => `   • Hab. ${r.tipo}: *$${Number(r.precio || bloqueo.precio_venta_pax || 0).toLocaleString('es-EC')} USD*`).join('\n')
+        const cuposInfo = h.cupos ? ` · ${h.cupos} cupos contratados` : ''
+        return `🌴 *${h.nombre}* (${h.categoria || '4★'}${h.regimen ? ` · ${h.regimen}` : ''}${cuposInfo}):\n${habs || `   • Tarifa Base: *$${Number(bloqueo.precio_venta_pax || 0).toLocaleString('es-EC')} USD*`}`
+      }).join('\n\n')
+    } else {
+      hotelesTexto = `🏨 *Opciones de Hotel:*
+  ⭐ Clase 1 (Económica / 3★)
+  ⭐ Clase 2 (Estándar / 4★)
+  ⭐ Clase 3 (Superior / 5★)
+  ⭐ Opciones VIP / Luxury`
+    }
+
     const text = `✈️ *BLOQUEO CONFIRMADO: ${bloqueo.titulo.toUpperCase()}* 🌴
 🏷️ *Código:* ${bloqueo.codigo}
 📍 *Destino:* ${bloqueo.destino}
@@ -614,11 +670,8 @@ export default function BloqueosPage() {
 📅 *Salida:* ${fechaSalidaStr}
 🔄 *Retorno:* ${fechaRetornoStr}
 ⏳ *Faltan:* ${diffDays > 0 ? `${diffDays} días para el viaje` : 'Salida inmediata'}
-🏨 *Opciones de Hotel:*
-  ⭐ Clase 1 (Económica / 3★)
-  ⭐ Clase 2 (Estándar / 4★)
-  ⭐ Clase 3 (Superior / 5★)
-  ⭐ Opciones VIP / Luxury
+
+${hotelesTexto}
 
 🔥 *DISPONIBILIDAD:* ${libres > 0 ? `¡Solo quedan ${libres} cupos libres!` : '¡AGOTADO!'} (de ${cupos} totales)
 💵 *Tarifa Venta Mayorista:* *$${Number(bloqueo.precio_venta_pax || 0).toLocaleString('es-EC')} USD* por pasajero
@@ -1340,13 +1393,23 @@ export default function BloqueosPage() {
                 </div>
               </div>
 
-              {/* Sección 3: Estructura Financiera y Costos (CONFIDENCIAL ADMIN) */}
+              {/* Sección 3: Hoteles y Habitaciones Disponibles */}
+              <div className="bg-gray-50/70 p-5 rounded-3xl border border-gray-200/80">
+                <BloqueoHotelesConfig 
+                  hoteles={formData.hoteles || []}
+                  onChange={(newHoteles) => setFormData({ ...formData, hoteles: newHoteles })}
+                  precioBaseSugerido={costCalculations.precioSugerido}
+                  cuposTotalesBloqueo={Number(formData.cupos_totales) || 30}
+                />
+              </div>
+
+              {/* Sección 4: Estructura Financiera y Costos (CONFIDENCIAL ADMIN) */}
               <div className="bg-slate-900 text-white p-5 rounded-3xl space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                   <div className="flex items-center gap-2">
                     <ShieldCheck size={18} className="text-emerald-400" />
                     <h4 className="text-xs font-black uppercase tracking-widest text-emerald-400">
-                      3. Costos de Armado & Margen (Confidencial Admin)
+                      4. Costos de Armado & Margen (Confidencial Admin)
                     </h4>
                   </div>
                   <span className="text-[10px] bg-slate-800 text-gray-400 px-2 py-0.5 rounded-full font-bold">
@@ -1696,13 +1759,23 @@ export default function BloqueosPage() {
                 </div>
               </div>
 
-              {/* Sección 3: Estructura Financiera y Costos (CONFIDENCIAL ADMIN) */}
+              {/* Sección 3: Hoteles y Habitaciones Disponibles */}
+              <div className="bg-gray-50/70 p-5 rounded-3xl border border-gray-200/80">
+                <BloqueoHotelesConfig 
+                  hoteles={editFormData.hoteles || []}
+                  onChange={(newHoteles) => setEditFormData({ ...editFormData, hoteles: newHoteles })}
+                  precioBaseSugerido={editCostCalculations.precioSugerido}
+                  cuposTotalesBloqueo={Number(editFormData.cupos_totales) || 30}
+                />
+              </div>
+
+              {/* Sección 4: Estructura Financiera y Costos (CONFIDENCIAL ADMIN) */}
               <div className="bg-slate-900 text-white p-5 rounded-3xl space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                   <div className="flex items-center gap-2">
                     <ShieldCheck size={18} className="text-emerald-400" />
                     <h4 className="text-xs font-black uppercase tracking-widest text-emerald-400">
-                      3. Costos de Armado & Margen (Confidencial Admin)
+                      4. Costos de Armado & Margen (Confidencial Admin)
                     </h4>
                   </div>
                   <span className="text-[10px] bg-slate-800 text-gray-400 px-2 py-0.5 rounded-full font-bold">

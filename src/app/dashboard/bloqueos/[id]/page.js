@@ -53,6 +53,7 @@ import { es } from 'date-fns/locale'
 import { showToast } from '@/utils/toast'
 import IataSelector from '@/components/IataSelector'
 import BloqueoCountdownTimer from '@/components/BloqueoCountdownTimer'
+import BloqueoHotelesConfig from '@/components/dashboard/BloqueoHotelesConfig'
 
 export default function BloqueoDetallePage() {
   const { id } = useParams()
@@ -96,7 +97,7 @@ export default function BloqueoDetallePage() {
     operativo_nombre: '',
     comercial_id: '',
     comercial_nombre: '',
-    hoteles: 'GIMANI + PARAISO',
+    hoteles: '',
     categoria_habitacion: 'Clase 2 (Estándar / 4★)',
     tipo_servicio: 'PAQUETE COMPLETO'
   })
@@ -114,7 +115,8 @@ export default function BloqueoDetallePage() {
     cupos_totales: 30,
     estado: 'activo',
     precio_venta_pax: '',
-    notas: ''
+    notas: '',
+    hoteles: []
   })
 
   // Single Passenger Form
@@ -161,7 +163,7 @@ export default function BloqueoDetallePage() {
     operativo_nombre: '',
     comercial_id: '',
     comercial_nombre: '',
-    hoteles: 'GIMANI + PARAISO',
+    hoteles: '',
     codigo_cotizacion: '',
     precio_por_pax: 0,
     categoria_habitacion: 'Clase 2 (Estándar / 4★)',
@@ -308,6 +310,161 @@ export default function BloqueoDetallePage() {
     return list
   }
 
+  // Hoteles configurados en el bloqueo
+  const configuredHoteles = useMemo(() => {
+    return Array.isArray(bloqueo?.hoteles) ? bloqueo.hoteles : []
+  }, [bloqueo?.hoteles])
+
+  // Hotel seleccionado en Single Form
+  const selectedSingleHotelObj = useMemo(() => {
+    if (!singleForm.hoteles) return null
+    return configuredHoteles.find(h => h.nombre?.trim().toLowerCase() === singleForm.hoteles?.trim().toLowerCase()) || null
+  }, [configuredHoteles, singleForm.hoteles])
+
+  // Habitaciones disponibles para Single Form
+  const availableSingleRooms = useMemo(() => {
+    if (selectedSingleHotelObj && Array.isArray(selectedSingleHotelObj.habitaciones) && selectedSingleHotelObj.habitaciones.length > 0) {
+      return selectedSingleHotelObj.habitaciones
+    }
+    const base = Number(bloqueo?.precio_venta_pax) || 0
+    return [
+      { id: '1', tipo: 'Doble', precio: base },
+      { id: '2', tipo: 'Simple (SGL)', precio: Math.round(base * 1.25) },
+      { id: '3', tipo: 'Triple', precio: base },
+      { id: '4', tipo: 'Matrimonial', precio: base },
+      { id: '5', tipo: 'Twin', precio: base },
+      { id: '6', tipo: 'Cuádruple', precio: base }
+    ]
+  }, [selectedSingleHotelObj, bloqueo?.precio_venta_pax])
+
+  // Hotel seleccionado en Group Form
+  const selectedGroupHotelObj = useMemo(() => {
+    if (!groupForm.hoteles) return null
+    return configuredHoteles.find(h => h.nombre?.trim().toLowerCase() === groupForm.hoteles?.trim().toLowerCase()) || null
+  }, [configuredHoteles, groupForm.hoteles])
+
+  // Habitaciones disponibles para Group Form
+  const availableGroupRooms = useMemo(() => {
+    if (selectedGroupHotelObj && Array.isArray(selectedGroupHotelObj.habitaciones) && selectedGroupHotelObj.habitaciones.length > 0) {
+      return selectedGroupHotelObj.habitaciones
+    }
+    const base = Number(bloqueo?.precio_venta_pax) || 0
+    return [
+      { id: '1', tipo: 'Doble', precio: base },
+      { id: '2', tipo: 'Simple (SGL)', precio: Math.round(base * 1.25) },
+      { id: '3', tipo: 'Triple', precio: base },
+      { id: '4', tipo: 'Matrimonial', precio: base },
+      { id: '5', tipo: 'Twin', precio: base },
+      { id: '6', tipo: 'Cuádruple', precio: base }
+    ]
+  }, [selectedGroupHotelObj, bloqueo?.precio_venta_pax])
+
+  // Ocupación y disponibilidad en tiempo real por cada hotel
+  const hotelStats = useMemo(() => {
+    const stats = {}
+    const occupiedList = (pasajeros || []).filter(p => p.nombres && p.nombres.trim() !== '')
+
+    // Inicializar hoteles configurados
+    (configuredHoteles || []).forEach(h => {
+      const totCupos = Number(h.cupos) || 0
+      stats[h.nombre.trim().toLowerCase()] = {
+        hotel: h,
+        nombre: h.nombre,
+        categoria: h.categoria,
+        regimen: h.regimen,
+        cuposTotales: totCupos,
+        ocupados: 0,
+        disponibles: totCupos
+      }
+    })
+
+    // Contabilizar pasajeros asignados
+    occupiedList.forEach(p => {
+      const hName = (p.hoteles || '').trim().toLowerCase()
+      if (hName) {
+        if (!stats[hName]) {
+          stats[hName] = {
+            nombre: p.hoteles,
+            cuposTotales: 0,
+            ocupados: 0,
+            disponibles: 0
+          }
+        }
+        stats[hName].ocupados += 1
+        if (stats[hName].cuposTotales > 0) {
+          stats[hName].disponibles = Math.max(0, stats[hName].cuposTotales - stats[hName].ocupados)
+        }
+      }
+    })
+
+    return stats
+  }, [configuredHoteles, pasajeros])
+
+  const handleSingleHotelSelect = (hotelName) => {
+    if (hotelName === '__custom__') {
+      setSingleForm(prev => ({ ...prev, hoteles: '' }))
+      return
+    }
+    const hotelObj = configuredHoteles.find(h => h.nombre === hotelName)
+    if (hotelObj) {
+      const firstRoom = hotelObj.habitaciones?.[0]
+      const newPrice = firstRoom?.precio ? Number(firstRoom.precio) : (Number(singleForm.precio_acordado) || Number(bloqueo?.precio_venta_pax) || 0)
+      setSingleForm(prev => ({
+        ...prev,
+        hoteles: hotelObj.nombre,
+        categoria_habitacion: hotelObj.categoria || prev.categoria_habitacion,
+        tipo_habitacion: firstRoom?.tipo || prev.tipo_habitacion,
+        precio_acordado: newPrice,
+        plan_pagos: prev.plan_pagos.length === 1 
+          ? [{ ...prev.plan_pagos[0], monto: newPrice }]
+          : prev.plan_pagos
+      }))
+    } else {
+      setSingleForm(prev => ({ ...prev, hoteles: hotelName }))
+    }
+  }
+
+  const handleSingleRoomSelect = (roomType) => {
+    const roomObj = availableSingleRooms.find(r => r.tipo === roomType)
+    const roomPrice = roomObj?.precio ? Number(roomObj.precio) : null
+    setSingleForm(prev => {
+      const updatedPrice = roomPrice !== null ? roomPrice : prev.precio_acordado
+      return {
+        ...prev,
+        tipo_habitacion: roomType,
+        precio_acordado: updatedPrice,
+        plan_pagos: (roomPrice !== null && prev.plan_pagos.length === 1)
+          ? [{ ...prev.plan_pagos[0], monto: updatedPrice }]
+          : prev.plan_pagos
+      }
+    })
+  }
+
+  const handleGroupHotelSelect = (hotelName) => {
+    if (hotelName === '__custom__') {
+      setGroupForm(prev => ({ ...prev, hoteles: '' }))
+      return
+    }
+    const hotelObj = configuredHoteles.find(h => h.nombre === hotelName)
+    if (hotelObj) {
+      const firstRoom = hotelObj.habitaciones?.[0]
+      const baseRate = firstRoom?.precio ? Number(firstRoom.precio) : (Number(groupForm.precio_por_pax) || Number(bloqueo?.precio_venta_pax) || 0)
+      setGroupForm(prev => ({
+        ...prev,
+        hoteles: hotelObj.nombre,
+        categoria_habitacion: hotelObj.categoria || prev.categoria_habitacion,
+        precio_por_pax: baseRate,
+        pasajeros_lista: prev.pasajeros_lista.map(p => ({
+          ...p,
+          tipo_habitacion: firstRoom?.tipo || p.tipo_habitacion,
+          categoria_habitacion: hotelObj.categoria || p.categoria_habitacion
+        }))
+      }))
+    } else {
+      setGroupForm(prev => ({ ...prev, hoteles: hotelName }))
+    }
+  }
+
   // Open Single Slot Modal
   const handleOpenSingleSlot = (slot) => {
     setSelectedSlotNumber(slot.numero_cupo)
@@ -324,7 +481,7 @@ export default function BloqueoDetallePage() {
       operativo_nombre: slot.operativo_nombre || profile?.nombre || '',
       comercial_id: slot.comercial_id || '',
       comercial_nombre: slot.comercial_nombre || '',
-      hoteles: slot.hoteles || 'GIMANI + PARAISO',
+      hoteles: slot.hoteles || (bloqueo?.hoteles?.[0]?.nombre || ''),
       nombres: slot.nombres || '',
       apellidos: slot.apellidos || '',
       tipo_documento: slot.tipo_documento || 'Cédula',
@@ -361,7 +518,7 @@ export default function BloqueoDetallePage() {
       operativo_nombre: profile?.nombre || '',
       comercial_id: '',
       comercial_nombre: '',
-      hoteles: 'GIMANI + PARAISO',
+      hoteles: bloqueo?.hoteles?.[0]?.nombre || '',
       codigo_cotizacion: `CTB-BLQ-${Date.now().toString().slice(-4)}`,
       precio_por_pax: bloqueo?.precio_venta_pax || 0,
       categoria_habitacion: 'Clase 2 (Estándar / 4★)',
@@ -1092,7 +1249,8 @@ export default function BloqueoDetallePage() {
       cupos_totales: bloqueo.cupos_totales || 30,
       estado: bloqueo.estado || 'activo',
       precio_venta_pax: bloqueo.precio_venta_pax || '',
-      notas: bloqueo.notas || ''
+      notas: bloqueo.notas || '',
+      hoteles: Array.isArray(bloqueo.hoteles) ? bloqueo.hoteles : []
     })
     setShowEditBloqueoModal(true)
   }
@@ -1103,6 +1261,16 @@ export default function BloqueoDetallePage() {
     try {
       const oldCupos = bloqueo.cupos_totales || 30
       const newCupos = Number(editBloqueoForm.cupos_totales) || 30
+
+      // Validación estricta: si hay hoteles configurados, la suma de sus cupos debe coincidir exactamente con los cupos totales
+      if (editBloqueoForm.hoteles && editBloqueoForm.hoteles.length > 0) {
+        const totalAsignadoHoteles = editBloqueoForm.hoteles.reduce((acc, h) => acc + (Number(h.cupos) || 0), 0)
+        if (totalAsignadoHoteles !== newCupos) {
+          showToast(`Los espacios asignados a los hoteles (${totalAsignadoHoteles}) deben coincidir exactamente con los ${newCupos} cupos totales del bloqueo.`, 'error')
+          setSaving(false)
+          return
+        }
+      }
 
       if (newCupos > oldCupos) {
         const newSlots = []
@@ -1150,10 +1318,16 @@ export default function BloqueoDetallePage() {
         estado: editBloqueoForm.estado,
         precio_venta_pax: Number(editBloqueoForm.precio_venta_pax) || 0,
         notas: editBloqueoForm.notas?.trim() || null,
+        hoteles: editBloqueoForm.hoteles || [],
         updated_at: new Date().toISOString()
       }
 
-      const { error } = await supabase.from('bloqueos').update(updateData).eq('id', bloqueo.id)
+      let { error } = await supabase.from('bloqueos').update(updateData).eq('id', bloqueo.id)
+      if (error && (error.message?.includes('hoteles') || error.code === '42703')) {
+        const { hoteles: _ignored, ...cleanData } = updateData
+        const retry = await supabase.from('bloqueos').update(cleanData).eq('id', bloqueo.id)
+        error = retry.error
+      }
       if (error) throw error
 
       showToast('¡Configuración del bloqueo actualizada!', 'success')
@@ -1205,8 +1379,9 @@ export default function BloqueoDetallePage() {
             const matchGroup = pax.grupo_id && other.grupo_id && pax.grupo_id === other.grupo_id
             const matchAgency = !pax.grupo_id && !other.grupo_id && pax.agencia && other.agencia && pax.agencia === other.agencia
             const sameType = (other.tipo_habitacion || 'Doble') === roomType
+            const sameHotel = !pax.hoteles || !other.hoteles || pax.hoteles === other.hoteles
 
-            if ((matchGroup || matchAgency) && sameType) {
+            if ((matchGroup || matchAgency) && sameType && sameHotel) {
               companions.push(other)
               processedIds.add(other.id)
             }
@@ -1219,7 +1394,8 @@ export default function BloqueoDetallePage() {
           capacity,
           passengers: companions,
           isComplete: companions.length >= capacity,
-          grupoNombre: pax.grupo_nombre || pax.agencia || 'Directo'
+          grupoNombre: pax.grupo_nombre || pax.agencia || 'Directo',
+          hotel: pax.hoteles || ''
         })
       })
 
@@ -1687,6 +1863,143 @@ export default function BloqueoDetallePage() {
         </div>
       )}
 
+      {/* Resumen y Disponibilidad de Hoteles y Cupos */}
+      {configuredHoteles && configuredHoteles.length > 0 && (
+        <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-black">
+                <Hotel size={20} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-black text-gray-900 tracking-tight">
+                    Hoteles & Ocupación de Cupos
+                  </h3>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-100 text-blue-800">
+                    {configuredHoteles.length} {configuredHoteles.length === 1 ? 'Hotel' : 'Hoteles'}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-400 font-medium">
+                  Distribución de los {bloqueo.cupos_totales} cupos totales entre los hoteles contratados.
+                </p>
+              </div>
+            </div>
+
+            {isPrivileged && (
+              <button
+                onClick={handleOpenEditBloqueo}
+                className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black text-gray-600 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-colors"
+              >
+                <Settings size={13} />
+                <span>Configurar Hoteles</span>
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {configuredHoteles.map((h) => {
+              const stat = hotelStats[h.nombre.trim().toLowerCase()] || { ocupados: 0, disponibles: Number(h.cupos) || 0 }
+              const totCupos = Number(h.cupos) || 0
+              const ocupados = stat.ocupados
+              const disponibles = stat.disponibles
+              const pct = totCupos > 0 ? Math.min(100, Math.round((ocupados / totCupos) * 100)) : 0
+              const isFull = totCupos > 0 && disponibles === 0
+              const isOver = totCupos > 0 && ocupados > totCupos
+
+              return (
+                <div
+                  key={h.id}
+                  className={`p-4 rounded-2xl border transition-all ${
+                    isOver
+                      ? 'bg-red-50/40 border-red-200'
+                      : isFull
+                      ? 'bg-amber-50/30 border-amber-200'
+                      : 'bg-gray-50/60 border-gray-150 hover:border-gray-200 hover:bg-white hover:shadow-sm'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h4 className="text-sm font-black text-gray-900 truncate" title={h.nombre}>
+                        {h.nombre}
+                      </h4>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                        <span className="text-[10px] font-bold text-gray-600 px-2 py-0.5 rounded-md bg-white border border-gray-200">
+                          {h.categoria?.split(' ')[0] || '4★'}
+                        </span>
+                        {h.regimen && (
+                          <span className="text-[10px] font-semibold text-gray-500 px-2 py-0.5 rounded-md bg-white border border-gray-200">
+                            {h.regimen}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <span
+                      className={`shrink-0 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider ${
+                        isOver
+                          ? 'bg-red-600 text-white'
+                          : isFull
+                          ? 'bg-amber-500 text-white'
+                          : 'bg-emerald-100 text-emerald-800'
+                      }`}
+                    >
+                      {isOver ? '⚠️ Excedido' : isFull ? 'Agotado' : `${disponibles} libres`}
+                    </span>
+                  </div>
+
+                  {/* Barra de progreso de cupos */}
+                  <div className="mt-3">
+                    <div className="flex items-center justify-between text-xs font-bold mb-1">
+                      <span className="text-gray-500 text-[11px]">
+                        {totCupos > 0 ? (
+                          <>
+                            <strong className="text-gray-900">{ocupados}</strong> de{' '}
+                            <strong className="text-gray-900">{totCupos}</strong> cupos
+                          </>
+                        ) : (
+                          <>{ocupados} pax asignados</>
+                        )}
+                      </span>
+                      {totCupos > 0 && (
+                        <span className={`text-[11px] font-black ${isOver ? 'text-red-600' : isFull ? 'text-amber-600' : 'text-gray-600'}`}>
+                          {pct}%
+                        </span>
+                      )}
+                    </div>
+                    {totCupos > 0 && (
+                      <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-300 ${
+                            isOver ? 'bg-red-500' : isFull ? 'bg-amber-500' : 'bg-primary'
+                          }`}
+                          style={{ width: `${Math.min(100, pct)}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Habitaciones y tarifas disponibles */}
+                  {Array.isArray(h.habitaciones) && h.habitaciones.length > 0 && (
+                    <div className="mt-3 pt-2.5 border-t border-gray-200/60 flex flex-wrap gap-1.5">
+                      {h.habitaciones.map(r => (
+                        <span
+                          key={r.id}
+                          className="text-[10px] bg-white text-gray-700 px-2 py-0.5 rounded-lg border border-gray-200 font-semibold inline-flex items-center gap-1"
+                        >
+                          <span className="font-bold text-gray-900">{r.tipo}:</span>
+                          <span className="text-emerald-700 font-black">${Number(r.precio) || 0}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* View Mode Toggle Strip: Vista Tabla vs Distribución Rooming */}
       <div className="bg-white p-2.5 rounded-3xl border border-gray-100 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-2xl">
@@ -1858,9 +2171,16 @@ export default function BloqueoDetallePage() {
                           </span>
                         </div>
 
-                        <p className="text-[10px] font-bold text-gray-400 mb-2 truncate">
-                          Grupo / Agencia: <span className="text-gray-700 font-semibold">{room.grupoNombre}</span>
-                        </p>
+                        <div className="flex items-center justify-between text-[10px] mb-2 gap-1">
+                          <p className="font-bold text-gray-400 truncate">
+                            Grupo / Agencia: <span className="text-gray-700 font-semibold">{room.grupoNombre}</span>
+                          </p>
+                          {room.hotel && (
+                            <span className="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100 truncate shrink-0 max-w-[140px]">
+                              🏨 {room.hotel}
+                            </span>
+                          )}
+                        </div>
 
                         <div className="space-y-1.5 pt-1 border-t border-gray-100">
                           {room.passengers.map((pax) => (
@@ -2304,18 +2624,24 @@ export default function BloqueoDetallePage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-gray-700 font-bold mb-1">Tipo Habitación</label>
+                    <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
+                      <span>Tipo Habitación</span>
+                      {selectedSingleHotelObj && (
+                        <span className="text-[10px] text-blue-600 font-bold truncate max-w-[120px]">
+                          {selectedSingleHotelObj.nombre}
+                        </span>
+                      )}
+                    </label>
                     <select
                       value={singleForm.tipo_habitacion}
-                      onChange={(e) => setSingleForm({ ...singleForm, tipo_habitacion: e.target.value })}
+                      onChange={(e) => handleSingleRoomSelect(e.target.value)}
                       className="input w-full bg-white text-gray-900 border border-gray-200 font-bold"
                     >
-                      <option value="Doble">Doble</option>
-                      <option value="Triple">Triple</option>
-                      <option value="Matrimonial">Matrimonial</option>
-                      <option value="Simple">Simple (SGL)</option>
-                      <option value="Twin">Twin</option>
-                      <option value="Cuádruple">Cuádruple</option>
+                      {availableSingleRooms.map((r, i) => (
+                        <option key={r.id || i} value={r.tipo}>
+                          {r.tipo} {r.precio ? `($${Number(r.precio).toLocaleString('es-EC')})` : ''}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -2413,14 +2739,62 @@ export default function BloqueoDetallePage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                   <div>
-                    <label className="block text-gray-800 font-bold mb-1">Distribución Hotelera</label>
-                    <input
-                      type="text"
-                      placeholder="Ej. GIMANI + PARAISO"
-                      value={singleForm.hoteles}
-                      onChange={(e) => setSingleForm({ ...singleForm, hoteles: e.target.value })}
-                      className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
-                    />
+                    <label className="block text-gray-800 font-bold mb-1 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <Hotel size={13} className="text-blue-600" /> Hotel Asignado
+                      </span>
+                      {selectedSingleHotelObj && (() => {
+                        const stat = hotelStats[selectedSingleHotelObj.nombre.trim().toLowerCase()]
+                        const tot = Number(selectedSingleHotelObj.cupos) || 0
+                        const disp = stat ? stat.disponibles : tot
+                        return (
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${tot > 0 && disp <= 0 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-800'}`}>
+                            {tot > 0 ? `${disp} de ${tot} cupos disponibles` : (selectedSingleHotelObj.regimen || selectedSingleHotelObj.categoria?.split(' ')[0])}
+                          </span>
+                        )
+                      })()}
+                    </label>
+                    {configuredHoteles.length > 0 ? (
+                      <div className="space-y-1.5">
+                        <select
+                          value={configuredHoteles.some(h => h.nombre === singleForm.hoteles) ? singleForm.hoteles : (singleForm.hoteles ? '__custom__' : '')}
+                          onChange={(e) => handleSingleHotelSelect(e.target.value)}
+                          className="input w-full bg-white text-gray-900 border border-gray-200 font-bold"
+                        >
+                          <option value="">-- Seleccionar Hotel del Bloqueo --</option>
+                          {configuredHoteles.map(h => {
+                            const stat = hotelStats[h.nombre.trim().toLowerCase()]
+                            const tot = Number(h.cupos) || 0
+                            const disp = stat ? stat.disponibles : tot
+                            const isAgotado = tot > 0 && disp <= 0
+                            return (
+                              <option key={h.id} value={h.nombre} disabled={isAgotado && singleForm.hoteles !== h.nombre}>
+                                {h.nombre} ({h.categoria?.split(' ')[0] || '4★'}) {tot > 0 ? `· [${disp}/${tot} disp.]` : ''} {isAgotado ? '❌ ¡AGOTADO!' : ''}
+                              </option>
+                            )
+                          })}
+                          <option value="__custom__">➕ Otro hotel no listado...</option>
+                        </select>
+
+                        {(!configuredHoteles.some(h => h.nombre === singleForm.hoteles) || singleForm.hoteles === '__custom__') && (
+                          <input
+                            type="text"
+                            placeholder="Escribe el nombre del hotel..."
+                            value={singleForm.hoteles === '__custom__' ? '' : singleForm.hoteles}
+                            onChange={(e) => setSingleForm({ ...singleForm, hoteles: e.target.value })}
+                            className="input w-full bg-gray-50 text-gray-900 border border-gray-300 font-semibold text-xs"
+                          />
+                        )}
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        placeholder="Ej. Hotel Decameron Barú"
+                        value={singleForm.hoteles}
+                        onChange={(e) => setSingleForm({ ...singleForm, hoteles: e.target.value })}
+                        className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
+                      />
+                    )}
                   </div>
                   <div>
                     <label className="block text-gray-800 font-black mb-1">Precio Total Acordado ($) *</label>
@@ -2643,14 +3017,72 @@ export default function BloqueoDetallePage() {
                       ))}
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-gray-800 font-bold mb-1">Hoteles</label>
-                    <input
-                      type="text"
-                      value={groupForm.hoteles}
-                      onChange={(e) => setGroupForm({ ...groupForm, hoteles: e.target.value })}
-                      className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
-                    />
+                  <div className="sm:col-span-1">
+                    <label className="block text-gray-800 font-bold mb-1 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <Hotel size={13} className="text-purple-600" /> Hotel Asignado
+                      </span>
+                      {selectedGroupHotelObj && (() => {
+                        const stat = hotelStats[selectedGroupHotelObj.nombre.trim().toLowerCase()]
+                        const tot = Number(selectedGroupHotelObj.cupos) || 0
+                        const disp = stat ? stat.disponibles : tot
+                        const isOver = tot > 0 && groupForm.pasajeros_lista.length > disp
+                        return (
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isOver ? 'bg-amber-100 text-amber-800' : 'bg-purple-100 text-purple-800'}`}>
+                            {tot > 0 ? `${disp} de ${tot} cupos disponibles` : (selectedGroupHotelObj.regimen || selectedGroupHotelObj.categoria?.split(' ')[0])}
+                          </span>
+                        )
+                      })()}
+                    </label>
+                    {configuredHoteles.length > 0 ? (
+                      <div className="space-y-1.5">
+                        <select
+                          value={configuredHoteles.some(h => h.nombre === groupForm.hoteles) ? groupForm.hoteles : (groupForm.hoteles ? '__custom__' : '')}
+                          onChange={(e) => handleGroupHotelSelect(e.target.value)}
+                          className="input w-full bg-white text-gray-900 border border-gray-200 font-bold"
+                        >
+                          <option value="">-- Seleccionar Hotel --</option>
+                          {configuredHoteles.map(h => {
+                            const stat = hotelStats[h.nombre.trim().toLowerCase()]
+                            const tot = Number(h.cupos) || 0
+                            const disp = stat ? stat.disponibles : tot
+                            const isAgotado = tot > 0 && disp <= 0
+                            const notEnough = tot > 0 && disp < groupForm.pasajeros_lista.length
+                            return (
+                              <option key={h.id} value={h.nombre} disabled={isAgotado && groupForm.hoteles !== h.nombre}>
+                                {h.nombre} ({h.categoria?.split(' ')[0] || '4★'}) {tot > 0 ? `· [${disp}/${tot} disp.]` : ''} {isAgotado ? '❌ ¡AGOTADO!' : (notEnough ? '⚠️ Cupos insuficientes' : '')}
+                              </option>
+                            )
+                          })}
+                          <option value="__custom__">➕ Otro hotel no listado...</option>
+                        </select>
+
+                        {selectedGroupHotelObj && Number(selectedGroupHotelObj.cupos) > 0 && groupForm.pasajeros_lista.length > (hotelStats[selectedGroupHotelObj.nombre.trim().toLowerCase()]?.disponibles ?? 0) && (
+                          <div className="p-2 bg-amber-50 border border-amber-200 rounded-xl text-[10px] text-amber-900 flex items-center gap-1.5 font-bold">
+                            <AlertTriangle size={13} className="shrink-0 text-amber-600" />
+                            <span>Alerta: El grupo ({groupForm.pasajeros_lista.length} pax) supera los {hotelStats[selectedGroupHotelObj.nombre.trim().toLowerCase()]?.disponibles ?? 0} cupos libres de este hotel.</span>
+                          </div>
+                        )}
+
+                        {(!configuredHoteles.some(h => h.nombre === groupForm.hoteles) || groupForm.hoteles === '__custom__') && (
+                          <input
+                            type="text"
+                            placeholder="Escribe el nombre del hotel..."
+                            value={groupForm.hoteles === '__custom__' ? '' : groupForm.hoteles}
+                            onChange={(e) => setGroupForm({ ...groupForm, hoteles: e.target.value })}
+                            className="input w-full bg-gray-50 text-gray-900 border border-gray-300 font-semibold text-xs"
+                          />
+                        )}
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        placeholder="Ej. Hotel Decameron Barú"
+                        value={groupForm.hoteles}
+                        onChange={(e) => setGroupForm({ ...groupForm, hoteles: e.target.value })}
+                        className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
+                      />
+                    )}
                   </div>
                   <div>
                     <label className="block text-amber-900 font-bold mb-1 flex items-center gap-1">
@@ -2726,13 +3158,13 @@ export default function BloqueoDetallePage() {
                       <select
                         value={pax.tipo_habitacion}
                         onChange={(e) => updateGroupPassenger(pax.id, 'tipo_habitacion', e.target.value)}
-                        className="input w-28 py-1.5 text-xs font-bold bg-white text-gray-900 border border-gray-200"
+                        className="input w-32 py-1.5 text-xs font-bold bg-white text-gray-900 border border-gray-200"
                       >
-                        <option value="Doble">Doble</option>
-                        <option value="Triple">Triple</option>
-                        <option value="Matrimonial">Matrimonial</option>
-                        <option value="Simple">Simple</option>
-                        <option value="Twin">Twin</option>
+                        {availableGroupRooms.map((r, i) => (
+                          <option key={r.id || i} value={r.tipo}>
+                            {r.tipo} {r.precio ? `($${r.precio})` : ''}
+                          </option>
+                        ))}
                       </select>
                       <select
                         value={pax.categoria_habitacion || groupForm.categoria_habitacion || 'Clase 2 (Estándar / 4★)'}
@@ -3002,13 +3434,54 @@ export default function BloqueoDetallePage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-gray-800 font-bold mb-1">Hoteles</label>
-                    <input
-                      type="text"
-                      value={quickPasteMeta.hoteles}
-                      onChange={(e) => setQuickPasteMeta({ ...quickPasteMeta, hoteles: e.target.value })}
-                      className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
-                    />
+                    <label className="block text-gray-800 font-bold mb-1">Hotel Asignado</label>
+                    {configuredHoteles.length > 0 ? (
+                      <div className="space-y-1.5">
+                        <select
+                          value={configuredHoteles.some(h => h.nombre === quickPasteMeta.hoteles) ? quickPasteMeta.hoteles : (quickPasteMeta.hoteles ? '__custom__' : '')}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            if (val === '__custom__') {
+                              setQuickPasteMeta(prev => ({ ...prev, hoteles: '' }))
+                            } else {
+                              const hotelObj = configuredHoteles.find(h => h.nombre === val)
+                              setQuickPasteMeta(prev => ({
+                                ...prev,
+                                hoteles: val,
+                                categoria_habitacion: hotelObj?.categoria || prev.categoria_habitacion
+                              }))
+                            }
+                          }}
+                          className="input w-full bg-white text-gray-900 border border-gray-200 font-bold"
+                        >
+                          <option value="">-- Seleccionar Hotel --</option>
+                          {configuredHoteles.map(h => (
+                            <option key={h.id} value={h.nombre}>
+                              {h.nombre} ({h.categoria?.split(' ')[0] || '4★'})
+                            </option>
+                          ))}
+                          <option value="__custom__">➕ Otro hotel no listado...</option>
+                        </select>
+
+                        {(!configuredHoteles.some(h => h.nombre === quickPasteMeta.hoteles) || quickPasteMeta.hoteles === '__custom__') && (
+                          <input
+                            type="text"
+                            placeholder="Escribe el nombre del hotel..."
+                            value={quickPasteMeta.hoteles === '__custom__' ? '' : quickPasteMeta.hoteles}
+                            onChange={(e) => setQuickPasteMeta({ ...quickPasteMeta, hoteles: e.target.value })}
+                            className="input w-full bg-gray-50 text-gray-900 border border-gray-300 font-semibold text-xs"
+                          />
+                        )}
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        placeholder="Ej. Hotel Decameron Barú"
+                        value={quickPasteMeta.hoteles}
+                        onChange={(e) => setQuickPasteMeta({ ...quickPasteMeta, hoteles: e.target.value })}
+                        className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
+                      />
+                    )}
                   </div>
                 </div>
               </div>
@@ -3251,6 +3724,16 @@ export default function BloqueoDetallePage() {
                     <option value="cancelado">Cancelado</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Configuración de Hoteles y Habitaciones */}
+              <div className="pt-3 border-t border-gray-100 bg-gray-50/70 p-4 rounded-2xl">
+                <BloqueoHotelesConfig 
+                  hoteles={editBloqueoForm.hoteles || []}
+                  onChange={(newHoteles) => setEditBloqueoForm({ ...editBloqueoForm, hoteles: newHoteles })}
+                  precioBaseSugerido={Number(editBloqueoForm.precio_venta_pax) || Number(bloqueo?.precio_venta_pax) || 0}
+                  cuposTotalesBloqueo={Number(editBloqueoForm.cupos_totales) || Number(bloqueo?.cupos_totales) || 30}
+                />
               </div>
 
               <div>
