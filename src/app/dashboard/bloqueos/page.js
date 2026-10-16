@@ -86,7 +86,25 @@ export default function BloqueosPage() {
   const [newTagConcepto, setNewTagConcepto] = useState('')
   const [newTagPrecio, setNewTagPrecio] = useState('')
 
-  // Form State for New Bloqueo
+  // Generador de plantilla de hotel por defecto con cupos cuadrados al 100%
+  const createDefaultHotelList = (cupos = 30, baseRate = 750) => [
+    {
+      id: `hotel_${Date.now()}`,
+      nombre: '',
+      categoria: 'Clase 2 (Estándar / 4★)',
+      regimen: 'Todo Incluido (All Inclusive)',
+      cupos: Number(cupos) || 30,
+      notas: '',
+      habitaciones: [
+        { id: `hab_${Date.now()}_1`, tipo: 'Doble', precio: baseRate, cupos: Math.round((Number(cupos) || 30) * 0.7) },
+        { id: `hab_${Date.now()}_2`, tipo: 'Simple (SGL)', precio: Math.round(baseRate * 1.25), cupos: Math.max(0, (Number(cupos) || 30) - Math.round((Number(cupos) || 30) * 0.7)) },
+        { id: `hab_${Date.now()}_3`, tipo: 'Triple', precio: baseRate, cupos: 0 },
+        { id: `hab_${Date.now()}_4`, tipo: 'Matrimonial', precio: baseRate, cupos: 0 }
+      ]
+    }
+  ]
+
+  // Form State for New Bloqueo con 1 hotel preconfigurado listo para escribir
   const [formData, setFormData] = useState({
     codigo: '',
     titulo: '',
@@ -103,8 +121,65 @@ export default function BloqueosPage() {
     ganancia_unitaria: 100,
     precio_venta_pax: '',
     notas: '',
-    hoteles: []
+    hoteles: [
+      {
+        id: 'hotel_init_1',
+        nombre: '',
+        categoria: 'Clase 2 (Estándar / 4★)',
+        regimen: 'Todo Incluido (All Inclusive)',
+        cupos: 30,
+        notas: '',
+        habitaciones: [
+          { id: 'hab_init_1', tipo: 'Doble', precio: 750, cupos: 21 },
+          { id: 'hab_init_2', tipo: 'Simple (SGL)', precio: 938, cupos: 9 },
+          { id: 'hab_init_3', tipo: 'Triple', precio: 750, cupos: 0 },
+          { id: 'hab_init_4', tipo: 'Matrimonial', precio: 750, cupos: 0 }
+        ]
+      }
+    ]
   })
+
+  const handleOpenCreateBloqueo = () => {
+    fetchTags()
+    const defaultCupos = 30
+    setFormData({
+      codigo: '',
+      titulo: '',
+      destino: '',
+      aerolinea: '',
+      fecha_salida: '',
+      fecha_retorno: '',
+      fecha_limite_emision: '',
+      fecha_limite_pago: '',
+      cupos_totales: defaultCupos,
+      precio_vuelo: '',
+      precio_operador: '',
+      otros_costos: [],
+      ganancia_unitaria: 100,
+      precio_venta_pax: '',
+      notas: '',
+      hoteles: createDefaultHotelList(defaultCupos, 750)
+    })
+    setShowCreateModal(true)
+  }
+
+  const handleCuposTotalesChange = (val) => {
+    const newTotal = Number(val) || 0
+    setFormData(prev => {
+      let updatedHoteles = prev.hoteles || []
+      if (updatedHoteles.length === 1) {
+        updatedHoteles = updatedHoteles.map(h => ({
+          ...h,
+          cupos: newTotal
+        }))
+      }
+      return {
+        ...prev,
+        cupos_totales: val,
+        hoteles: updatedHoteles
+      }
+    })
+  }
 
   useEffect(() => {
     fetchBloqueos()
@@ -304,6 +379,13 @@ export default function BloqueosPage() {
         const totalAsignado = formData.hoteles.reduce((acc, h) => acc + (Number(h.cupos) || 0), 0)
         if (totalAsignado !== cupos) {
           showToast(`Los espacios asignados a los hoteles (${totalAsignado}) deben coincidir con los ${cupos} cupos totales del bloqueo. Ajusta los espacios antes de guardar.`, 'error')
+          setCreating(false)
+          return
+        }
+
+        const sinNombre = formData.hoteles.find(h => !h.nombre || !h.nombre.trim())
+        if (sinNombre) {
+          showToast('Por favor escribe el nombre de cada hotel contratado.', 'error')
           setCreating(false)
           return
         }
@@ -512,6 +594,10 @@ export default function BloqueosPage() {
   const handleOpenEditBloqueo = (bloqueo) => {
     fetchTags()
     setEditingBloqueo(bloqueo)
+    const existingHoteles = Array.isArray(bloqueo.hoteles) && bloqueo.hoteles.length > 0
+      ? bloqueo.hoteles
+      : createDefaultHotelList(bloqueo.cupos_totales || 30, Number(bloqueo.precio_venta_pax) || 750)
+
     setEditFormData({
       id: bloqueo.id,
       codigo: bloqueo.codigo || '',
@@ -530,7 +616,7 @@ export default function BloqueosPage() {
       ganancia_unitaria: bloqueo.ganancia_unitaria || 0,
       precio_venta_pax: bloqueo.precio_venta_pax || '',
       notas: bloqueo.notas || '',
-      hoteles: Array.isArray(bloqueo.hoteles) ? bloqueo.hoteles : []
+      hoteles: existingHoteles
     })
     setShowEditModal(true)
   }
@@ -551,6 +637,13 @@ export default function BloqueosPage() {
         const totalAsignado = editFormData.hoteles.reduce((acc, h) => acc + (Number(h.cupos) || 0), 0)
         if (totalAsignado !== newCupos) {
           showToast(`Los espacios asignados a los hoteles (${totalAsignado}) deben coincidir con los ${newCupos} cupos totales del bloqueo.`, 'error')
+          setUpdating(false)
+          return
+        }
+
+        const sinNombre = editFormData.hoteles.find(h => !h.nombre || !h.nombre.trim())
+        if (sinNombre) {
+          showToast('Por favor escribe el nombre de cada hotel contratado.', 'error')
           setUpdating(false)
           return
         }
@@ -784,7 +877,7 @@ ${hotelesTexto}
 
         {isPrivileged && (
           <button
-            onClick={() => { fetchTags(); setShowCreateModal(true); }}
+            onClick={handleOpenCreateBloqueo}
             className="btn-primary flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl shadow-xl shadow-primary/25 hover:shadow-primary/40 active:scale-95 transition-all text-xs font-black uppercase tracking-widest whitespace-nowrap"
           >
             <Plus size={18} />
@@ -959,7 +1052,7 @@ ${hotelesTexto}
           </p>
           {isPrivileged && !search && (
             <button
-              onClick={() => setShowCreateModal(true)}
+              onClick={handleOpenCreateBloqueo}
               className="mt-5 btn-primary inline-flex items-center gap-2 text-xs font-black uppercase tracking-wider px-6 py-3 rounded-2xl"
             >
               <Plus size={16} /> Crear el Primer Bloqueo
@@ -1047,6 +1140,30 @@ ${hotelesTexto}
                       </>
                     )}
                   </div>
+
+                  {/* Hoteles Contratados */}
+                  {Array.isArray(bloqueo.hoteles) && bloqueo.hoteles.length > 0 ? (
+                    <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                      {bloqueo.hoteles.map((h, i) => (
+                        <span key={i} className="text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200/60 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                          <Hotel size={11} className="text-blue-600" />
+                          <span className="truncate max-w-[130px]">{h.nombre || `Hotel ${i+1}`}</span>
+                          <span className="text-blue-900 font-black">({h.cupos} cupos)</span>
+                        </span>
+                      ))}
+                    </div>
+                  ) : isPrivileged ? (
+                    <div className="mt-2.5">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditBloqueo(bloqueo)}
+                        className="text-[10px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition-colors"
+                      >
+                        <AlertTriangle size={11} className="text-amber-600 shrink-0" />
+                        <span>Sin hoteles asignados · Clic para configurar</span>
+                      </button>
+                    </div>
+                  ) : null}
 
                   {/* PROMINENT COUNTDOWN TIMER */}
                   <BloqueoCountdownTimer fechaSalida={bloqueo.fecha_salida} />
@@ -1353,7 +1470,7 @@ ${hotelesTexto}
                       max={200}
                       required
                       value={formData.cupos_totales}
-                      onChange={(e) => setFormData({ ...formData, cupos_totales: e.target.value })}
+                      onChange={(e) => handleCuposTotalesChange(e.target.value)}
                       className="input w-full bg-white text-gray-900 border border-gray-200 font-black"
                     />
                   </div>
@@ -1394,7 +1511,7 @@ ${hotelesTexto}
               </div>
 
               {/* Sección 3: Hoteles y Habitaciones Disponibles */}
-              <div className="bg-gray-50/70 p-5 rounded-3xl border border-gray-200/80">
+              <div className="bg-gradient-to-br from-blue-50/60 to-gray-50/70 p-5 rounded-3xl border border-blue-200/80 shadow-2xs">
                 <BloqueoHotelesConfig 
                   hoteles={formData.hoteles || []}
                   onChange={(newHoteles) => setFormData({ ...formData, hoteles: newHoteles })}

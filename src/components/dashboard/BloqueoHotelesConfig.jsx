@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { 
   Hotel, Plus, Trash2, BedDouble, Bed, Star, Utensils, 
   ChevronDown, ChevronUp, Sparkles, DollarSign, Info,
@@ -41,6 +41,14 @@ export default function BloqueoHotelesConfig({
   cuposTotalesBloqueo = 30
 }) {
   const [expandedHotelId, setExpandedHotelId] = useState(hoteles[0]?.id || null)
+
+  useEffect(() => {
+    if (hoteles && hoteles.length > 0) {
+      if (!expandedHotelId || !hoteles.some(h => h.id === expandedHotelId)) {
+        setExpandedHotelId(hoteles[0].id)
+      }
+    }
+  }, [hoteles, expandedHotelId])
 
   const totalGeneral = Number(cuposTotalesBloqueo) || 30
   const totalAsignado = hoteles.reduce((acc, h) => acc + (Number(h.cupos) || 0), 0)
@@ -311,9 +319,9 @@ export default function BloqueoHotelesConfig({
           <button
             type="button"
             onClick={handleAddHotel}
-            className="mt-3 px-4 py-2 rounded-xl bg-white border border-gray-300 text-gray-800 hover:bg-gray-100 font-bold text-xs inline-flex items-center gap-1.5 shadow-xs"
+            className="mt-4 px-6 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-black text-xs uppercase tracking-wider inline-flex items-center gap-2 shadow-lg shadow-blue-500/25 transition-all"
           >
-            <Plus size={14} className="text-blue-600" /> Configurar Primer Hotel ({totalGeneral} Cupos)
+            <Plus size={16} /> + Configurar Primer Hotel ({totalGeneral} Cupos)
           </button>
         </div>
       ) : (
