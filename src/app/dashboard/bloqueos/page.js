@@ -104,7 +104,7 @@ export default function BloqueosPage() {
     }
   ]
 
-  // Form State for New Bloqueo con 1 hotel preconfigurado listo para escribir
+  // Form State for New Bloqueo (Inicia en Modo Básico Opcional)
   const [formData, setFormData] = useState({
     codigo: '',
     titulo: '',
@@ -121,22 +121,7 @@ export default function BloqueosPage() {
     ganancia_unitaria: 100,
     precio_venta_pax: '',
     notas: '',
-    hoteles: [
-      {
-        id: 'hotel_init_1',
-        nombre: '',
-        categoria: 'Clase 2 (Estándar / 4★)',
-        regimen: 'Todo Incluido (All Inclusive)',
-        cupos: 30,
-        notas: '',
-        habitaciones: [
-          { id: 'hab_init_1', tipo: 'Doble', precio: 750, cupos: 21 },
-          { id: 'hab_init_2', tipo: 'Simple (SGL)', precio: 938, cupos: 9 },
-          { id: 'hab_init_3', tipo: 'Triple', precio: 750, cupos: 0 },
-          { id: 'hab_init_4', tipo: 'Matrimonial', precio: 750, cupos: 0 }
-        ]
-      }
-    ]
+    hoteles: []
   })
 
   const handleOpenCreateBloqueo = () => {
@@ -158,7 +143,7 @@ export default function BloqueosPage() {
       ganancia_unitaria: 100,
       precio_venta_pax: '',
       notas: '',
-      hoteles: createDefaultHotelList(defaultCupos, 750)
+      hoteles: [] // Modo básico por defecto
     })
     setShowCreateModal(true)
   }
@@ -375,17 +360,12 @@ export default function BloqueosPage() {
       const cupos = Number(formData.cupos_totales) || 30
       const precioVenta = Number(formData.precio_venta_pax) || costCalculations.precioSugerido
 
-      if (formData.hoteles && formData.hoteles.length > 0) {
-        const totalAsignado = formData.hoteles.reduce((acc, h) => acc + (Number(h.cupos) || 0), 0)
+      // Validar hoteles SOLO si fueron activados y tienen hoteles en la lista
+      const validHoteles = (formData.hoteles || []).filter(h => h.nombre && h.nombre.trim() !== '')
+      if (validHoteles.length > 0) {
+        const totalAsignado = validHoteles.reduce((acc, h) => acc + (Number(h.cupos) || 0), 0)
         if (totalAsignado !== cupos) {
-          showToast(`Los espacios asignados a los hoteles (${totalAsignado}) deben coincidir con los ${cupos} cupos totales del bloqueo. Ajusta los espacios antes de guardar.`, 'error')
-          setCreating(false)
-          return
-        }
-
-        const sinNombre = formData.hoteles.find(h => !h.nombre || !h.nombre.trim())
-        if (sinNombre) {
-          showToast('Por favor escribe el nombre de cada hotel contratado.', 'error')
+          showToast(`Los espacios asignados a los hoteles (${totalAsignado}) deben coincidir con los ${cupos} cupos totales del bloqueo. O desactiva los hoteles para guardar en modo básico.`, 'error')
           setCreating(false)
           return
         }
@@ -409,7 +389,7 @@ export default function BloqueosPage() {
         otros_costos: formData.otros_costos || [],
         ganancia_unitaria: Number(formData.ganancia_unitaria) || 0,
         costo_total_unitario: costCalculations.costoUnitario,
-        hoteles: formData.hoteles || [],
+        hoteles: validHoteles,
         creado_por: user?.id || null
       }
 
@@ -594,10 +574,6 @@ export default function BloqueosPage() {
   const handleOpenEditBloqueo = (bloqueo) => {
     fetchTags()
     setEditingBloqueo(bloqueo)
-    const existingHoteles = Array.isArray(bloqueo.hoteles) && bloqueo.hoteles.length > 0
-      ? bloqueo.hoteles
-      : createDefaultHotelList(bloqueo.cupos_totales || 30, Number(bloqueo.precio_venta_pax) || 750)
-
     setEditFormData({
       id: bloqueo.id,
       codigo: bloqueo.codigo || '',
@@ -616,7 +592,7 @@ export default function BloqueosPage() {
       ganancia_unitaria: bloqueo.ganancia_unitaria || 0,
       precio_venta_pax: bloqueo.precio_venta_pax || '',
       notas: bloqueo.notas || '',
-      hoteles: existingHoteles
+      hoteles: Array.isArray(bloqueo.hoteles) ? bloqueo.hoteles : []
     })
     setShowEditModal(true)
   }
@@ -633,17 +609,11 @@ export default function BloqueosPage() {
       const oldCupos = editingBloqueo?.cupos_totales || 30
       const newCupos = Number(editFormData.cupos_totales) || 30
 
-      if (editFormData.hoteles && editFormData.hoteles.length > 0) {
-        const totalAsignado = editFormData.hoteles.reduce((acc, h) => acc + (Number(h.cupos) || 0), 0)
+      const validHoteles = (editFormData.hoteles || []).filter(h => h.nombre && h.nombre.trim() !== '')
+      if (validHoteles.length > 0) {
+        const totalAsignado = validHoteles.reduce((acc, h) => acc + (Number(h.cupos) || 0), 0)
         if (totalAsignado !== newCupos) {
-          showToast(`Los espacios asignados a los hoteles (${totalAsignado}) deben coincidir con los ${newCupos} cupos totales del bloqueo.`, 'error')
-          setUpdating(false)
-          return
-        }
-
-        const sinNombre = editFormData.hoteles.find(h => !h.nombre || !h.nombre.trim())
-        if (sinNombre) {
-          showToast('Por favor escribe el nombre de cada hotel contratado.', 'error')
+          showToast(`Los espacios asignados a los hoteles (${totalAsignado}) deben coincidir con los ${newCupos} cupos totales del bloqueo. O desactiva los hoteles para guardar en modo básico.`, 'error')
           setUpdating(false)
           return
         }
@@ -701,7 +671,7 @@ export default function BloqueosPage() {
         otros_costos: editFormData.otros_costos || [],
         ganancia_unitaria: Number(editFormData.ganancia_unitaria) || 0,
         costo_total_unitario: editCostCalculations.costoUnitario,
-        hoteles: editFormData.hoteles || [],
+        hoteles: validHoteles,
         updated_at: new Date().toISOString()
       }
 

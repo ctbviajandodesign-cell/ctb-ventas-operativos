@@ -1237,24 +1237,7 @@ export default function BloqueoDetallePage() {
   // Edit Bloqueo from Detail Page (Admin/SuperAdmin)
   const handleOpenEditBloqueoModal = () => {
     if (!bloqueo) return
-    const existingHoteles = Array.isArray(bloqueo.hoteles) && bloqueo.hoteles.length > 0
-      ? bloqueo.hoteles
-      : [
-          {
-            id: `hotel_${Date.now()}`,
-            nombre: '',
-            categoria: 'Clase 2 (Estándar / 4★)',
-            regimen: 'Todo Incluido (All Inclusive)',
-            cupos: Number(bloqueo.cupos_totales) || 30,
-            notas: '',
-            habitaciones: [
-              { id: `hab_${Date.now()}_1`, tipo: 'Doble', precio: Number(bloqueo.precio_venta_pax) || 750, cupos: Math.round((bloqueo.cupos_totales || 30) * 0.7) },
-              { id: `hab_${Date.now()}_2`, tipo: 'Simple (SGL)', precio: Math.round((Number(bloqueo.precio_venta_pax) || 750) * 1.25), cupos: Math.max(0, (bloqueo.cupos_totales || 30) - Math.round((bloqueo.cupos_totales || 30) * 0.7)) },
-              { id: `hab_${Date.now()}_3`, tipo: 'Triple', precio: Number(bloqueo.precio_venta_pax) || 750, cupos: 0 },
-              { id: `hab_${Date.now()}_4`, tipo: 'Matrimonial', precio: Number(bloqueo.precio_venta_pax) || 750, cupos: 0 }
-            ]
-          }
-        ]
+    const existingHoteles = Array.isArray(bloqueo.hoteles) ? bloqueo.hoteles : []
 
     setEditBloqueoForm({
       titulo: bloqueo.titulo || '',
@@ -1281,11 +1264,12 @@ export default function BloqueoDetallePage() {
       const oldCupos = bloqueo.cupos_totales || 30
       const newCupos = Number(editBloqueoForm.cupos_totales) || 30
 
-      // Validación estricta: si hay hoteles configurados, la suma de sus cupos debe coincidir exactamente con los cupos totales
-      if (editBloqueoForm.hoteles && editBloqueoForm.hoteles.length > 0) {
-        const totalAsignadoHoteles = editBloqueoForm.hoteles.reduce((acc, h) => acc + (Number(h.cupos) || 0), 0)
+      // Validación: solo si hay hoteles con nombre configurados
+      const validHoteles = (editBloqueoForm.hoteles || []).filter(h => h.nombre && h.nombre.trim() !== '')
+      if (validHoteles.length > 0) {
+        const totalAsignadoHoteles = validHoteles.reduce((acc, h) => acc + (Number(h.cupos) || 0), 0)
         if (totalAsignadoHoteles !== newCupos) {
-          showToast(`Los espacios asignados a los hoteles (${totalAsignadoHoteles}) deben coincidir exactamente con los ${newCupos} cupos totales del bloqueo.`, 'error')
+          showToast(`Los espacios asignados a los hoteles (${totalAsignadoHoteles}) deben coincidir exactamente con los ${newCupos} cupos totales del bloqueo. O desactiva los hoteles para guardar en modo básico.`, 'error')
           setSaving(false)
           return
         }
@@ -1337,7 +1321,7 @@ export default function BloqueoDetallePage() {
         estado: editBloqueoForm.estado,
         precio_venta_pax: Number(editBloqueoForm.precio_venta_pax) || 0,
         notas: editBloqueoForm.notas?.trim() || null,
-        hoteles: editBloqueoForm.hoteles || [],
+        hoteles: validHoteles,
         updated_at: new Date().toISOString()
       }
 
@@ -2017,36 +2001,7 @@ export default function BloqueoDetallePage() {
             })}
           </div>
         </div>
-      ) : (
-        <div className="bg-gradient-to-r from-blue-50/80 via-indigo-50/40 to-white p-6 rounded-3xl border border-blue-200/80 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-start sm:items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-black shadow-lg shadow-blue-500/25 shrink-0">
-              <Hotel size={24} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-black text-gray-900 tracking-tight">
-                  Hoteles & Habitaciones del Bloqueo
-                </h3>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">
-                  Sin Configurar
-                </span>
-              </div>
-              <p className="text-xs text-gray-600 font-medium mt-0.5 max-w-xl">
-                Este bloqueo aún no tiene hoteles ni habitaciones asignadas. Haz clic en "Configurar Hoteles" para ingresar el hotel, tipos de habitación y cupos contratados.
-              </p>
-            </div>
-          </div>
-          {isPrivileged && (
-            <button
-              onClick={handleOpenEditBloqueoModal}
-              className="btn-primary flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-black uppercase tracking-wider shadow-xl shadow-primary/25 whitespace-nowrap self-stretch sm:self-auto justify-center active:scale-95 transition-all"
-            >
-              <Plus size={16} /> Configurar Hoteles Ahora
-            </button>
-          )}
-        </div>
-      )}
+      ) : null}
 
       {/* View Mode Toggle Strip: Vista Tabla vs Distribución Rooming */}
       <div className="bg-white p-2.5 rounded-3xl border border-gray-100 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">

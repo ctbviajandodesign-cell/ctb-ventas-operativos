@@ -40,13 +40,17 @@ export default function BloqueoHotelesConfig({
   precioBaseSugerido = 0,
   cuposTotalesBloqueo = 30
 }) {
+  const [isHotelMode, setIsHotelMode] = useState(Array.isArray(hoteles) && hoteles.length > 0)
   const [expandedHotelId, setExpandedHotelId] = useState(hoteles[0]?.id || null)
 
   useEffect(() => {
-    if (hoteles && hoteles.length > 0) {
+    if (Array.isArray(hoteles) && hoteles.length > 0) {
+      setIsHotelMode(true)
       if (!expandedHotelId || !hoteles.some(h => h.id === expandedHotelId)) {
         setExpandedHotelId(hoteles[0].id)
       }
+    } else {
+      setIsHotelMode(false)
     }
   }, [hoteles, expandedHotelId])
 
@@ -83,8 +87,27 @@ export default function BloqueoHotelesConfig({
   const handleRemoveHotel = (id) => {
     const updated = hoteles.filter(h => h.id !== id)
     onChange(updated)
-    if (expandedHotelId === id && updated.length > 0) {
+    if (updated.length === 0) {
+      setIsHotelMode(false)
+    } else if (expandedHotelId === id) {
       setExpandedHotelId(updated[0].id)
+    }
+  }
+
+  const handleDisableHotelMode = () => {
+    if (hoteles.length > 0) {
+      if (!confirm('¿Deseas quitar los hoteles configurados y volver al modo básico general?')) {
+        return
+      }
+    }
+    setIsHotelMode(false)
+    onChange([])
+  }
+
+  const handleEnableHotelMode = () => {
+    setIsHotelMode(true)
+    if (!hoteles || hoteles.length === 0) {
+      handleAddHotel()
     }
   }
 
@@ -199,6 +222,39 @@ export default function BloqueoHotelesConfig({
     onChange(updated)
   }
 
+  if (!isHotelMode || !hoteles || hoteles.length === 0) {
+    return (
+      <div className="bg-white/80 p-4 rounded-2xl border border-dashed border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gray-100 text-gray-500 flex items-center justify-center shrink-0">
+            <Hotel size={20} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="text-xs font-black text-gray-900">
+                Hoteles & Habitaciones (Opcional)
+              </h4>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                Modo Básico Activo
+              </span>
+            </div>
+            <p className="text-[11px] text-gray-500 font-medium mt-0.5">
+              Este bloqueo se gestionará con el precio de venta y cupos generales del viaje (como antes). Si deseas detallar hoteles específicos, tipos de habitación y cupos por hotel, actívalo a continuación.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleEnableHotelMode}
+          className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20 active:scale-95 transition-all shrink-0 whitespace-nowrap"
+        >
+          <Plus size={15} /> + Detallar Hoteles & Habitaciones
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
       {/* Encabezado de Sección */}
@@ -208,16 +264,21 @@ export default function BloqueoHotelesConfig({
             <Hotel size={18} />
           </div>
           <div>
-            <h4 className="text-xs font-black uppercase tracking-wider text-gray-900 flex items-center gap-1.5">
-              Hoteles, Habitaciones & Espacios Disponibles
-            </h4>
+            <div className="flex items-center gap-2">
+              <h4 className="text-xs font-black uppercase tracking-wider text-gray-900 flex items-center gap-1.5">
+                Hoteles, Habitaciones & Espacios Disponibles
+              </h4>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                Detallado Activo
+              </span>
+            </div>
             <p className="text-[11px] text-gray-500 font-medium">
               Asigna los cupos a cada hotel asegurando que la suma coincida con los <strong>{totalGeneral} cupos totales del bloqueo</strong>.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {hoteles.length > 1 && (
             <button
               type="button"
@@ -235,6 +296,15 @@ export default function BloqueoHotelesConfig({
             className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all"
           >
             <Plus size={14} /> + Agregar Hotel
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDisableHotelMode}
+            className="px-2.5 py-1.5 rounded-xl bg-gray-100 hover:bg-red-50 hover:text-red-700 text-gray-600 text-xs font-semibold transition-all"
+            title="Quitar hoteles y volver a modo básico"
+          >
+            Volver a Modo Básico
           </button>
         </div>
       </div>
