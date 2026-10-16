@@ -55,17 +55,21 @@ import IataSelector from '@/components/IataSelector'
 import BloqueoCountdownTimer from '@/components/BloqueoCountdownTimer'
 import BloqueoHotelesConfig from '@/components/dashboard/BloqueoHotelesConfig'
 
+// Module-level caches for instant detail loading & team helpers
+const memoryCacheBloqueoDetail = {}
+let memoryCacheHelpers = null
+
 export default function BloqueoDetallePage() {
   const { id } = useParams()
   const router = useRouter()
   const { user, profile, isAdmin } = useUserSession()
   const isPrivileged = isAdmin || profile?.rol === 'superadmin'
 
-  const [bloqueo, setBloqueo] = useState(null)
-  const [pasajeros, setPasajeros] = useState([])
-  const [operativosList, setOperativosList] = useState([])
-  const [comercialesList, setComercialesList] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [bloqueo, setBloqueo] = useState(() => memoryCacheBloqueoDetail[id]?.bloqueo || null)
+  const [pasajeros, setPasajeros] = useState(() => memoryCacheBloqueoDetail[id]?.pasajeros || [])
+  const [operativosList, setOperativosList] = useState(() => memoryCacheHelpers?.operativos || [])
+  const [comercialesList, setComercialesList] = useState(() => memoryCacheHelpers?.comerciales || [])
+  const [loading, setLoading] = useState(() => !memoryCacheBloqueoDetail[id])
   const [saving, setSaving] = useState(false)
 
   // View mode: 'tabla' | 'rooming'
@@ -186,11 +190,17 @@ export default function BloqueoDetallePage() {
   }, [id])
 
   async function fetchHelpers() {
+    if (memoryCacheHelpers) {
+      setOperativosList(memoryCacheHelpers.operativos)
+      setComercialesList(memoryCacheHelpers.comerciales)
+      return
+    }
     try {
       const [{ data: ops }, { data: coms }] = await Promise.all([
         supabase.from('profiles').select('id, nombre, ciudad').in('rol', ['operativo', 'comercial', 'admin', 'superadmin']),
         supabase.from('comerciales').select('id, nombre, ciudad')
       ])
+      memoryCacheHelpers = { operativos: ops || [], comerciales: coms || [] }
       if (ops) setOperativosList(ops)
       if (coms) setComercialesList(coms)
     } catch (e) {
@@ -199,7 +209,7 @@ export default function BloqueoDetallePage() {
   }
 
   async function fetchBloqueoData(showSpinner = true) {
-    if (showSpinner) setLoading(true)
+    if (showSpinner && !memoryCacheBloqueoDetail[id]) setLoading(true)
     try {
       const [blqRes, pasRes] = await Promise.all([
         supabase.from('bloqueos').select('*').eq('id', id).single(),
@@ -207,8 +217,6 @@ export default function BloqueoDetallePage() {
       ])
 
       if (blqRes.error) throw blqRes.error
-      setBloqueo(blqRes.data)
-
       if (pasRes.error) throw pasRes.error
 
       // Auto-extract categoria_habitacion from observaciones if column is null
@@ -223,12 +231,15 @@ export default function BloqueoDetallePage() {
           categoria_habitacion: cat || 'Clase 2 (Estándar / 4★)'
         }
       })
+
+      memoryCacheBloqueoDetail[id] = { bloqueo: blqRes.data, pasajeros: normalizedPas }
+      setBloqueo(blqRes.data)
       setPasajeros(normalizedPas)
     } catch (err) {
       console.error('Error fetching bloqueo detail:', err)
       showToast('Error al cargar detalle del bloqueo.', 'error')
     } finally {
-      if (showSpinner) setLoading(false)
+      setLoading(false)
     }
   }
 
@@ -1335,6 +1346,11 @@ export default function BloqueoDetallePage() {
 
       showToast('¡Configuración del bloqueo actualizada!', 'success')
       setShowEditBloqueoModal(false)
+      const updatedBloqueo = { ...bloqueo, ...updateData }
+      setBloqueo(updatedBloqueo)
+      if (memoryCacheBloqueoDetail[bloqueo.id]) {
+        memoryCacheBloqueoDetail[bloqueo.id].bloqueo = updatedBloqueo
+      }
       fetchBloqueoData(false)
     } catch (err) {
       console.error('Error updating bloqueo:', err)
@@ -1484,40 +1500,41 @@ export default function BloqueoDetallePage() {
     showToast('Rooming List exportado a Excel.', 'success')
   }
 
-  // Filtered list with comprehensive search & accurate balance status
+  // Filtered list with comprehensive search & accurate balance status (optimized)
   const filteredSlots = useMemo(() => {
+    const term = searchTerm ? searchTerm.toLowerCase().trim() : ''
+
     return pasajeros.filter(p => {
-      const isOcupado = p.nombres && p.nombres.trim() !== ''
-      const precio = Number(p.precio_acordado) || Number(bloqueo?.precio_venta_pax) || 0
-      const planPagos = p.plan_pagos && Array.isArray(p.plan_pagos) && p.plan_pagos.length > 0
-        ? p.plan_pagos
-        : [
-            { monto: p.abono_1, estado: 'pagado' },
-            { monto: p.abono_2, estado: 'pagado' },
-            { monto: p.abono_3, estado: 'pagado' }
-          ]
-      const totalPagado = planPagos
-        .filter(item => item.estado === 'pagado')
-        .reduce((sum, item) => sum + (Number(item.monto) || 0), 0)
-      const realFaltante = Math.max(0, precio - totalPagado)
+      const isOcupado = Boolean(p.nombres && p.nombres.trim() !== '')
 
       if (statusFilter === 'ocupados' && !isOcupado) return false
       if (statusFilter === 'libres' && isOcupado) return false
-      if (statusFilter === 'pendientes' && (!isOcupado || realFaltante <= 0)) return false
+      if (statusFilter === 'pendientes') {
+        if (!isOcupado) return false
+        const precio = Number(p.precio_acordado) || Number(bloqueo?.precio_venta_pax) || 0
+        let totalPagado = 0
+        if (p.plan_pagos && Array.isArray(p.plan_pagos) && p.plan_pagos.length > 0) {
+          totalPagado = p.plan_pagos
+            .filter(item => item.estado === 'pagado')
+            .reduce((sum, item) => sum + (Number(item.monto) || 0), 0)
+        } else {
+          totalPagado = (Number(p.abono_1) || 0) + (Number(p.abono_2) || 0) + (Number(p.abono_3) || 0)
+        }
+        if (totalPagado >= precio && precio > 0) return false
+      }
 
-      if (!searchTerm) return true
-      const term = searchTerm.toLowerCase().trim()
+      if (!term) return true
       return (
-        p.nombres?.toLowerCase().includes(term) ||
-        p.apellidos?.toLowerCase().includes(term) ||
-        p.numero_documento?.toLowerCase().includes(term) ||
-        p.tipo_habitacion?.toLowerCase().includes(term) ||
-        p.categoria_habitacion?.toLowerCase().includes(term) ||
-        p.grupo_nombre?.toLowerCase().includes(term) ||
-        p.agencia?.toLowerCase().includes(term) ||
-        p.operativo_nombre?.toLowerCase().includes(term) ||
-        p.comercial_nombre?.toLowerCase().includes(term) ||
-        p.codigo_cotizacion?.toLowerCase().includes(term) ||
+        (p.nombres && p.nombres.toLowerCase().includes(term)) ||
+        (p.apellidos && p.apellidos.toLowerCase().includes(term)) ||
+        (p.numero_documento && p.numero_documento.toLowerCase().includes(term)) ||
+        (p.tipo_habitacion && p.tipo_habitacion.toLowerCase().includes(term)) ||
+        (p.categoria_habitacion && p.categoria_habitacion.toLowerCase().includes(term)) ||
+        (p.grupo_nombre && p.grupo_nombre.toLowerCase().includes(term)) ||
+        (p.agencia && p.agencia.toLowerCase().includes(term)) ||
+        (p.operativo_nombre && p.operativo_nombre.toLowerCase().includes(term)) ||
+        (p.comercial_nombre && p.comercial_nombre.toLowerCase().includes(term)) ||
+        (p.codigo_cotizacion && p.codigo_cotizacion.toLowerCase().includes(term)) ||
         p.numero_cupo.toString().includes(term)
       )
     })
@@ -2244,14 +2261,18 @@ export default function BloqueoDetallePage() {
               </thead>
               <tbody className="divide-y divide-gray-50 font-medium">
                 {filteredSlots.map((slot) => {
-                  const isOccupied = slot.nombres && slot.nombres.trim() !== ''
+                  const isOccupied = Boolean(slot.nombres && slot.nombres.trim() !== '')
                   const precio = Number(slot.precio_acordado) || 0
                   const isSelected = selectedSlotIds.includes(slot.id)
-                  const planPagos = getSlotInstallments(slot)
-                  const totalPagado = planPagos.filter(p => p.estado === 'pagado').reduce((acc, p) => acc + (Number(p.monto) || 0), 0)
+                  const planPagos = isOccupied ? getSlotInstallments(slot) : []
+                  const totalPagado = isOccupied
+                    ? (slot.plan_pagos && Array.isArray(slot.plan_pagos) && slot.plan_pagos.length > 0
+                        ? slot.plan_pagos.filter(p => p.estado === 'pagado').reduce((acc, p) => acc + (Number(p.monto) || 0), 0)
+                        : (Number(slot.abono_1) || 0) + (Number(slot.abono_2) || 0) + (Number(slot.abono_3) || 0))
+                    : 0
                   const realFaltante = isOccupied ? Math.max(0, precio - totalPagado) : 0
                   const isPaid = isOccupied && realFaltante === 0 && precio > 0
-                  const readiness = getDataReadiness(slot)
+                  const readiness = isOccupied ? getDataReadiness(slot) : null
 
                   return (
                     <tr

@@ -44,15 +44,14 @@ export default function BloqueoHotelesConfig({
   const [expandedHotelId, setExpandedHotelId] = useState(hoteles[0]?.id || null)
 
   useEffect(() => {
-    if (Array.isArray(hoteles) && hoteles.length > 0) {
-      setIsHotelMode(true)
+    const hasHoteles = Array.isArray(hoteles) && hoteles.length > 0
+    setIsHotelMode(hasHoteles)
+    if (hasHoteles) {
       if (!expandedHotelId || !hoteles.some(h => h.id === expandedHotelId)) {
-        setExpandedHotelId(hoteles[0].id)
+        setExpandedHotelId(hoteles[0]?.id || null)
       }
-    } else {
-      setIsHotelMode(false)
     }
-  }, [hoteles, expandedHotelId])
+  }, [hoteles?.length, expandedHotelId])
 
   const totalGeneral = Number(cuposTotalesBloqueo) || 30
   const totalAsignado = hoteles.reduce((acc, h) => acc + (Number(h.cupos) || 0), 0)

@@ -37,14 +37,18 @@ import IataSelector from '@/components/IataSelector'
 import BloqueoCountdownTimer from '@/components/BloqueoCountdownTimer'
 import BloqueoHotelesConfig from '@/components/dashboard/BloqueoHotelesConfig'
 
+// Module-level in-memory cache for instant 0ms page loads and navigation
+let memoryCacheBloqueos = null
+let memoryCacheStats = null
+
 export default function BloqueosPage() {
   const { user, profile, isAdmin } = useUserSession()
   const isSuperAdmin = profile?.rol === 'superadmin'
   const isPrivileged = isAdmin || isSuperAdmin
 
-  const [bloqueos, setBloqueos] = useState([])
-  const [pasajerosStats, setPasajerosStats] = useState({})
-  const [loading, setLoading] = useState(true)
+  const [bloqueos, setBloqueos] = useState(() => memoryCacheBloqueos || [])
+  const [pasajerosStats, setPasajerosStats] = useState(() => memoryCacheStats || {})
+  const [loading, setLoading] = useState(() => !memoryCacheBloqueos)
 
   // Filters
   const [search, setSearch] = useState('')
@@ -181,7 +185,7 @@ export default function BloqueosPage() {
   }
 
   async function fetchBloqueos(showSpinner = true) {
-    if (showSpinner) setLoading(true)
+    if (showSpinner && !memoryCacheBloqueos) setLoading(true)
     try {
       // Parallelize queries and filter ONLY occupied passengers for stats calculation (huge speedup)
       const [blqRes, pasRes] = await Promise.all([
@@ -221,13 +225,15 @@ export default function BloqueosPage() {
         })
       }
 
-      setBloqueos(blqRes.data || [])
-      setPasajerosStats(statsMap)
+      memoryCacheBloqueos = blqRes.data || []
+      memoryCacheStats = statsMap
+      setBloqueos(memoryCacheBloqueos)
+      setPasajerosStats(memoryCacheStats)
     } catch (err) {
       console.error('Error loading bloqueos:', err)
       showToast('Error al cargar bloqueos: ' + err.message, 'error')
     } finally {
-      if (showSpinner) setLoading(false)
+      setLoading(false)
     }
   }
 
@@ -432,6 +438,9 @@ export default function BloqueosPage() {
 
       showToast(`¡Bloqueo ${newBloqueo.codigo} creado con éxito con ${cupos} cupos!`, 'success')
       setShowCreateModal(false)
+      const updatedList = [newBloqueo, ...bloqueos]
+      setBloqueos(updatedList)
+      memoryCacheBloqueos = updatedList
       // Reset form
       setFormData({
         codigo: '',
@@ -451,7 +460,7 @@ export default function BloqueosPage() {
         notas: '',
         hoteles: []
       })
-      fetchBloqueos()
+      fetchBloqueos(false)
     } catch (err) {
       console.error('Error creating bloqueo:', err)
       showToast('No se pudo crear el bloqueo: ' + err.message, 'error')
@@ -690,6 +699,9 @@ export default function BloqueosPage() {
 
       showToast(`¡Bloqueo ${editFormData.codigo} actualizado con éxito!`, 'success')
       setShowEditModal(false)
+      const updatedList = bloqueos.map(b => b.id === editFormData.id ? { ...b, ...updatePayload } : b)
+      setBloqueos(updatedList)
+      memoryCacheBloqueos = updatedList
       fetchBloqueos(false)
     } catch (err) {
       console.error('Error updating bloqueo:', err)
