@@ -35,26 +35,37 @@ const TIPOS_HABITACION_SUGERIDOS = [
 ]
 
 export default function BloqueoHotelesConfig({ 
-  hoteles = [], 
+  hoteles: rawHoteles = [], 
   onChange, 
   precioBaseSugerido = 0,
   cuposTotalesBloqueo = 30
 }) {
-  const [isHotelMode, setIsHotelMode] = useState(Array.isArray(hoteles) && hoteles.length > 0)
+  // Normalize and parse hoteles prop safely (handles null, undefined, JSON string, or non-array)
+  let hoteles = []
+  if (Array.isArray(rawHoteles)) {
+    hoteles = rawHoteles.filter(Boolean)
+  } else if (typeof rawHoteles === 'string' && rawHoteles.trim() !== '') {
+    try {
+      const parsed = JSON.parse(rawHoteles)
+      if (Array.isArray(parsed)) hoteles = parsed.filter(Boolean)
+    } catch {}
+  }
+
+  const [isHotelMode, setIsHotelMode] = useState(hoteles.length > 0)
   const [expandedHotelId, setExpandedHotelId] = useState(hoteles[0]?.id || null)
 
   useEffect(() => {
-    const hasHoteles = Array.isArray(hoteles) && hoteles.length > 0
+    const hasHoteles = hoteles.length > 0
     setIsHotelMode(hasHoteles)
     if (hasHoteles) {
-      if (!expandedHotelId || !hoteles.some(h => h.id === expandedHotelId)) {
+      if (!expandedHotelId || !hoteles.some(h => h && h.id === expandedHotelId)) {
         setExpandedHotelId(hoteles[0]?.id || null)
       }
     }
-  }, [hoteles?.length, expandedHotelId])
+  }, [hoteles.length, expandedHotelId])
 
   const totalGeneral = Number(cuposTotalesBloqueo) || 30
-  const totalAsignado = hoteles.reduce((acc, h) => acc + (Number(h.cupos) || 0), 0)
+  const totalAsignado = hoteles.reduce((acc, h) => acc + (Number(h?.cupos) || 0), 0)
   const cuposFaltantes = totalGeneral - totalAsignado
   const isMatchExacto = totalAsignado === totalGeneral
 

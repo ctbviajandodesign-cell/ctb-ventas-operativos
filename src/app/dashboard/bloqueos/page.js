@@ -1131,28 +1131,40 @@ ${hotelesTexto}
                   </div>
 
                   {/* Hoteles Contratados */}
-                  {Array.isArray(bloqueo.hoteles) && bloqueo.hoteles.length > 0 ? (
-                    <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                      {bloqueo.hoteles.map((h, i) => (
-                        <span key={i} className="text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200/60 px-2 py-0.5 rounded-lg flex items-center gap-1">
-                          <Hotel size={11} className="text-blue-600" />
-                          <span className="truncate max-w-[130px]">{h.nombre || `Hotel ${i+1}`}</span>
-                          <span className="text-blue-900 font-black">({h.cupos} cupos)</span>
-                        </span>
-                      ))}
-                    </div>
-                  ) : isPrivileged ? (
-                    <div className="mt-2.5">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEditBloqueo(bloqueo)}
-                        className="text-[10px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition-colors"
-                      >
-                        <AlertTriangle size={11} className="text-amber-600 shrink-0" />
-                        <span>Sin hoteles asignados · Clic para configurar</span>
-                      </button>
-                    </div>
-                  ) : null}
+                  {(() => {
+                    let hotelesList = bloqueo.hoteles
+                    if (typeof hotelesList === 'string') {
+                      try { hotelesList = JSON.parse(hotelesList) } catch {}
+                    }
+                    if (Array.isArray(hotelesList) && hotelesList.length > 0) {
+                      return (
+                        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                          {hotelesList.map((h, i) => (
+                            <span key={h?.id || i} className="text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200/60 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                              <Hotel size={11} className="text-blue-600" />
+                              <span className="truncate max-w-[130px]">{h?.nombre || `Hotel ${i+1}`}</span>
+                              <span className="text-blue-900 font-black">({h?.cupos || 0} cupos)</span>
+                            </span>
+                          ))}
+                        </div>
+                      )
+                    }
+                    if (isPrivileged) {
+                      return (
+                        <div className="mt-2.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditBloqueo(bloqueo)}
+                            className="text-[10px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition-colors"
+                          >
+                            <AlertTriangle size={11} className="text-amber-600 shrink-0" />
+                            <span>Sin hoteles asignados · Clic para configurar</span>
+                          </button>
+                        </div>
+                      )
+                    }
+                    return null
+                  })()}
 
                   {/* PROMINENT COUNTDOWN TIMER */}
                   <BloqueoCountdownTimer fechaSalida={bloqueo.fecha_salida} />
@@ -1354,7 +1366,8 @@ ${hotelesTexto}
                     </button>
 
                     <Link
-                      href={`/dashboard/bloqueos/${bloqueo.id}`}
+                      href={`/dashboard/bloqueos/${bloqueo?.id || ''}`}
+                      prefetch={false}
                       className="inline-flex items-center gap-1.5 sm:gap-2 bg-gray-900 hover:bg-primary text-white px-4 sm:px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow-lg hover:shadow-primary/30 active:scale-95 transition-all whitespace-nowrap"
                     >
                       <span>Ver Pasajeros</span>

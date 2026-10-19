@@ -813,13 +813,13 @@ export default function BloqueoDetallePage() {
       return
     }
 
-    const paxList = groupForm.pasajeros_lista.filter(p => p.nombres && p.nombres.trim() !== '')
+    const paxList = groupForm.pasajeros_lista.filter(p => p && String(p.nombres || '').trim() !== '')
     if (paxList.length === 0) {
       showToast('Ingresa al menos el nombre de un pasajero para el grupo.', 'error')
       return
     }
 
-    const availableSlots = pasajeros.filter(p => !p.nombres || p.nombres.trim() === '')
+    const availableSlots = (pasajeros || []).filter(p => !p || !p.nombres || String(p.nombres).trim() === '')
     if (availableSlots.length < paxList.length) {
       showToast(`Solo quedan ${availableSlots.length} cupos disponibles para asignar este grupo.`, 'error')
       return
@@ -1183,7 +1183,7 @@ export default function BloqueoDetallePage() {
       return
     }
 
-    const availableSlots = pasajeros.filter(p => !p.nombres || p.nombres.trim() === '')
+    const availableSlots = (pasajeros || []).filter(p => !p || !p.nombres || String(p.nombres).trim() === '')
     if (availableSlots.length < parsed.length) {
       showToast(`Solo quedan ${availableSlots.length} cupos disponibles para asignar los ${parsed.length} pasajeros.`, 'error')
       return
@@ -1335,7 +1335,7 @@ export default function BloqueoDetallePage() {
           .eq('bloqueo_id', bloqueo.id)
           .gt('numero_cupo', newCupos)
 
-        const hasOcc = (occupied || []).some(o => o.nombres && o.nombres.trim() !== '')
+        const hasOcc = (occupied || []).some(o => o && String(o.nombres || '').trim() !== '')
         if (hasOcc) {
           showToast(`No se pueden reducir cupos a ${newCupos} porque hay cupos ocupados más allá de esa posición.`, 'error')
           setSaving(false)
@@ -1721,7 +1721,7 @@ export default function BloqueoDetallePage() {
                   <button
                     onClick={() => {
                       setShowAddPaxMenu(false)
-                      const freeSlot = pasajeros.find(p => !p.nombres || p.nombres.trim() === '')
+                      const freeSlot = (pasajeros || []).find(p => !p || !p.nombres || String(p.nombres).trim() === '')
                       if (!freeSlot) {
                         showToast('Todos los cupos de este bloqueo están ocupados.', 'error')
                         return
@@ -1970,7 +1970,7 @@ export default function BloqueoDetallePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {configuredHoteles.map((h) => {
+            {configuredHoteles.map((h, hIdx) => {
               const hKey = (h?.nombre || '').trim().toLowerCase()
               const stat = hotelStats[hKey] || { ocupados: 0, disponibles: Number(h?.cupos) || 0 }
               const totCupos = Number(h?.cupos) || 0
@@ -1982,7 +1982,7 @@ export default function BloqueoDetallePage() {
 
               return (
                 <div
-                  key={h.id}
+                  key={h?.id || h?.nombre || hIdx}
                   className={`p-4 rounded-2xl border transition-all ${
                     isOver
                       ? 'bg-red-50/40 border-red-200'
@@ -2313,7 +2313,7 @@ export default function BloqueoDetallePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50 font-medium">
-                {filteredSlots.map((slot) => {
+                {filteredSlots.map((slot, sIdx) => {
                   if (!slot) return null
                   const isOccupied = Boolean(slot.nombres && String(slot.nombres).trim() !== '')
                   const precio = Number(slot.precio_acordado) || 0
@@ -2330,7 +2330,7 @@ export default function BloqueoDetallePage() {
 
                   return (
                     <tr
-                      key={slot.id}
+                      key={slot?.id || `cupo-${slot?.numero_cupo || sIdx}`}
                       className={`hover:bg-blue-50/40 transition-colors ${
                         isSelected ? 'bg-purple-50/60' : !isOccupied ? 'bg-gray-50/20 text-gray-400' : 'text-gray-800'
                       }`}
