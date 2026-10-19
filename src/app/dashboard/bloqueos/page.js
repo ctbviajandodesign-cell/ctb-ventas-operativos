@@ -220,8 +220,8 @@ export default function BloqueosPage() {
           let totalPagado = 0
           if (Array.isArray(p.plan_pagos) && p.plan_pagos.length > 0) {
             totalPagado = p.plan_pagos
-              .filter(item => item.estado === 'pagado')
-              .reduce((acc, item) => acc + (Number(item.monto) || 0), 0)
+              .filter(item => item && item.estado === 'pagado')
+              .reduce((acc, item) => acc + (Number(item?.monto) || 0), 0)
           } else {
             totalPagado = (Number(p.abono_1) || 0) + (Number(p.abono_2) || 0) + (Number(p.abono_3) || 0)
           }
@@ -1184,7 +1184,16 @@ ${hotelesTexto}
                     <div className="mt-3 flex items-center gap-1.5 text-[11px] text-amber-700 bg-amber-50/80 px-3 py-1.5 rounded-xl border border-amber-200/50">
                       <AlertTriangle size={13} className="shrink-0 text-amber-600" />
                       <span>
-                        Límite para ingresar nombres: <strong>{format(parseISO(bloqueo.fecha_limite_emision), "d 'de' MMMM", { locale: es })}</strong>
+                        Límite para ingresar nombres: <strong>{(() => {
+                          try {
+                            const clean = String(bloqueo.fecha_limite_emision).replace(' ', 'T').split('T')[0]
+                            const d = parseISO(clean)
+                            if (isNaN(d.getTime())) return String(bloqueo.fecha_limite_emision)
+                            return format(d, "d 'de' MMMM", { locale: es })
+                          } catch {
+                            return String(bloqueo.fecha_limite_emision)
+                          }
+                        })()}</strong>
                       </span>
                     </div>
                   )}

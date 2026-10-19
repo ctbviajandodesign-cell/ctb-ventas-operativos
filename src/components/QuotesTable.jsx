@@ -489,11 +489,30 @@ export default function QuotesTable({ quotes, isAdmin, isSuperAdmin, isAuditor, 
               <div className="space-y-4 min-w-0">
                 <div className="flex gap-4">
                   <div className="flex-1 min-w-0">
-                    <p className="text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Pasajeros ({Math.max(viewingQuote.numero_pasajeros || 0, Array.isArray(viewingQuote.nombres_pasajeros) ? viewingQuote.nombres_pasajeros.length : 0) || 1})</p>
+                    <p className="text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-widest mb-2">
+                      Pasajeros ({Math.max(
+                        viewingQuote.numero_pasajeros || 0,
+                        Array.isArray(viewingQuote.nombres_pasajeros)
+                          ? viewingQuote.nombres_pasajeros.length
+                          : (typeof viewingQuote.nombres_pasajeros === 'string' && viewingQuote.nombres_pasajeros.trim()
+                              ? viewingQuote.nombres_pasajeros.split(/[\n,]+/).filter(Boolean).length
+                              : 0)
+                      ) || 1})
+                    </p>
                     <div className="flex flex-wrap gap-1.5 sm:gap-2 max-h-32 overflow-y-auto pr-1">
-                      {viewingQuote.nombres_pasajeros?.map((n, i) => (
-                        <span key={i} className="text-[11px] sm:text-xs font-bold bg-white border border-gray-100 px-2 sm:px-2.5 py-1 rounded-lg text-gray-600 uppercase break-words max-w-full">{n}</span>
-                      ))}
+                      {(() => {
+                        const paxList = Array.isArray(viewingQuote.nombres_pasajeros)
+                          ? viewingQuote.nombres_pasajeros
+                          : typeof viewingQuote.nombres_pasajeros === 'string' && viewingQuote.nombres_pasajeros.trim()
+                            ? viewingQuote.nombres_pasajeros.split(/[\n,]+/).map(s => s.trim()).filter(Boolean)
+                            : []
+                        if (paxList.length === 0) {
+                          return <p className="text-xs text-gray-400 italic">Sin pasajeros registrados</p>
+                        }
+                        return paxList.map((n, i) => (
+                          <span key={i} className="text-[11px] sm:text-xs font-bold bg-white border border-gray-100 px-2 sm:px-2.5 py-1 rounded-lg text-gray-600 uppercase break-words max-w-full">{n}</span>
+                        ))
+                      })()}
                     </div>
                   </div>
                 </div>

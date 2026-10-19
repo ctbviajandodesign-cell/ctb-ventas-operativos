@@ -121,7 +121,13 @@ export default function EditarCotizacionPage() {
           valor_bono: quoteData.valor_bono || 0,
           comercial: quoteComercial
         })
-        setPasajeros(quoteData.nombres_pasajeros || [''])
+        setPasajeros(
+          Array.isArray(quoteData.nombres_pasajeros)
+            ? quoteData.nombres_pasajeros
+            : typeof quoteData.nombres_pasajeros === 'string' && quoteData.nombres_pasajeros.trim()
+              ? quoteData.nombres_pasajeros.split(/[\n,]+/).map(s => s.trim()).filter(Boolean)
+              : ['']
+        )
         setLoading(false)
       } catch (err) {
         console.error('Error de autenticación:', err)

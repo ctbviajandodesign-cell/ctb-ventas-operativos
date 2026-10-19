@@ -5,11 +5,28 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Timer, CheckCircle2, Rocket, Calendar } from 'lucide-react'
 
+function parseSafeDate(fechaStr) {
+  if (!fechaStr) return null
+  try {
+    const str = String(fechaStr).trim()
+    if (!str) return null
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+      const d = new Date(str + 'T00:00:00')
+      return isNaN(d.getTime()) ? null : d
+    }
+    const clean = str.replace(' ', 'T')
+    const d = new Date(clean)
+    return isNaN(d.getTime()) ? null : d
+  } catch {
+    return null
+  }
+}
+
 function calculateTimeLeft(fechaSalida) {
-  if (!fechaSalida) return null
+  const target = parseSafeDate(fechaSalida)
+  if (!target) return null
 
   const now = new Date()
-  const target = new Date(fechaSalida + 'T00:00:00')
   const diffMs = target.getTime() - now.getTime()
 
   // Comprobar si hoy es exactamente el día del viaje
@@ -57,15 +74,18 @@ export default function BloqueoCountdownTimer({ fechaSalida, className = '' }) {
   if (!fechaSalida) return null
 
   // Parse target date safely
-  let salidaDate
-  try {
-    salidaDate = new Date(fechaSalida + 'T00:00:00')
-  } catch (e) {
-    salidaDate = new Date()
-  }
+  const salidaDate = parseSafeDate(fechaSalida)
+  let formattedDate = 'Por definir'
+  let dayName = ''
 
-  const formattedDate = format(salidaDate, "d MMM yyyy", { locale: es })
-  const dayName = format(salidaDate, "EEEE", { locale: es })
+  if (salidaDate) {
+    try {
+      formattedDate = format(salidaDate, "d MMM yyyy", { locale: es })
+      dayName = format(salidaDate, "EEEE", { locale: es })
+    } catch (e) {
+      formattedDate = String(fechaSalida)
+    }
+  }
 
   // Skeleton / SSR safe rendering
   if (!mounted || !time) {

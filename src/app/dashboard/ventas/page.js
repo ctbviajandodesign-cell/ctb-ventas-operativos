@@ -1071,19 +1071,27 @@ function VentasPageContent() {
               </div>
 
               {/* PASAJEROS */}
-              {(selectedVenta.cotizaciones?.nombres_pasajeros || []).length > 0 && (
-                <div>
-                  <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Pasajeros</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {(selectedVenta.cotizaciones?.nombres_pasajeros || []).map((n, i) => (
-                      <div key={i} className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-xl border border-gray-100">
-                        <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-xs font-black text-primary">{n?.charAt(0)}</div>
-                        <p className="text-xs font-bold text-gray-700 uppercase">{n}</p>
-                      </div>
-                    ))}
+              {(() => {
+                const paxList = Array.isArray(selectedVenta.cotizaciones?.nombres_pasajeros)
+                  ? selectedVenta.cotizaciones.nombres_pasajeros
+                  : typeof selectedVenta.cotizaciones?.nombres_pasajeros === 'string' && selectedVenta.cotizaciones.nombres_pasajeros.trim()
+                    ? selectedVenta.cotizaciones.nombres_pasajeros.split(/[\n,]+/).map(s => s.trim()).filter(Boolean)
+                    : []
+                if (paxList.length === 0) return null
+                return (
+                  <div>
+                    <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Pasajeros</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {paxList.map((n, i) => (
+                        <div key={i} className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-xl border border-gray-100">
+                          <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-xs font-black text-primary">{n?.charAt(0)}</div>
+                          <p className="text-xs font-bold text-gray-700 uppercase">{n}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )
+              })()}
 
               {selectedVenta.cotizaciones?.notas_iniciales && (
                 <div className="bg-primary/5 p-5 rounded-2xl border border-primary/10">

@@ -231,9 +231,10 @@ export default function BloqueoDetallePage() {
 
       // Auto-extract categoria_habitacion from observaciones if column is null
       const normalizedPas = (pasRes.data || []).map(p => {
+        if (!p) return p
         let cat = p.categoria_habitacion
         if (!cat && p.observaciones) {
-          const match = p.observaciones.match(/^\[(.*?)\]/)
+          const match = String(p.observaciones).match(/^\[(.*?)\]/)
           if (match) cat = match[1]
         }
         return {
@@ -261,13 +262,15 @@ export default function BloqueoDetallePage() {
 
     if (bloqueo && Array.isArray(pasajeros)) {
       pasajeros.forEach(p => {
-        if (p.nombres && p.nombres.trim() !== '') {
+        if (!p) return
+        const pNombres = String(p.nombres || '').trim()
+        if (pNombres !== '') {
           ocupados++
           let abonos = 0
-          if (p.plan_pagos && Array.isArray(p.plan_pagos) && p.plan_pagos.length > 0) {
+          if (Array.isArray(p.plan_pagos) && p.plan_pagos.length > 0) {
             abonos = p.plan_pagos
-              .filter(item => item.estado === 'pagado')
-              .reduce((sum, item) => sum + (Number(item.monto) || 0), 0)
+              .filter(item => item && item.estado === 'pagado')
+              .reduce((sum, item) => sum + (Number(item?.monto) || 0), 0)
           } else {
             abonos = (Number(p.abono_1) || 0) + (Number(p.abono_2) || 0) + (Number(p.abono_3) || 0)
           }
@@ -310,8 +313,13 @@ export default function BloqueoDetallePage() {
 
   // Extract payment installments array (from plan_pagos column or fallback)
   const getSlotInstallments = (slot) => {
-    if (slot.plan_pagos && Array.isArray(slot.plan_pagos) && slot.plan_pagos.length > 0) {
-      return slot.plan_pagos
+    if (!slot) return []
+    let raw = slot.plan_pagos
+    if (typeof raw === 'string') {
+      try { raw = JSON.parse(raw) } catch {}
+    }
+    if (Array.isArray(raw) && raw.length > 0) {
+      return raw.filter(Boolean)
     }
     // Fallback to abono_1, abono_2, abono_3
     const list = []
@@ -332,8 +340,12 @@ export default function BloqueoDetallePage() {
 
   // Hoteles configurados en el bloqueo (solo hoteles válidos con nombre no vacío)
   const configuredHoteles = useMemo(() => {
-    if (!Array.isArray(bloqueo?.hoteles)) return []
-    return bloqueo.hoteles.filter(h => h && typeof h.nombre === 'string' && h.nombre.trim() !== '')
+    let raw = bloqueo?.hoteles
+    if (typeof raw === 'string') {
+      try { raw = JSON.parse(raw) } catch {}
+    }
+    if (!Array.isArray(raw)) return []
+    return raw.filter(h => h && typeof h.nombre === 'string' && h.nombre.trim() !== '')
   }, [bloqueo?.hoteles])
 
   // Hotel seleccionado en Single Form
@@ -385,11 +397,12 @@ export default function BloqueoDetallePage() {
   // Ocupación y disponibilidad en tiempo real por cada hotel
   const hotelStats = useMemo(() => {
     const stats = {}
-    const occupiedList = (pasajeros || []).filter(p => p.nombres && p.nombres.trim() !== '')
+    const occupiedList = (pasajeros || []).filter(p => p && String(p.nombres || '').trim() !== '')
 
     // Inicializar hoteles configurados de forma segura
     (configuredHoteles || []).forEach(h => {
-      const hKey = (h.nombre || '').trim().toLowerCase()
+      if (!h) return
+      const hKey = String(h.nombre || '').trim().toLowerCase()
       if (!hKey) return
       const totCupos = Number(h.cupos) || 0
       stats[hKey] = {
@@ -405,7 +418,7 @@ export default function BloqueoDetallePage() {
 
     // Contabilizar pasajeros asignados
     occupiedList.forEach(p => {
-      const hName = (p.hoteles || '').trim().toLowerCase()
+      const hName = String(p.hoteles || '').trim().toLowerCase()
       if (hName) {
         if (!stats[hName]) {
           stats[hName] = {
@@ -521,14 +534,14 @@ export default function BloqueoDetallePage() {
       precio_acordado: slot.precio_acordado || bloqueo?.precio_venta_pax || 0,
       plan_pagos: initialPlan,
       fecha_limite_pago_agencia: slot.fecha_limite_pago_agencia || '',
-      observaciones: slot.observaciones?.replace(/^\[.*?\]\s*/, '') || ''
+      observaciones: String(slot.observaciones || '').replace(/^\[.*?\]\s*/, '')
     })
     setShowSingleModal(true)
   }
 
   // Open Group Modal
   const handleOpenGroupModal = () => {
-    const availableSlots = pasajeros.filter(p => !p.nombres || p.nombres.trim() === '')
+    const availableSlots = (pasajeros || []).filter(p => !p.nombres || String(p.nombres).trim() === '')
     if (availableSlots.length === 0) {
       showToast('No hay cupos disponibles para crear un grupo.', 'error')
       return
@@ -976,7 +989,7 @@ export default function BloqueoDetallePage() {
 
   // Select all filtered occupied slots
   const selectAllOccupied = () => {
-    const occupiedIds = filteredSlots.filter(p => p.nombres && p.nombres.trim() !== '').map(p => p.id)
+    const occupiedIds = filteredSlots.filter(p => p && String(p.nombres || '').trim() !== '').map(p => p.id)
     if (selectedSlotIds.length === occupiedIds.length) {
       setSelectedSlotIds([])
     } else {
@@ -1038,7 +1051,7 @@ export default function BloqueoDetallePage() {
   // Permissions: Admin/Superadmin can edit anything. Operatives and Commercials can edit their assigned slots and empty ones.
   const canEditSlot = (slot) => {
     if (isPrivileged) return true
-    if (!slot.nombres || slot.nombres.trim() === '') return true
+    if (!slot || !slot.nombres || String(slot.nombres).trim() === '') return true
     if (slot.operativo_id === user?.id) return true
     if (slot.comercial_id === user?.id) return true
     if (profile?.nombre && (slot.operativo_nombre === profile.nombre || slot.comercial_nombre === profile.nombre)) return true
@@ -1047,10 +1060,13 @@ export default function BloqueoDetallePage() {
 
   // Data Readiness / Semáforo de Documentación
   const getDataReadiness = (slot) => {
-    if (!slot.nombres || slot.nombres.trim() === '') {
+    if (!slot) return { status: 'libre', label: 'Disponible', color: 'bg-gray-100 text-gray-500 border-gray-200' }
+    const nombres = String(slot.nombres || '').trim()
+    if (!nombres) {
       return { status: 'libre', label: 'Disponible', color: 'bg-gray-100 text-gray-500 border-gray-200' }
     }
-    const hasDoc = Boolean(slot.numero_documento && slot.numero_documento.trim() !== '')
+    const doc = String(slot.numero_documento || '').trim()
+    const hasDoc = Boolean(doc !== '')
     const hasRoom = Boolean(slot.tipo_habitacion)
     const hasBirth = Boolean(slot.fecha_nacimiento)
 
@@ -1376,7 +1392,7 @@ export default function BloqueoDetallePage() {
 
   // Rooming Distribution View Calculations
   const roomingDistribution = useMemo(() => {
-    const occupied = pasajeros.filter(p => p.nombres && p.nombres.trim() !== '')
+    const occupied = (pasajeros || []).filter(p => p && String(p.nombres || '').trim() !== '')
     const categoriesMap = {}
 
     occupied.forEach(p => {
@@ -1516,12 +1532,13 @@ export default function BloqueoDetallePage() {
 
   // Filtered list with comprehensive search & accurate balance status (optimized & 100% safe)
   const filteredSlots = useMemo(() => {
-    const term = searchTerm ? searchTerm.toLowerCase().trim() : ''
+    const term = searchTerm ? String(searchTerm).toLowerCase().trim() : ''
     const list = Array.isArray(pasajeros) ? pasajeros : []
 
     return list.filter(p => {
       if (!p) return false
-      const isOcupado = Boolean(p.nombres && p.nombres.trim() !== '')
+      const pNombres = String(p.nombres || '').trim()
+      const isOcupado = Boolean(pNombres !== '')
 
       if (statusFilter === 'ocupados' && !isOcupado) return false
       if (statusFilter === 'libres' && isOcupado) return false
@@ -1529,10 +1546,10 @@ export default function BloqueoDetallePage() {
         if (!isOcupado) return false
         const precio = Number(p.precio_acordado) || Number(bloqueo?.precio_venta_pax) || 0
         let totalPagado = 0
-        if (p.plan_pagos && Array.isArray(p.plan_pagos) && p.plan_pagos.length > 0) {
+        if (Array.isArray(p.plan_pagos) && p.plan_pagos.length > 0) {
           totalPagado = p.plan_pagos
-            .filter(item => item.estado === 'pagado')
-            .reduce((sum, item) => sum + (Number(item.monto) || 0), 0)
+            .filter(item => item && item.estado === 'pagado')
+            .reduce((sum, item) => sum + (Number(item?.monto) || 0), 0)
         } else {
           totalPagado = (Number(p.abono_1) || 0) + (Number(p.abono_2) || 0) + (Number(p.abono_3) || 0)
         }
@@ -1541,16 +1558,16 @@ export default function BloqueoDetallePage() {
 
       if (!term) return true
       return (
-        (p.nombres && p.nombres.toLowerCase().includes(term)) ||
-        (p.apellidos && p.apellidos.toLowerCase().includes(term)) ||
-        (p.numero_documento && p.numero_documento.toLowerCase().includes(term)) ||
-        (p.tipo_habitacion && p.tipo_habitacion.toLowerCase().includes(term)) ||
-        (p.categoria_habitacion && p.categoria_habitacion.toLowerCase().includes(term)) ||
-        (p.grupo_nombre && p.grupo_nombre.toLowerCase().includes(term)) ||
-        (p.agencia && p.agencia.toLowerCase().includes(term)) ||
-        (p.operativo_nombre && p.operativo_nombre.toLowerCase().includes(term)) ||
-        (p.comercial_nombre && p.comercial_nombre.toLowerCase().includes(term)) ||
-        (p.codigo_cotizacion && p.codigo_cotizacion.toLowerCase().includes(term)) ||
+        String(p.nombres || '').toLowerCase().includes(term) ||
+        String(p.apellidos || '').toLowerCase().includes(term) ||
+        String(p.numero_documento || '').toLowerCase().includes(term) ||
+        String(p.tipo_habitacion || '').toLowerCase().includes(term) ||
+        String(p.categoria_habitacion || '').toLowerCase().includes(term) ||
+        String(p.grupo_nombre || '').toLowerCase().includes(term) ||
+        String(p.agencia || '').toLowerCase().includes(term) ||
+        String(p.operativo_nombre || '').toLowerCase().includes(term) ||
+        String(p.comercial_nombre || '').toLowerCase().includes(term) ||
+        String(p.codigo_cotizacion || '').toLowerCase().includes(term) ||
         String(p.numero_cupo ?? '').includes(term)
       )
     })
@@ -1618,12 +1635,31 @@ export default function BloqueoDetallePage() {
               <span className="flex items-center gap-1.5">
                 <Calendar size={14} className="text-gray-400" />
                 Salida: <strong className="text-gray-800">
-                  {bloqueo.fecha_salida ? format(parseISO(bloqueo.fecha_salida), "EEEE d 'de' MMMM, yyyy", { locale: es }) : 'Por definir'}
+                  {(() => {
+                    if (!bloqueo.fecha_salida) return 'Por definir'
+                    try {
+                      const clean = String(bloqueo.fecha_salida).replace(' ', 'T').split('T')[0]
+                      const d = parseISO(clean)
+                      if (isNaN(d.getTime())) return String(bloqueo.fecha_salida)
+                      return format(d, "EEEE d 'de' MMMM, yyyy", { locale: es })
+                    } catch {
+                      return String(bloqueo.fecha_salida || 'Por definir')
+                    }
+                  })()}
                 </strong>
               </span>
               {bloqueo.fecha_limite_emision && (
                 <span className="flex items-center gap-1.5 text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full font-bold">
-                  <Clock size={12} /> Fecha límite para nombres: {format(parseISO(bloqueo.fecha_limite_emision), "d 'de' MMMM", { locale: es })}
+                  <Clock size={12} /> Fecha límite para nombres: {(() => {
+                    try {
+                      const clean = String(bloqueo.fecha_limite_emision).replace(' ', 'T').split('T')[0]
+                      const d = parseISO(clean)
+                      if (isNaN(d.getTime())) return String(bloqueo.fecha_limite_emision)
+                      return format(d, "d 'de' MMMM", { locale: es })
+                    } catch {
+                      return String(bloqueo.fecha_limite_emision)
+                    }
+                  })()}
                 </span>
               )}
             </div>
@@ -2278,13 +2314,14 @@ export default function BloqueoDetallePage() {
               </thead>
               <tbody className="divide-y divide-gray-50 font-medium">
                 {filteredSlots.map((slot) => {
-                  const isOccupied = Boolean(slot.nombres && slot.nombres.trim() !== '')
+                  if (!slot) return null
+                  const isOccupied = Boolean(slot.nombres && String(slot.nombres).trim() !== '')
                   const precio = Number(slot.precio_acordado) || 0
                   const isSelected = selectedSlotIds.includes(slot.id)
                   const planPagos = getSlotInstallments(slot) || []
                   const totalPagado = isOccupied
-                    ? (slot.plan_pagos && Array.isArray(slot.plan_pagos) && slot.plan_pagos.length > 0
-                        ? slot.plan_pagos.filter(p => p.estado === 'pagado').reduce((acc, p) => acc + (Number(p.monto) || 0), 0)
+                    ? (Array.isArray(planPagos) && planPagos.length > 0
+                        ? planPagos.filter(p => p && p.estado === 'pagado').reduce((acc, p) => acc + (Number(p?.monto) || 0), 0)
                         : (Number(slot.abono_1) || 0) + (Number(slot.abono_2) || 0) + (Number(slot.abono_3) || 0))
                     : 0
                   const realFaltante = isOccupied ? Math.max(0, precio - totalPagado) : 0
