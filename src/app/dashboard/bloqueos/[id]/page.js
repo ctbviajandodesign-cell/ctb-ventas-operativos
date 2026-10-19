@@ -397,10 +397,11 @@ export default function BloqueoDetallePage() {
   // Ocupación y disponibilidad en tiempo real por cada hotel
   const hotelStats = useMemo(() => {
     const stats = {}
-    const occupiedList = (pasajeros || []).filter(p => p && String(p.nombres || '').trim() !== '')
+    const occupiedList = (pasajeros || []).filter(p => p && String(p.nombres || '').trim() !== '');
 
     // Inicializar hoteles configurados de forma segura
-    (configuredHoteles || []).forEach(h => {
+    const hotelList = Array.isArray(configuredHoteles) ? configuredHoteles : []
+    hotelList.forEach(h => {
       if (!h) return
       const hKey = String(h.nombre || '').trim().toLowerCase()
       if (!hKey) return
@@ -414,7 +415,7 @@ export default function BloqueoDetallePage() {
         ocupados: 0,
         disponibles: totCupos
       }
-    })
+    });
 
     // Contabilizar pasajeros asignados
     occupiedList.forEach(p => {
@@ -433,7 +434,7 @@ export default function BloqueoDetallePage() {
           stats[hName].disponibles = Math.max(0, stats[hName].cuposTotales - stats[hName].ocupados)
         }
       }
-    })
+    });
 
     return stats
   }, [configuredHoteles, pasajeros])
