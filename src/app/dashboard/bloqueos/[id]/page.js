@@ -7,30 +7,23 @@ import { useUserSession } from '@/hooks/useUserSession'
 import Link from 'next/link'
 import { 
   ArrowLeft, 
-  CalendarRange, 
   Plus, 
   Users, 
   Clock, 
   MapPin, 
   Plane, 
-  Download, 
   Edit3, 
   Trash2, 
   CheckCircle2, 
   AlertTriangle, 
   DollarSign, 
   Search, 
-  Filter, 
   Hotel, 
-  Building2, 
   User, 
-  Tag, 
   FileSpreadsheet,
   X,
-  Share2,
   Calendar,
   Layers,
-  Sparkles,
   CheckSquare,
   Square,
   CreditCard,
@@ -38,15 +31,11 @@ import {
   Edit2,
   Zap,
   BedDouble,
-  BedSingle,
   Star,
-  Check,
-  AlertCircle,
-  Copy,
-  ClipboardPaste,
   ChevronDown,
   Settings,
-  Target
+  Target,
+  RefreshCw
 } from 'lucide-react'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -1051,6 +1040,8 @@ export default function BloqueoDetallePage() {
         numero_documento: null,
         fecha_nacimiento: null,
         caducidad_pasaporte: null,
+        tipo_habitacion: 'Doble',
+        categoria_habitacion: 'Clase 2 (Estándar / 4★)',
         precio_acordado: bloqueo?.precio_venta_pax || 0,
         abono_1: 0,
         fecha_abono_1: null,
@@ -1064,10 +1055,12 @@ export default function BloqueoDetallePage() {
         estado_pago: 'pendiente'
       }
 
-      await supabase
+      const { error } = await supabase
         .from('bloqueo_pasajeros')
         .update(resetPayload)
         .eq('id', slot.id)
+
+      if (error) throw error
 
       // Optimistic instant release
       setPasajeros(prev => prev.map(p => p.id === slot.id ? { ...p, ...resetPayload, faltante: 0 } : p))
@@ -1205,9 +1198,14 @@ export default function BloqueoDetallePage() {
     return results
   }
 
+  // Memoized parsed list for instant typing without running regex loops 4x per keystroke
+  const parsedQuickPasteList = useMemo(() => {
+    return parseQuickPaste(quickPasteText)
+  }, [quickPasteText, quickPasteMeta.categoria_habitacion])
+
   const handleSaveQuickPaste = async (e) => {
     e.preventDefault()
-    const parsed = parseQuickPaste(quickPasteText)
+    const parsed = parsedQuickPasteList
     if (parsed.length === 0) {
       showToast('No se detectaron pasajeros en el texto ingresado.', 'error')
       return
@@ -1305,6 +1303,63 @@ export default function BloqueoDetallePage() {
     }
   }
 
+  // Mover este bloqueo a Papelera (Respaldo)
+  const handleDeleteThisBloqueo = async () => {
+    if (!isPrivileged) return
+    const msg = `¿Mover este programa "${bloqueo.titulo}" (${bloqueo.codigo}) a la papelera de respaldo?\n\nTodos los pasajeros, abonos y configuraciones permanecerán seguros. Podrás restaurarlo en cualquier momento desde la papelera de bloqueos.`
+    if (!confirm(msg)) return
+
+    try {
+      const { error } = await supabase
+        .from('bloqueos')
+        .update({ estado: 'eliminado', updated_at: new Date().toISOString() })
+        .eq('id', bloqueo.id)
+
+      if (error) throw error
+
+      await supabase.from('logs_actividad').insert([{
+        usuario_id: user?.id,
+        usuario_nombre: profile?.nombre || 'Admin',
+        usuario_email: user?.email || profile?.email || '',
+        accion: 'MOVER_BLOQUEO_PAPELERA',
+        detalles: `Bloqueo ${bloqueo.codigo} - "${bloqueo.titulo}" (${bloqueo.destino}) movido a papelera de respaldo desde el detalle.`
+      }]).catch(() => {})
+
+      showToast(`Programa ${bloqueo.codigo} respaldado y movido a la papelera.`, 'success')
+      router.push('/dashboard/bloqueos')
+    } catch (err) {
+      console.error('Error al mover bloqueo a papelera:', err)
+      showToast('Error al mover a papelera: ' + err.message, 'error')
+    }
+  }
+
+  // Restaurar este bloqueo
+  const handleRestoreThisBloqueo = async () => {
+    if (!isPrivileged) return
+    try {
+      const { error } = await supabase
+        .from('bloqueos')
+        .update({ estado: 'activo', updated_at: new Date().toISOString() })
+        .eq('id', bloqueo.id)
+
+      if (error) throw error
+
+      await supabase.from('logs_actividad').insert([{
+        usuario_id: user?.id,
+        usuario_nombre: profile?.nombre || 'Admin',
+        usuario_email: user?.email || profile?.email || '',
+        accion: 'RESTAURAR_BLOQUEO',
+        detalles: `Bloqueo ${bloqueo.codigo} - "${bloqueo.titulo}" restaurado desde el detalle.`
+      }]).catch(() => {})
+
+      setBloqueo(prev => ({ ...prev, estado: 'activo' }))
+      showToast(`¡Programa ${bloqueo.codigo} restaurado y reactivado con éxito!`, 'success')
+    } catch (err) {
+      console.error('Error al restaurar bloqueo:', err)
+      showToast('Error al restaurar: ' + err.message, 'error')
+    }
+  }
+
   // Edit Bloqueo from Detail Page (Admin/SuperAdmin)
   const handleOpenEditBloqueoModal = () => {
     if (!bloqueo) return
@@ -1357,7 +1412,8 @@ export default function BloqueoDetallePage() {
             estado_pago: 'pendiente'
           })
         }
-        await supabase.from('bloqueo_pasajeros').insert(newSlots)
+        const { error: insErr } = await supabase.from('bloqueo_pasajeros').insert(newSlots)
+        if (insErr) throw insErr
       } else if (newCupos < oldCupos) {
         const { data: occupied } = await supabase
           .from('bloqueo_pasajeros')
@@ -1372,11 +1428,12 @@ export default function BloqueoDetallePage() {
           return
         }
 
-        await supabase
+        const { error: delErr } = await supabase
           .from('bloqueo_pasajeros')
           .delete()
           .eq('bloqueo_id', bloqueo.id)
           .gt('numero_cupo', newCupos)
+        if (delErr) throw delErr
       }
 
       const updateData = {
@@ -1629,6 +1686,34 @@ export default function BloqueoDetallePage() {
 
   return (
     <div className="space-y-6 pb-28">
+      {/* Banner si el bloqueo está en papelera */}
+      {bloqueo.estado === 'eliminado' && (
+        <div className="bg-rose-50 border-2 border-rose-300 p-4 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-3 text-rose-950 shadow-sm animate-in fade-in duration-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-rose-600 text-white flex items-center justify-center shrink-0">
+              <Trash2 size={20} />
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-wider text-rose-800">
+                Programa en Papelera de Respaldo
+              </p>
+              <p className="text-xs text-rose-700 font-medium">
+                Este programa fue movido a la papelera. Todos los cupos, pagos y pasajeros permanecen respaldados y seguros.
+              </p>
+            </div>
+          </div>
+          {isPrivileged && (
+            <button
+              onClick={handleRestoreThisBloqueo}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider shadow-md transition-all active:scale-95 shrink-0"
+            >
+              <RefreshCw size={14} />
+              <span>Restaurar Programa</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Top Navigation & Bloqueo Overview Header */}
       <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-start gap-4">
@@ -1707,6 +1792,18 @@ export default function BloqueoDetallePage() {
             >
               <Settings size={15} className="text-gray-400" />
               <span className="hidden sm:inline">Configuración</span>
+            </button>
+          )}
+
+          {/* Botón Papelera / Respaldo (Para Admins) */}
+          {isPrivileged && bloqueo.estado !== 'eliminado' && (
+            <button
+              onClick={handleDeleteThisBloqueo}
+              className="flex items-center gap-2 px-3 py-2.5 rounded-2xl bg-white border border-gray-200/90 text-gray-400 hover:text-rose-600 hover:bg-rose-50/60 hover:border-rose-200 font-bold text-xs uppercase tracking-wider transition-all shadow-xs active:scale-95"
+              title="Mover este programa a la papelera (respaldado)"
+            >
+              <Trash2 size={15} />
+              <span className="hidden xl:inline">Papelera</span>
             </button>
           )}
 
@@ -3622,17 +3719,17 @@ export default function BloqueoDetallePage() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-black uppercase tracking-wider text-gray-700">
-                      Vista Previa Detectada ({parseQuickPaste(quickPasteText).length} pasajeros)
+                      Vista Previa Detectada ({parsedQuickPasteList.length} pasajeros)
                     </span>
                     <span className={`text-xs font-bold ${
-                      parseQuickPaste(quickPasteText).length > metrics.disponibles ? 'text-red-600' : 'text-emerald-700'
+                      parsedQuickPasteList.length > metrics.disponibles ? 'text-red-600' : 'text-emerald-700'
                     }`}>
                       Cupos disponibles: {metrics.disponibles}
                     </span>
                   </div>
 
                   <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-2xl divide-y divide-gray-100 bg-white">
-                    {parseQuickPaste(quickPasteText).map((p, idx) => (
+                    {parsedQuickPasteList.map((p, idx) => (
                       <div key={idx} className="p-2.5 flex items-center justify-between text-xs gap-3">
                         <div className="flex items-center gap-2">
                           <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-800 font-black text-[10px] flex items-center justify-center">
@@ -3670,10 +3767,10 @@ export default function BloqueoDetallePage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={saving || parseQuickPaste(quickPasteText).length === 0 || parseQuickPaste(quickPasteText).length > metrics.disponibles}
+                  disabled={saving || parsedQuickPasteList.length === 0 || parsedQuickPasteList.length > metrics.disponibles}
                   className="btn-primary px-7 py-3 rounded-2xl font-black uppercase tracking-wider shadow-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50"
                 >
-                  {saving ? 'Cargando...' : `Asignar ${parseQuickPaste(quickPasteText).length} Pasajeros`}
+                  {saving ? 'Cargando...' : `Asignar ${parsedQuickPasteList.length} Pasajeros`}
                 </button>
               </div>
             </form>
@@ -3859,21 +3956,36 @@ export default function BloqueoDetallePage() {
               </div>
 
               {/* Footer */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setShowEditBloqueoModal(false)}
-                  className="px-5 py-3 rounded-2xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="btn-primary px-7 py-3 rounded-2xl font-black uppercase tracking-wider shadow-lg"
-                >
-                  {saving ? 'Guardando...' : 'Guardar Cambios del Bloqueo'}
-                </button>
+              <div className="flex items-center justify-between gap-3 pt-3 border-t border-gray-100">
+                {isPrivileged && bloqueo.estado !== 'eliminado' ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditBloqueoModal(false)
+                      handleDeleteThisBloqueo()
+                    }}
+                    className="text-xs font-bold text-rose-600 hover:text-rose-800 flex items-center gap-1.5 px-3 py-2 rounded-xl hover:bg-rose-50 transition-colors"
+                  >
+                    <Trash2 size={14} />
+                    <span>Mover a Papelera</span>
+                  </button>
+                ) : <div />}
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditBloqueoModal(false)}
+                    className="px-5 py-3 rounded-2xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="btn-primary px-7 py-3 rounded-2xl font-black uppercase tracking-wider shadow-lg"
+                  >
+                    {saving ? 'Guardando...' : 'Guardar Cambios del Bloqueo'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

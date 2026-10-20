@@ -28,7 +28,8 @@ import {
   Target,
   Edit2,
   Share2,
-  Hotel
+  Hotel,
+  RefreshCw
 } from 'lucide-react'
 import { format, differenceInDays, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -802,17 +803,125 @@ ${hotelesTexto}
     }
   }
 
-  // Filtered Bloqueos
+  // Mover a Papelera (Soft delete con respaldo completo)
+  const handleDeleteBloqueo = async (bloqueo) => {
+    if (!isPrivileged) return
+    const msg = `¿Mover el bloqueo "${bloqueo.titulo}" (${bloqueo.codigo}) a la papelera?\n\nQuedará respaldado con todos sus pasajeros y configuraciones. Podrás recuperarlo o restaurarlo en cualquier momento desde la pestaña "Papelera".`
+    if (!confirm(msg)) return
+
+    try {
+      const { error } = await supabase
+        .from('bloqueos')
+        .update({ estado: 'eliminado', updated_at: new Date().toISOString() })
+        .eq('id', bloqueo.id)
+
+      if (error) throw error
+
+      await supabase.from('logs_actividad').insert([{
+        usuario_id: user?.id,
+        usuario_nombre: profile?.nombre || 'Admin',
+        usuario_email: user?.email || profile?.email || '',
+        accion: 'MOVER_BLOQUEO_PAPELERA',
+        detalles: `Bloqueo ${bloqueo.codigo} - "${bloqueo.titulo}" (${bloqueo.destino}) movido a papelera de respaldo.`
+      }]).catch(() => {})
+
+      const updated = bloqueos.map(b => b.id === bloqueo.id ? { ...b, estado: 'eliminado' } : b)
+      setBloqueos(updated)
+      memoryCacheBloqueos = updated
+      showToast(`Bloqueo ${bloqueo.codigo} respaldado y movido a la papelera.`, 'success')
+    } catch (err) {
+      console.error('Error al mover bloqueo a papelera:', err)
+      showToast('Error al mover a papelera: ' + err.message, 'error')
+    }
+  }
+
+  // Restaurar Bloqueo de Papelera
+  const handleRestoreBloqueo = async (bloqueo) => {
+    if (!isPrivileged) return
+    try {
+      const { error } = await supabase
+        .from('bloqueos')
+        .update({ estado: 'activo', updated_at: new Date().toISOString() })
+        .eq('id', bloqueo.id)
+
+      if (error) throw error
+
+      await supabase.from('logs_actividad').insert([{
+        usuario_id: user?.id,
+        usuario_nombre: profile?.nombre || 'Admin',
+        usuario_email: user?.email || profile?.email || '',
+        accion: 'RESTAURAR_BLOQUEO',
+        detalles: `Bloqueo ${bloqueo.codigo} - "${bloqueo.titulo}" restaurado y reactivado.`
+      }]).catch(() => {})
+
+      const updated = bloqueos.map(b => b.id === bloqueo.id ? { ...b, estado: 'activo' } : b)
+      setBloqueos(updated)
+      memoryCacheBloqueos = updated
+      showToast(`¡Bloqueo ${bloqueo.codigo} restaurado y reactivado con éxito!`, 'success')
+    } catch (err) {
+      console.error('Error al restaurar bloqueo:', err)
+      showToast('Error al restaurar: ' + err.message, 'error')
+    }
+  }
+
+  // Eliminar Definitivamente (Solo SuperAdmin)
+  const handlePermanentDeleteBloqueo = async (bloqueo) => {
+    if (!isSuperAdmin) {
+      showToast('Solo el Super Admin puede eliminar bloqueos definitivamente.', 'error')
+      return
+    }
+    const msg = `⚠️ ACCIÓN IRREVERSIBLE:\n¿Deseas borrar DEFINITIVAMENTE el bloqueo "${bloqueo.codigo}"?\n\nSe eliminarán de la base de datos el bloqueo y todos sus cupos/pasajeros asociados.`
+    if (!confirm(msg)) return
+
+    try {
+      const { error } = await supabase
+        .from('bloqueos')
+        .delete()
+        .eq('id', bloqueo.id)
+
+      if (error) throw error
+
+      await supabase.from('logs_actividad').insert([{
+        usuario_id: user?.id,
+        usuario_nombre: profile?.nombre || 'Superadmin',
+        usuario_email: user?.email || profile?.email || '',
+        accion: 'ELIMINAR_PERMANENTE_BLOQUEO',
+        detalles: `⚠️ ELIMINACIÓN DEFINITIVA: Bloqueo ${bloqueo.codigo} - "${bloqueo.titulo}" borrado de la base de datos.`
+      }]).catch(() => {})
+
+      const updated = bloqueos.filter(b => b.id !== bloqueo.id)
+      setBloqueos(updated)
+      memoryCacheBloqueos = updated
+      showToast(`Bloqueo ${bloqueo.codigo} eliminado definitivamente.`, 'success')
+    } catch (err) {
+      console.error('Error al eliminar bloqueo:', err)
+      showToast('Error al eliminar: ' + err.message, 'error')
+    }
+  }
+
+  // Total de bloqueos en papelera
+  const papeleraCount = useMemo(() => {
+    return bloqueos.filter(b => b.estado === 'eliminado').length
+  }, [bloqueos])
+
+  // Filtered Bloqueos (Excluye papelera a menos que se seleccione pestaña papelera)
   const filteredBloqueos = useMemo(() => {
     return bloqueos.filter(b => {
+      const isDeleted = b.estado === 'eliminado'
+      if (statusFilter === 'eliminado') {
+        if (!isDeleted) return false
+      } else {
+        if (isDeleted) return false
+        if (statusFilter !== 'todos' && b.estado !== statusFilter) return false
+      }
+
       const matchSearch = search === '' || 
         b.titulo?.toLowerCase().includes(search.toLowerCase()) ||
         b.codigo?.toLowerCase().includes(search.toLowerCase()) ||
         b.destino?.toLowerCase().includes(search.toLowerCase()) ||
         b.aerolinea?.toLowerCase().includes(search.toLowerCase())
 
-      const matchStatus = statusFilter === 'todos' || b.estado === statusFilter
-      return matchSearch && matchStatus
+      return matchSearch
     })
   }, [bloqueos, search, statusFilter])
 
@@ -825,7 +934,10 @@ ${hotelesTexto}
     let inversionGlobalTotal = 0
     let cobradoGlobalTotal = 0
 
-    filteredBloqueos.forEach(b => {
+    // Si está en papelera, no sumar métricas activas
+    const activeList = statusFilter === 'eliminado' ? [] : filteredBloqueos
+
+    activeList.forEach(b => {
       const cupos = b.cupos_totales || 0
       const st = pasajerosStats[b.id] || { ocupados: 0, cobrado: 0, pendiente: 0 }
       totalCupos += cupos
@@ -846,7 +958,7 @@ ${hotelesTexto}
       : 0
 
     return {
-      bloqueosCount: filteredBloqueos.length,
+      bloqueosCount: activeList.length,
       totalCupos,
       totalOcupados,
       totalDisponibles,
@@ -857,7 +969,7 @@ ${hotelesTexto}
       faltaRecuperarGlobal,
       porcentajeRecuperadoGlobal
     }
-  }, [filteredBloqueos, pasajerosStats, isPrivileged])
+  }, [filteredBloqueos, pasajerosStats, isPrivileged, statusFilter])
 
   return (
     <div className="space-y-6 pb-20">
@@ -1037,6 +1149,27 @@ ${hotelesTexto}
           >
             Cerrados
           </button>
+          {isPrivileged && (
+            <button
+              onClick={() => setStatusFilter('eliminado')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                statusFilter === 'eliminado'
+                  ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20'
+                  : 'bg-gray-50 text-gray-500 hover:bg-rose-50 hover:text-rose-700'
+              }`}
+              title="Ver bloqueos archivados/eliminados en papelera"
+            >
+              <Trash2 size={13} />
+              <span>Papelera</span>
+              {papeleraCount > 0 && (
+                <span className={`px-1.5 py-0.2 text-[10px] rounded-full font-black ${
+                  statusFilter === 'eliminado' ? 'bg-white text-rose-700' : 'bg-rose-100 text-rose-700'
+                }`}>
+                  {papeleraCount}
+                </span>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
@@ -1113,22 +1246,33 @@ ${hotelesTexto}
                     </div>
 
                     <div className="flex items-center gap-1.5">
-                      {isPrivileged && (
+                      {isPrivileged && bloqueo.estado !== 'eliminado' && (
+                        <>
+                          <button
+                            onClick={() => handleOpenEditBloqueo(bloqueo)}
+                            title="Editar parámetros del bloqueo"
+                            className="w-8 h-8 rounded-xl bg-gray-50 hover:bg-gray-200 text-gray-700 flex items-center justify-center transition-colors"
+                          >
+                            <Edit2 size={13} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteBloqueo(bloqueo)}
+                            title="Mover a papelera (Respaldar)"
+                            className="w-8 h-8 rounded-xl bg-gray-50 hover:bg-rose-50 hover:text-rose-600 text-gray-400 flex items-center justify-center transition-colors"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </>
+                      )}
+                      {bloqueo.estado !== 'eliminado' && (
                         <button
-                          onClick={() => handleOpenEditBloqueo(bloqueo)}
-                          title="Editar parámetros del bloqueo"
-                          className="w-8 h-8 rounded-xl bg-gray-50 hover:bg-gray-200 text-gray-700 flex items-center justify-center transition-colors"
+                          onClick={() => handleShareWhatsApp(bloqueo)}
+                          title="Compartir Flyer para WhatsApp"
+                          className="w-8 h-8 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 flex items-center justify-center transition-colors"
                         >
-                          <Edit2 size={13} />
+                          <Share2 size={13} />
                         </button>
                       )}
-                      <button
-                        onClick={() => handleShareWhatsApp(bloqueo)}
-                        title="Compartir Flyer para WhatsApp"
-                        className="w-8 h-8 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 flex items-center justify-center transition-colors"
-                      >
-                        <Share2 size={13} />
-                      </button>
                     </div>
                   </div>
 
@@ -1373,25 +1517,53 @@ ${hotelesTexto}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                    <button
-                      onClick={() => handleShareWhatsApp(bloqueo)}
-                      className="inline-flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-3 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider border border-emerald-200/60 transition-all active:scale-95"
-                      title="Copiar texto de venta para WhatsApp"
-                    >
-                      <Share2 size={14} className="text-emerald-600" />
-                      <span className="hidden xs:inline sm:inline">WhatsApp</span>
-                    </button>
+                  {bloqueo.estado === 'eliminado' ? (
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-rose-800">
+                        <Trash2 size={14} className="text-rose-600 shrink-0" />
+                        <span>En Papelera (Respaldado)</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleRestoreBloqueo(bloqueo)}
+                          className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider shadow-sm transition-all active:scale-95"
+                          title="Restaurar y reactivar este programa"
+                        >
+                          <RefreshCw size={13} />
+                          <span>Restaurar</span>
+                        </button>
+                        {isSuperAdmin && (
+                          <button
+                            onClick={() => handlePermanentDeleteBloqueo(bloqueo)}
+                            className="p-2 text-rose-600 hover:bg-rose-100 rounded-xl transition-colors"
+                            title="Eliminar permanentemente de la base de datos"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                      <button
+                        onClick={() => handleShareWhatsApp(bloqueo)}
+                        className="inline-flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-3 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider border border-emerald-200/60 transition-all active:scale-95"
+                        title="Copiar texto de venta para WhatsApp"
+                      >
+                        <Share2 size={14} className="text-emerald-600" />
+                        <span className="hidden xs:inline sm:inline">WhatsApp</span>
+                      </button>
 
-                    <Link
-                      href={`/dashboard/bloqueos/${bloqueo?.id || ''}`}
-                      prefetch={false}
-                      className="inline-flex items-center gap-1.5 sm:gap-2 bg-gray-900 hover:bg-primary text-white px-4 sm:px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow-lg hover:shadow-primary/30 active:scale-95 transition-all whitespace-nowrap"
-                    >
-                      <span>Ver Pasajeros</span>
-                      <ArrowUpRight size={15} />
-                    </Link>
-                  </div>
+                      <Link
+                        href={`/dashboard/bloqueos/${bloqueo?.id || ''}`}
+                        prefetch={false}
+                        className="inline-flex items-center gap-1.5 sm:gap-2 bg-gray-900 hover:bg-primary text-white px-4 sm:px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow-lg hover:shadow-primary/30 active:scale-95 transition-all whitespace-nowrap"
+                      >
+                        <span>Ver Pasajeros</span>
+                        <ArrowUpRight size={15} />
+                      </Link>
+                    </div>
+                  )}
                 </div>
               </div>
             )
