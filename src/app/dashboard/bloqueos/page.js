@@ -723,12 +723,30 @@ export default function BloqueosPage() {
     const stats = pasajerosStats[bloqueo.id] || { ocupados: 0 }
     const cupos = bloqueo.cupos_totales || 30
     const libres = Math.max(0, cupos - stats.ocupados)
-    const salida = bloqueo.fecha_salida ? new Date(bloqueo.fecha_salida + 'T00:00:00') : null
-    const retorno = bloqueo.fecha_retorno ? new Date(bloqueo.fecha_retorno + 'T00:00:00') : null
+
+    const parseSafeDate = (val) => {
+      if (!val) return null
+      try {
+        const clean = String(val).replace(' ', 'T').split('T')[0]
+        const d = parseISO(clean)
+        return isNaN(d.getTime()) ? null : d
+      } catch {
+        return null
+      }
+    }
+
+    const salida = parseSafeDate(bloqueo.fecha_salida)
+    const retorno = parseSafeDate(bloqueo.fecha_retorno)
     const diffDays = salida ? differenceInDays(salida, new Date()) : 0
 
-    const fechaSalidaStr = salida ? format(salida, "d 'de' MMMM, yyyy", { locale: es }) : 'Por definir'
-    const fechaRetornoStr = retorno ? format(retorno, "d 'de' MMMM, yyyy", { locale: es }) : 'Por definir'
+    let fechaSalidaStr = 'Por definir'
+    let fechaRetornoStr = 'Por definir'
+    if (salida) {
+      try { fechaSalidaStr = format(salida, "d 'de' MMMM, yyyy", { locale: es }) } catch { fechaSalidaStr = String(bloqueo.fecha_salida) }
+    }
+    if (retorno) {
+      try { fechaRetornoStr = format(retorno, "d 'de' MMMM, yyyy", { locale: es }) } catch { fechaRetornoStr = String(bloqueo.fecha_retorno) }
+    }
 
     let hotelesTexto = ''
     if (Array.isArray(bloqueo.hoteles) && bloqueo.hoteles.length > 0) {

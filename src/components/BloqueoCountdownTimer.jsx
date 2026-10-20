@@ -65,9 +65,35 @@ export default function BloqueoCountdownTimer({ fechaSalida, className = '' }) {
 
   useEffect(() => {
     setMounted(true)
+    const initial = calculateTimeLeft(fechaSalida)
+    setTime(initial)
+    if (!initial || initial.isPast) {
+      return
+    }
+
     const interval = setInterval(() => {
-      setTime(calculateTimeLeft(fechaSalida))
+      setTime(prev => {
+        const next = calculateTimeLeft(fechaSalida)
+        if (!prev && !next) return prev
+        if (!prev || !next) return next
+        if (next.isPast) {
+          clearInterval(interval)
+          return next
+        }
+        if (
+          prev.seconds === next.seconds &&
+          prev.minutes === next.minutes &&
+          prev.hours === next.hours &&
+          prev.days === next.days &&
+          prev.isToday === next.isToday &&
+          prev.isPast === next.isPast
+        ) {
+          return prev
+        }
+        return next
+      })
     }, 1000)
+
     return () => clearInterval(interval)
   }, [fechaSalida])
 

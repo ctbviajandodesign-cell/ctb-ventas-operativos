@@ -229,8 +229,37 @@ export default function BloqueoDetallePage() {
 
       if (pasRes.error) throw pasRes.error
 
+      let rawPas = pasRes.data || []
+      const expectedCupos = Number(blqRes.data?.cupos_totales) || 30
+
+      // Auto-generar cupos faltantes si el bloqueo tiene menos registros en BD que cupos_totales
+      if (rawPas.length < expectedCupos) {
+        const existingNumbers = new Set(rawPas.map(p => p.numero_cupo))
+        const missingSlots = []
+        for (let i = 1; i <= expectedCupos; i++) {
+          if (!existingNumbers.has(i)) {
+            missingSlots.push({
+              bloqueo_id: id,
+              numero_cupo: i,
+              nombres: '',
+              precio_acordado: Number(blqRes.data?.precio_venta_pax) || 0,
+              estado_pago: 'pendiente'
+            })
+          }
+        }
+        if (missingSlots.length > 0) {
+          const { data: insertedSlots } = await supabase
+            .from('bloqueo_pasajeros')
+            .insert(missingSlots)
+            .select()
+          if (insertedSlots && insertedSlots.length > 0) {
+            rawPas = [...rawPas, ...insertedSlots].sort((a, b) => a.numero_cupo - b.numero_cupo)
+          }
+        }
+      }
+
       // Auto-extract categoria_habitacion from observaciones if column is null
-      const normalizedPas = (pasRes.data || []).map(p => {
+      const normalizedPas = rawPas.map(p => {
         if (!p) return p
         let cat = p.categoria_habitacion
         if (!cat && p.observaciones) {
@@ -701,27 +730,27 @@ export default function BloqueoDetallePage() {
       const p3 = singleForm.plan_pagos[2] ? Number(singleForm.plan_pagos[2].monto) || 0 : 0
 
       const payload = {
-        codigo_cotizacion: singleForm.codigo_cotizacion.trim() || null,
-        agencia: singleForm.agencia.trim(),
-        ciudad: singleForm.ciudad,
-        tipo_servicio: singleForm.tipo_servicio,
+        codigo_cotizacion: String(singleForm.codigo_cotizacion || '').trim() || null,
+        agencia: String(singleForm.agencia || '').trim(),
+        ciudad: singleForm.ciudad || 'GYE',
+        tipo_servicio: singleForm.tipo_servicio || 'PAQUETE COMPLETO',
         operativo_id: singleForm.operativo_id || null,
         operativo_nombre: opNombre,
         comercial_id: singleForm.comercial_id || null,
         comercial_nombre: comNombre,
-        hoteles: singleForm.hoteles.trim(),
-        nombres: singleForm.nombres.trim(),
-        apellidos: singleForm.apellidos.trim(),
-        tipo_documento: singleForm.tipo_documento,
-        numero_documento: singleForm.numero_documento.trim(),
+        hoteles: String(singleForm.hoteles || '').trim(),
+        nombres: String(singleForm.nombres || '').trim(),
+        apellidos: String(singleForm.apellidos || '').trim(),
+        tipo_documento: singleForm.tipo_documento || 'Cédula',
+        numero_documento: String(singleForm.numero_documento || '').trim(),
         fecha_nacimiento: singleForm.fecha_nacimiento || null,
         caducidad_pasaporte: singleForm.caducidad_pasaporte || null,
-        nacionalidad: singleForm.nacionalidad.trim(),
-        genero: singleForm.genero,
-        tipo_habitacion: singleForm.tipo_habitacion,
+        nacionalidad: String(singleForm.nacionalidad || 'ECUATORIANA').trim(),
+        genero: singleForm.genero || 'M',
+        tipo_habitacion: singleForm.tipo_habitacion || 'Doble',
         categoria_habitacion: singleForm.categoria_habitacion || 'Clase 2 (Estándar / 4★)',
-        requerimientos_especiales: singleForm.requerimientos_especiales.trim(),
-        precio_acordado: Number(singleForm.precio_acordado) || Number(bloqueo.precio_venta_pax) || 0,
+        requerimientos_especiales: String(singleForm.requerimientos_especiales || '').trim(),
+        precio_acordado: Number(singleForm.precio_acordado) || Number(bloqueo?.precio_venta_pax) || 0,
         abono_1: p1,
         fecha_abono_1: singleForm.plan_pagos[0]?.fecha || null,
         abono_2: p2,
@@ -729,7 +758,7 @@ export default function BloqueoDetallePage() {
         abono_3: p3,
         fecha_abono_3: singleForm.plan_pagos[2]?.fecha || null,
         fecha_limite_pago_agencia: singleForm.fecha_limite_pago_agencia || null,
-        observaciones: singleForm.observaciones.trim()
+        observaciones: String(singleForm.observaciones || '').trim()
       }
 
       // Try update with categoria_habitacion and plan_pagos
@@ -849,22 +878,22 @@ export default function BloqueoDetallePage() {
         const payload = {
           grupo_id: groupUid,
           grupo_nombre: groupName,
-          codigo_cotizacion: groupForm.codigo_cotizacion.trim() || null,
-          agencia: groupForm.agencia.trim(),
-          ciudad: groupForm.ciudad,
-          tipo_servicio: groupForm.tipo_servicio,
+          codigo_cotizacion: String(groupForm.codigo_cotizacion || '').trim() || null,
+          agencia: String(groupForm.agencia || '').trim(),
+          ciudad: groupForm.ciudad || 'GYE',
+          tipo_servicio: groupForm.tipo_servicio || 'PAQUETE COMPLETO',
           operativo_id: groupForm.operativo_id || null,
           operativo_nombre: opNombre,
           comercial_id: groupForm.comercial_id || null,
           comercial_nombre: comNombre,
-          hoteles: groupForm.hoteles.trim(),
-          nombres: paxData.nombres.trim(),
-          apellidos: paxData.apellidos.trim(),
-          tipo_documento: paxData.tipo_documento,
-          numero_documento: paxData.numero_documento.trim(),
-          tipo_habitacion: paxData.tipo_habitacion,
+          hoteles: String(groupForm.hoteles || '').trim(),
+          nombres: String(paxData.nombres || '').trim(),
+          apellidos: String(paxData.apellidos || '').trim(),
+          tipo_documento: paxData.tipo_documento || 'Cédula',
+          numero_documento: String(paxData.numero_documento || '').trim(),
+          tipo_habitacion: paxData.tipo_habitacion || 'Doble',
           categoria_habitacion: paxData.categoria_habitacion || groupForm.categoria_habitacion || 'Clase 2 (Estándar / 4★)',
-          precio_acordado: Number(groupForm.precio_por_pax) || Number(bloqueo.precio_venta_pax) || 0,
+          precio_acordado: Number(groupForm.precio_por_pax) || Number(bloqueo?.precio_venta_pax) || 0,
           abono_1: isLead ? p1 : 0,
           fecha_abono_1: isLead ? groupForm.plan_pagos[0]?.fecha || null : null,
           abono_2: isLead ? p2 : 0,
@@ -873,7 +902,7 @@ export default function BloqueoDetallePage() {
           fecha_abono_3: isLead ? groupForm.plan_pagos[2]?.fecha || null : null,
           fecha_limite_pago_agencia: groupForm.fecha_limite_pago_agencia || null,
           observaciones: isLead
-            ? `PAGO GRUPAL (${paxList.length} PAX). ${groupForm.observaciones}`
+            ? `PAGO GRUPAL (${paxList.length} PAX). ${String(groupForm.observaciones || '').trim()}`
             : `Integrante de ${groupName}`
         }
 
@@ -3589,7 +3618,7 @@ export default function BloqueoDetallePage() {
               </div>
 
               {/* Vista previa de detección */}
-              {quickPasteText.trim() && (
+              {String(quickPasteText || '').trim() && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-black uppercase tracking-wider text-gray-700">
