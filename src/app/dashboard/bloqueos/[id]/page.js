@@ -35,7 +35,11 @@ import {
   ChevronDown,
   Settings,
   Target,
-  RefreshCw
+  RefreshCw,
+  Download,
+  Share2,
+  Copy,
+  Check
 } from 'lucide-react'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -43,6 +47,7 @@ import { showToast } from '@/utils/toast'
 import IataSelector from '@/components/IataSelector'
 import BloqueoCountdownTimer from '@/components/BloqueoCountdownTimer'
 import BloqueoHotelesConfig from '@/components/dashboard/BloqueoHotelesConfig'
+import { exportBloqueoRoomingPDF } from '@/lib/pdf-generator'
 
 // Module-level caches for instant detail loading & team helpers
 const memoryCacheBloqueoDetail = {}
@@ -80,6 +85,19 @@ export default function BloqueoDetallePage() {
   const [showEditBloqueoModal, setShowEditBloqueoModal] = useState(false)
   const [showAddPaxMenu, setShowAddPaxMenu] = useState(false)
   const [selectedSlotNumber, setSelectedSlotNumber] = useState(null)
+
+  // Modal Manifiesto Aéreo GDS
+  const [showGdsModal, setShowGdsModal] = useState(false)
+  const [gdsFormat, setGdsFormat] = useState('amadeus') // 'amadeus' | 'web' | 'simple'
+  const [copiedGds, setCopiedGds] = useState(false)
+
+  // Modal Asignación Masiva de Hotel
+  const [showBatchHotelModal, setShowBatchHotelModal] = useState(false)
+  const [batchHotelForm, setBatchHotelForm] = useState({
+    hotel: '',
+    tipo_habitacion: 'Doble',
+    categoria_habitacion: 'Clase 2 (Estándar / 4★)'
+  })
 
   // Quick Paste text & metadata
   const [quickPasteText, setQuickPasteText] = useState('')
@@ -184,6 +202,53 @@ export default function BloqueoDetallePage() {
       fetchBloqueoData(true)
     }
     fetchHelpers()
+  }, [id])
+
+  // Sincronización en Tiempo Real (Supabase Realtime Channel)
+  useEffect(() => {
+    if (!id) return
+
+    const channel = supabase
+      .channel(`realtime:bloqueo:${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'bloqueo_pasajeros',
+          filter: `bloqueo_id=eq.${id}`
+        },
+        (payload) => {
+          if (payload.eventType === 'UPDATE' && payload.new) {
+            setPasajeros(prev => prev.map(p => {
+              if (p.id === payload.new.id) {
+                return {
+                  ...p,
+                  ...payload.new,
+                  categoria_habitacion: payload.new.categoria_habitacion || p.categoria_habitacion || 'Clase 2 (Estándar / 4★)'
+                }
+              }
+              return p
+            }))
+          } else if (payload.eventType === 'INSERT' && payload.new) {
+            setPasajeros(prev => {
+              if (prev.some(p => p.id === payload.new.id)) return prev
+              const inserted = {
+                ...payload.new,
+                categoria_habitacion: payload.new.categoria_habitacion || 'Clase 2 (Estándar / 4★)'
+              }
+              return [...prev, inserted].sort((a, b) => (a.numero_cupo || 0) - (b.numero_cupo || 0))
+            })
+          } else if (payload.eventType === 'DELETE' && payload.old) {
+            setPasajeros(prev => prev.filter(p => p.id !== payload.old.id))
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [id])
 
   async function fetchHelpers() {
@@ -997,6 +1062,188 @@ export default function BloqueoDetallePage() {
       showToast('Error al agrupar pasajeros.', 'error')
     }
   }
+
+  // Marcar pagos al 100% masivamente para los cupos seleccionados
+  const handleBatchMarkPaid = async () => {
+    if (selectedSlotIds.length === 0) return
+    const count = selectedSlotIds.length
+    if (!confirm(`¿Marcar liquidación de pago al 100% para los ${count} pasajeros seleccionados?`)) return
+    setSaving(true)
+    try {
+      const todayStr = new Date().toISOString().slice(0, 10)
+      const selectedSlots = (pasajeros || []).filter(p => selectedSlotIds.includes(p.id))
+
+      const updates = selectedSlots.map(s => {
+        const precio = Number(s.precio_acordado) || Number(bloqueo?.precio_venta_pax) || 0
+        const fullPlan = [
+          { id: '1', numero: 1, label: 'Pago Total 100%', monto: precio, fecha: todayStr, estado: 'pagado', nota: 'Liquidación en bloque' }
+        ]
+        return supabase
+          .from('bloqueo_pasajeros')
+          .update({
+            abono_1: precio,
+            fecha_abono_1: todayStr,
+            abono_2: 0,
+            fecha_abono_2: null,
+            abono_3: 0,
+            fecha_abono_3: null,
+            plan_pagos: fullPlan,
+            estado_pago: 'pagado_total'
+          })
+          .eq('id', s.id)
+      })
+
+      await Promise.all(updates)
+
+      setPasajeros(prev => prev.map(p => {
+        if (!selectedSlotIds.includes(p.id)) return p
+        const precio = Number(p.precio_acordado) || Number(bloqueo?.precio_venta_pax) || 0
+        return {
+          ...p,
+          abono_1: precio,
+          fecha_abono_1: todayStr,
+          abono_2: 0,
+          abono_3: 0,
+          plan_pagos: [{ id: '1', numero: 1, label: 'Pago Total 100%', monto: precio, fecha: todayStr, estado: 'pagado', nota: 'Liquidación en bloque' }],
+          estado_pago: 'pagado_total',
+          faltante: 0
+        }
+      }))
+
+      showToast(`¡${count} cupos marcados como pagados al 100%!`, 'success')
+      setSelectedSlotIds([])
+    } catch (err) {
+      console.error('Error batch marking paid:', err)
+      showToast('Error al actualizar pagos: ' + err.message, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Asignar hotel masivamente a los cupos seleccionados
+  const handleBatchAssignHotel = async (e) => {
+    e.preventDefault()
+    if (selectedSlotIds.length === 0) return
+    if (!batchHotelForm.hotel.trim()) {
+      showToast('Por favor selecciona o escribe el nombre del hotel.', 'error')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const payload = {
+        hoteles: batchHotelForm.hotel.trim(),
+        tipo_habitacion: batchHotelForm.tipo_habitacion || 'Doble',
+        categoria_habitacion: batchHotelForm.categoria_habitacion || 'Clase 2 (Estándar / 4★)'
+      }
+
+      const updates = selectedSlotIds.map(slotId => {
+        return supabase
+          .from('bloqueo_pasajeros')
+          .update(payload)
+          .eq('id', slotId)
+      })
+
+      await Promise.all(updates)
+
+      setPasajeros(prev => prev.map(p => selectedSlotIds.includes(p.id) ? { ...p, ...payload } : p))
+      showToast(`¡Hotel y acomodación asignados a ${selectedSlotIds.length} pasajeros!`, 'success')
+      setSelectedSlotIds([])
+      setShowBatchHotelModal(false)
+    } catch (err) {
+      console.error('Error in batch hotel assign:', err)
+      showToast('Error al asignar hotel: ' + err.message, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Copiar nombres de pasajeros seleccionados
+  const handleCopySelectedNames = () => {
+    const selected = (pasajeros || []).filter(p => selectedSlotIds.includes(p.id) && p.nombres && p.nombres.trim() !== '')
+    if (selected.length === 0) {
+      showToast('No hay nombres registrados en los cupos seleccionados.', 'error')
+      return
+    }
+    const text = selected.map((p, i) => `${i + 1}. ${p.nombres} ${p.apellidos || ''} — ${p.tipo_documento || 'Doc'}: ${p.numero_documento || 'S/N'}${p.tipo_habitacion ? ` (Hab. ${p.tipo_habitacion})` : ''}`).join('\n')
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast(`¡${selected.length} nombres copiados al portapapeles!`, 'success')
+      })
+    }
+  }
+
+  // Comprobante de Reserva por WhatsApp para la Agencia
+  const handleSharePassengerWhatsApp = (slot) => {
+    if (!slot || !slot.nombres) return
+    const plan = getSlotInstallments(slot)
+    const precio = Number(slot.precio_acordado) || Number(bloqueo?.precio_venta_pax) || 0
+    let totalPagado = 0
+    if (Array.isArray(plan) && plan.length > 0) {
+      totalPagado = plan.filter(item => item && item.estado === 'pagado').reduce((acc, item) => acc + (Number(item?.monto) || 0), 0)
+    } else {
+      totalPagado = (Number(slot.abono_1) || 0) + (Number(slot.abono_2) || 0) + (Number(slot.abono_3) || 0)
+    }
+    const faltante = Math.max(0, precio - totalPagado)
+
+    const text = `✈️ *CONFIRMACIÓN DE RESERVA — CTB VIAJANDO MAYORISTA* 🌴
+📋 *Bloqueo:* ${bloqueo?.titulo?.toUpperCase() || ''} (${bloqueo?.codigo || ''})
+📍 *Destino:* ${bloqueo?.destino || ''} | *Salida:* ${bloqueo?.fecha_salida || 'Por definir'}
+──────────────────────────
+👤 *Pasajero:* ${slot.nombres} ${slot.apellidos || ''}
+📄 *Documento:* ${slot.tipo_documento || 'Cédula'}: ${slot.numero_documento || 'Por registrar'}
+🏢 *Agencia:* ${slot.agencia || 'Directo'}${slot.ciudad ? ` (${slot.ciudad})` : ''}
+${slot.grupo_nombre ? `👥 *Grupo:* ${slot.grupo_nombre}\n` : ''}🏨 *Hotel:* ${slot.hoteles || 'Estándar'}
+🛏️ *Acomodación:* Habitación ${slot.tipo_habitacion || 'Doble'} (${slot.categoria_habitacion || 'Clase 2 - 4★'})
+──────────────────────────
+💵 *Tarifa Acordada:* *$${precio.toLocaleString('es-EC')} USD*
+✅ *Abono Registrado:* *$${totalPagado.toLocaleString('es-EC')} USD*
+⏳ *Saldo Pendiente:* *$${faltante.toLocaleString('es-EC')} USD*
+${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fecha_limite_pago_agencia}\n` : ''}──────────────────────────
+🧑‍💼 *Ejecutivo Operativo:* ${slot.operativo_nombre || 'CTB Operaciones'}
+📲 *CTB Viajando Mayorista de Turismo.* ¡Gracias por tu confianza!`
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('¡Comprobante copiado al portapapeles!', 'success')
+      })
+    }
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank')
+  }
+
+  // Generador de Manifiesto Aéreo GDS (Amadeus, Sabre, Web)
+  const gdsManifestData = useMemo(() => {
+    const occupied = (pasajeros || []).filter(p => p && String(p.nombres || '').trim() !== '')
+    if (occupied.length === 0) return { amadeus: '', web: '', simple: '', totalPax: 0 }
+
+    const amadeus = occupied.map((p, i) => {
+      const cleanNom = String(p.nombres || '').trim().replace(/[^a-zA-Z\s]/g, '').toUpperCase()
+      const cleanApe = String(p.apellidos || '').trim().replace(/[^a-zA-Z\s]/g, '').toUpperCase()
+      const title = p.genero === 'F' ? 'MS' : 'MR'
+      const doc = p.numero_documento ? ` - P:${p.numero_documento}` : ''
+      const dob = p.fecha_nacimiento ? ` - DOB:${p.fecha_nacimiento.replace(/-/g, '')}` : ''
+      return `${i + 1}.${cleanApe}/${cleanNom} ${title}${doc}${dob}`
+    }).join('\n')
+
+    const webHeaders = "ORDEN\tNOMBRES\tAPELLIDOS\tTIPO_DOC\tNUMERO_DOC\tFECHA_NAC\tNACIONALIDAD\tGENERO\tHABITACION\tHOTEL"
+    const webRows = occupied.map((p, i) => {
+      return `${i + 1}\t${p.nombres}\t${p.apellidos || ''}\t${p.tipo_documento || 'Cédula'}\t${p.numero_documento || ''}\t${p.fecha_nacimiento || ''}\t${p.nacionalidad || 'ECUATORIANA'}\t${p.genero || 'M'}\t${p.tipo_habitacion || 'Doble'}\t${p.hoteles || ''}`
+    }).join('\n')
+
+    const simpleRows = occupied.map((p, i) => {
+      const doc = p.numero_documento ? ` · ${p.tipo_documento}: ${p.numero_documento}` : ''
+      const hab = p.tipo_habitacion ? ` · Hab. ${p.tipo_habitacion}` : ''
+      return `${i + 1}. ${p.nombres} ${p.apellidos || ''}${doc}${hab}`
+    }).join('\n')
+    const simple = `✈️ MANIFIESTO AÉREO — ${bloqueo?.titulo?.toUpperCase() || ''} (${bloqueo?.codigo || ''})\n📍 Destino: ${bloqueo?.destino || ''} | Salida: ${bloqueo?.fecha_salida || ''}\nTotal Pasajeros: ${occupied.length} PAX\n\n${simpleRows}`
+
+    return {
+      amadeus,
+      web: `${webHeaders}\n${webRows}`,
+      simple,
+      totalPax: occupied.length
+    }
+  }, [pasajeros, bloqueo])
 
   // Toggle Slot Selection
   const toggleSelectSlot = (id) => {
@@ -1814,7 +2061,30 @@ export default function BloqueoDetallePage() {
             title="Exportar Rooming List en formato Excel para aerolíneas y hoteles"
           >
             <FileSpreadsheet size={15} className="text-emerald-600" />
-            <span>Rooming List</span>
+            <span className="hidden sm:inline">Excel</span>
+          </button>
+
+          {/* Botón PDF Oficial Membretado */}
+          <button
+            onClick={() => {
+              showToast('Generando Rooming List Oficial en PDF...', 'info')
+              exportBloqueoRoomingPDF(bloqueo, pasajeros)
+            }}
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-white border border-gray-200/90 text-gray-700 hover:text-rose-700 hover:bg-rose-50/50 hover:border-rose-200 font-black text-xs uppercase tracking-wider transition-all shadow-xs active:scale-95"
+            title="Descargar Rooming List Oficial membretada en formato PDF de alta calidad"
+          >
+            <Download size={15} className="text-rose-600" />
+            <span className="hidden sm:inline">PDF Oficial</span>
+          </button>
+
+          {/* Botón Manifiesto Aéreo GDS */}
+          <button
+            onClick={() => setShowGdsModal(true)}
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-white border border-gray-200/90 text-gray-700 hover:text-blue-700 hover:bg-blue-50/50 hover:border-blue-200 font-black text-xs uppercase tracking-wider transition-all shadow-xs active:scale-95"
+            title="Generar Manifiesto de Nombres en formato Amadeus, Sabre o Web"
+          >
+            <Plane size={15} className="text-blue-600" />
+            <span className="hidden sm:inline">GDS</span>
           </button>
 
           {/* Botón 3 (ACCIÓN PRINCIPAL): Registrar Pasajeros con Menú Desplegable Inteligente */}
@@ -2238,31 +2508,78 @@ export default function BloqueoDetallePage() {
         </div>
       </div>
 
-      {/* Floating / Active Bar for Grouping Selected Existing Passengers */}
+      {/* Barra de Acciones Masivas Flotante */}
       {selectedSlotIds.length > 0 && (
-        <div className="bg-purple-900 text-white p-4 rounded-3xl shadow-xl flex items-center justify-between animate-in slide-in-from-top-4 duration-300">
+        <div className="sticky top-20 z-30 bg-gray-900/95 backdrop-blur-md text-white p-4 rounded-3xl shadow-2xl border border-gray-800 flex flex-wrap items-center justify-between gap-3 animate-in slide-in-from-top-4 duration-300">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-black text-sm">
+            <div className="w-9 h-9 rounded-2xl bg-primary text-white flex items-center justify-center font-black text-sm shadow-md">
               {selectedSlotIds.length}
             </div>
             <div>
-              <p className="text-xs font-black uppercase tracking-wider">Pasajeros Seleccionados</p>
-              <p className="text-[11px] text-purple-200">¿Deseas agruparlos bajo un mismo nombre de grupo?</p>
+              <p className="text-xs font-black uppercase tracking-wider flex items-center gap-2">
+                <span>{selectedSlotIds.length} {selectedSlotIds.length === 1 ? 'Cupo Seleccionado' : 'Cupos Seleccionados'}</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-gray-300">
+                  Acciones en Lote
+                </span>
+              </p>
+              <p className="text-[11px] text-gray-400">
+                Aplica pagos, asigna hotel, copia nombres o agrupa en un solo clic
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* 1. Liquidación 100% */}
             <button
-              onClick={() => setSelectedSlotIds([])}
-              className="px-3 py-1.5 rounded-xl bg-purple-800 text-purple-200 hover:text-white text-xs font-bold transition-colors"
+              onClick={handleBatchMarkPaid}
+              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider shadow transition-all flex items-center gap-1.5 active:scale-95"
+              title="Marcar liquidación de pago completa al 100%"
             >
-              Cancelar
+              <CheckCircle2 size={14} />
+              <span>Liquidación 100%</span>
             </button>
+
+            {/* 2. Asignar Hotel Masivo */}
+            <button
+              onClick={() => {
+                if (configuredHoteles && configuredHoteles.length > 0) {
+                  setBatchHotelForm(prev => ({ ...prev, hotel: configuredHoteles[0].nombre || '' }))
+                }
+                setShowBatchHotelModal(true)
+              }}
+              className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs uppercase tracking-wider shadow transition-all flex items-center gap-1.5 active:scale-95"
+              title="Asignar hotel y categoría de habitación a los seleccionados"
+            >
+              <Hotel size={14} />
+              <span>Asignar Hotel</span>
+            </button>
+
+            {/* 3. Copiar Nombres */}
+            <button
+              onClick={handleCopySelectedNames}
+              className="px-3 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 hover:text-white font-black text-xs uppercase tracking-wider border border-gray-700 transition-all flex items-center gap-1.5 active:scale-95"
+              title="Copiar lista de nombres seleccionados al portapapeles"
+            >
+              <Copy size={14} />
+              <span className="hidden sm:inline">Copiar Nombres</span>
+            </button>
+
+            {/* 4. Formar Grupo */}
             <button
               onClick={() => setShowGroupExistingModal(true)}
-              className="px-4 py-2 rounded-xl bg-white text-purple-950 font-black text-xs uppercase tracking-wider shadow hover:bg-purple-50 transition-all flex items-center gap-1.5"
+              className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs uppercase tracking-wider shadow transition-all flex items-center gap-1.5 active:scale-95"
+              title="Agrupar pasajeros seleccionados bajo un nombre oficial"
             >
-              <FolderPlus size={15} />
-              Formar Grupo con Seleccionados
+              <FolderPlus size={14} />
+              <span>Formar Grupo</span>
+            </button>
+
+            {/* Cancelar */}
+            <button
+              onClick={() => setSelectedSlotIds([])}
+              className="px-3 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white text-xs font-bold transition-colors ml-1"
+            >
+              Cancelar
             </button>
           </div>
         </div>
@@ -2637,13 +2954,22 @@ export default function BloqueoDetallePage() {
                             <Edit3 size={14} />
                           </button>
                           {isOccupied && (
-                            <button
-                              onClick={() => handleReleaseSlot(slot)}
-                              className="p-2 rounded-xl bg-gray-50 hover:bg-red-50 hover:text-red-600 text-gray-400 transition-colors"
-                              title="Liberar Cupo"
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                            <>
+                              <button
+                                onClick={() => handleSharePassengerWhatsApp(slot)}
+                                className="p-2 rounded-xl bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-600 transition-colors shadow-sm"
+                                title="Enviar Comprobante WhatsApp a la Agencia"
+                              >
+                                <Share2 size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleReleaseSlot(slot)}
+                                className="p-2 rounded-xl bg-gray-50 hover:bg-red-50 hover:text-red-600 text-gray-400 transition-colors"
+                                title="Liberar Cupo"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -3533,6 +3859,255 @@ export default function BloqueoDetallePage() {
                   className="btn-primary px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider bg-purple-700 hover:bg-purple-800"
                 >
                   Guardar Grupo
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL GDS: MANIFIESTO AÉREO */}
+      {showGdsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-2xl rounded-[2rem] shadow-2xl border border-gray-100 max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-blue-50/70">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-black">
+                  <Plane size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-gray-900 tracking-tight flex items-center gap-2">
+                    Manifiesto Aéreo & Formato GDS
+                  </h3>
+                  <p className="text-xs text-blue-800 font-medium">
+                    {bloqueo?.titulo} ({bloqueo?.codigo}) · {gdsManifestData.totalPax} Pasajeros Registrados
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowGdsModal(false)}
+                className="w-8 h-8 rounded-full bg-white text-gray-500 hover:text-gray-900 flex items-center justify-center transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+              {/* Tabs de Formato */}
+              <div className="flex items-center gap-2 bg-gray-100 p-1.5 rounded-2xl">
+                <button
+                  type="button"
+                  onClick={() => setGdsFormat('amadeus')}
+                  className={`flex-1 py-2 px-3 rounded-xl font-black text-xs transition-all ${
+                    gdsFormat === 'amadeus' 
+                      ? 'bg-white text-blue-700 shadow-sm' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Amadeus / Sabre (GDS)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGdsFormat('web')}
+                  className={`flex-1 py-2 px-3 rounded-xl font-black text-xs transition-all ${
+                    gdsFormat === 'web' 
+                      ? 'bg-white text-blue-700 shadow-sm' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Excel Web (Tabular)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGdsFormat('simple')}
+                  className={`flex-1 py-2 px-3 rounded-xl font-black text-xs transition-all ${
+                    gdsFormat === 'simple' 
+                      ? 'bg-white text-blue-700 shadow-sm' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Texto Limpio (WhatsApp)
+                </button>
+              </div>
+
+              {/* Guía informativa */}
+              <div className="text-[11px] text-gray-500 bg-gray-50 p-3 rounded-xl border border-gray-200">
+                {gdsFormat === 'amadeus' && (
+                  <p>
+                    📌 <strong>Formato Estándar IATA:</strong> <code>ORDEN.APELLIDO/NOMBRE TITULO - DOC - DOB</code>. Listo para ingresar en consolas Amadeus, Sabre o Kiu.
+                  </p>
+                )}
+                {gdsFormat === 'web' && (
+                  <p>
+                    📌 <strong>Formato Tabular:</strong> Columnas separadas por tabulaciones. Selecciona, copia y pega directamente en portales de emisión de aerolíneas o Excel.
+                  </p>
+                )}
+                {gdsFormat === 'simple' && (
+                  <p>
+                    📌 <strong>Texto Limpio:</strong> Resumen enumerado con nombres completos, documentos y tipo de habitación. Ideal para WhatsApp o correos de confirmación.
+                  </p>
+                )}
+              </div>
+
+              {/* Textarea Preview */}
+              <div>
+                <label className="block text-gray-700 font-bold mb-1">
+                  Vista Previa del Manifiesto ({gdsManifestData.totalPax} PAX)
+                </label>
+                <textarea
+                  readOnly
+                  rows={10}
+                  value={gdsManifestData[gdsFormat] || 'No hay pasajeros registrados con nombre en este bloqueo.'}
+                  className="w-full p-3 font-mono text-xs bg-gray-900 text-emerald-400 rounded-2xl border border-gray-800 focus:outline-none selection:bg-emerald-700 selection:text-white"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-gray-100 flex items-center justify-between bg-gray-50/50">
+              <span className="text-[11px] text-gray-400 font-medium">
+                {gdsManifestData.totalPax} pasajeros en lista
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowGdsModal(false)}
+                  className="px-4 py-2.5 rounded-xl bg-gray-100 text-gray-700 font-bold text-xs hover:bg-gray-200 transition-colors"
+                >
+                  Cerrar
+                </button>
+                <button
+                  type="button"
+                  disabled={gdsManifestData.totalPax === 0}
+                  onClick={() => {
+                    const content = gdsManifestData[gdsFormat]
+                    if (!content) return
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                      navigator.clipboard.writeText(content).then(() => {
+                        setCopiedGds(true)
+                        showToast('¡Manifiesto copiado al portapapeles con éxito!', 'success')
+                        setTimeout(() => setCopiedGds(false), 2500)
+                      })
+                    }
+                  }}
+                  className={`btn-primary flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider ${
+                    copiedGds ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
+                >
+                  {copiedGds ? <Check size={15} /> : <Copy size={15} />}
+                  <span>{copiedGds ? '¡Copiado!' : 'Copiar al Portapapeles'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL ASIGNACIÓN MASIVA DE HOTEL */}
+      {showBatchHotelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md rounded-[2rem] shadow-2xl border border-gray-100 p-6 space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-black">
+                  <Hotel size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-gray-900 tracking-tight">
+                    Asignar Hotel en Bloque
+                  </h3>
+                  <p className="text-xs text-blue-700 font-medium">
+                    {selectedSlotIds.length} pasajeros seleccionados
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowBatchHotelModal(false)}
+                className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:text-gray-900 flex items-center justify-center transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-500">
+              Aplica hotel y acomodación al mismo tiempo a todos los cupos seleccionados.
+            </p>
+
+            <form onSubmit={handleBatchAssignHotel} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-gray-800 font-black mb-1">Hotel Destino *</label>
+                {configuredHoteles && configuredHoteles.length > 0 ? (
+                  <select
+                    value={batchHotelForm.hotel}
+                    onChange={(e) => setBatchHotelForm({ ...batchHotelForm, hotel: e.target.value })}
+                    className="input w-full bg-white text-gray-900 border border-blue-200 font-bold"
+                    required
+                  >
+                    <option value="">-- Seleccionar de los hoteles contratados --</option>
+                    {configuredHoteles.map((h, i) => (
+                      <option key={i} value={h.nombre}>
+                        {h.nombre} ({h.cupos || 0} cupos contratados)
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej. Hotel Decameron Punta Centinela"
+                    value={batchHotelForm.hotel}
+                    onChange={(e) => setBatchHotelForm({ ...batchHotelForm, hotel: e.target.value })}
+                    className="input w-full bg-white text-gray-900 border border-blue-200 font-bold"
+                  />
+                )}
+              </div>
+
+              <div>
+                <label className="block text-gray-800 font-black mb-1">Tipo de Habitación</label>
+                <select
+                  value={batchHotelForm.tipo_habitacion}
+                  onChange={(e) => setBatchHotelForm({ ...batchHotelForm, tipo_habitacion: e.target.value })}
+                  className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
+                >
+                  <option value="Doble">Doble (2 personas)</option>
+                  <option value="Simple">Simple (SGL - 1 persona)</option>
+                  <option value="Triple">Triple (3 personas)</option>
+                  <option value="Cuádruple">Cuádruple (4 personas)</option>
+                  <option value="Matrimonial">Matrimonial (1 cama)</option>
+                  <option value="Twin">Twin (2 camas separadas)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-gray-800 font-black mb-1">Categoría del Hotel</label>
+                <select
+                  value={batchHotelForm.categoria_habitacion}
+                  onChange={(e) => setBatchHotelForm({ ...batchHotelForm, categoria_habitacion: e.target.value })}
+                  className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
+                >
+                  <option value="Clase 1 (Económica / 3★)">⭐ Clase 1 (Económica / 3★)</option>
+                  <option value="Clase 2 (Estándar / 4★)">⭐⭐ Clase 2 (Estándar / 4★)</option>
+                  <option value="Clase 3 (Superior / 5★)">⭐⭐⭐ Clase 3 (Superior / 5★)</option>
+                  <option value="Clase VIP / Luxury">👑 Clase VIP / Luxury</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setShowBatchHotelModal(false)}
+                  className="px-4 py-2.5 rounded-xl bg-gray-100 text-gray-700 font-bold text-xs"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="btn-primary px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-600 hover:bg-blue-700 shadow-md"
+                >
+                  {saving ? 'Guardando...' : 'Aplicar a Selección'}
                 </button>
               </div>
             </form>

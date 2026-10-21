@@ -31,7 +31,7 @@ import {
   Hotel,
   RefreshCw
 } from 'lucide-react'
-import { format, differenceInDays, parseISO } from 'date-fns'
+import { format, differenceInDays, differenceInCalendarDays, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { showToast } from '@/utils/toast'
 import IataSelector from '@/components/IataSelector'
@@ -904,12 +904,68 @@ ${hotelesTexto}
     return bloqueos.filter(b => b.estado === 'eliminado').length
   }, [bloqueos])
 
+  // Helper para alertas de Time Limit en emisión de nombres y pagos
+  const getTimeLimitAlerts = (b) => {
+    if (!b || b.estado === 'eliminado' || b.estado === 'completado') return []
+    const parseSafe = (val) => {
+      if (!val) return null
+      try {
+        const clean = String(val).replace(' ', 'T').split('T')[0]
+        const d = parseISO(clean)
+        return isNaN(d.getTime()) ? null : d
+      } catch {
+        return null
+      }
+    }
+
+    const emision = parseSafe(b.fecha_limite_emision)
+    const pago = parseSafe(b.fecha_limite_pago)
+    const now = new Date()
+    const alerts = []
+
+    if (emision) {
+      const diff = differenceInCalendarDays(emision, now)
+      if (diff < 0) {
+        alerts.push({ type: 'emision', level: 'expired', label: `Nombres venció hace ${Math.abs(diff)}d`, color: 'bg-red-600 text-white' })
+      } else if (diff === 0) {
+        alerts.push({ type: 'emision', level: 'critical', label: '¡HOY límite para nombres!', color: 'bg-rose-500 text-white animate-pulse' })
+      } else if (diff <= 3) {
+        alerts.push({ type: 'emision', level: 'critical', label: `Límite nombres en ${diff}d`, color: 'bg-rose-100 text-rose-800 border border-rose-200' })
+      } else if (diff <= 7) {
+        alerts.push({ type: 'emision', level: 'warning', label: `Nombres en ${diff}d`, color: 'bg-amber-100 text-amber-800 border border-amber-200' })
+      }
+    }
+
+    if (pago) {
+      const diff = differenceInCalendarDays(pago, now)
+      if (diff < 0) {
+        alerts.push({ type: 'pago', level: 'expired', label: `Pago aerolínea vencido`, color: 'bg-red-600 text-white' })
+      } else if (diff === 0) {
+        alerts.push({ type: 'pago', level: 'critical', label: '¡HOY pago total aerolínea!', color: 'bg-red-500 text-white animate-pulse' })
+      } else if (diff <= 3) {
+        alerts.push({ type: 'pago', level: 'critical', label: `Pago aerolínea en ${diff}d`, color: 'bg-orange-100 text-orange-800 border border-orange-200' })
+      } else if (diff <= 7) {
+        alerts.push({ type: 'pago', level: 'warning', label: `Pago aerolínea en ${diff}d`, color: 'bg-yellow-100 text-yellow-800 border border-yellow-200' })
+      }
+    }
+
+    return alerts
+  }
+
+  // Conteo de bloqueos con Time Limits activos
+  const porVencerCount = useMemo(() => {
+    return bloqueos.filter(b => b.estado !== 'eliminado' && getTimeLimitAlerts(b).length > 0).length
+  }, [bloqueos])
+
   // Filtered Bloqueos (Excluye papelera a menos que se seleccione pestaña papelera)
   const filteredBloqueos = useMemo(() => {
     return bloqueos.filter(b => {
       const isDeleted = b.estado === 'eliminado'
       if (statusFilter === 'eliminado') {
         if (!isDeleted) return false
+      } else if (statusFilter === 'por_vencer') {
+        if (isDeleted) return false
+        if (getTimeLimitAlerts(b).length === 0) return false
       } else {
         if (isDeleted) return false
         if (statusFilter !== 'todos' && b.estado !== statusFilter) return false
@@ -1149,6 +1205,25 @@ ${hotelesTexto}
           >
             Cerrados
           </button>
+          <button
+            onClick={() => setStatusFilter('por_vencer')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all flex items-center gap-1.5 ${
+              statusFilter === 'por_vencer'
+                ? 'bg-amber-600 text-white shadow-md shadow-amber-600/25'
+                : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200/80'
+            }`}
+            title="Bloqueos con fechas límites de nombres o pago próximas"
+          >
+            <Clock size={13} className="text-amber-600 shrink-0" />
+            <span>Time Limits</span>
+            {porVencerCount > 0 && (
+              <span className={`px-1.5 py-0.2 text-[10px] rounded-full font-black ${
+                statusFilter === 'por_vencer' ? 'bg-white text-amber-900' : 'bg-amber-200 text-amber-900'
+              }`}>
+                {porVencerCount}
+              </span>
+            )}
+          </button>
           {isPrivileged && (
             <button
               onClick={() => setStatusFilter('eliminado')}
@@ -1225,16 +1300,22 @@ ${hotelesTexto}
             const gananciaLiquidaActual = Math.max(0, dineroRecuperado - inversionTotal)
             const inversionCubierta = inversionTotal > 0 && dineroRecuperado >= inversionTotal
             const faltanPaxMeta = Math.max(0, breakEvenPax - ocupados)
+            const alerts = getTimeLimitAlerts(bloqueo)
+            const hasUrgentAlert = alerts.some(a => a.level === 'critical' || a.level === 'expired')
 
             return (
               <div
                 key={bloqueo.id}
-                className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-xl hover:border-primary/30 transition-all duration-300 flex flex-col justify-between group relative"
+                className={`bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between group relative ${
+                  hasUrgentAlert 
+                    ? 'border-2 border-rose-400 ring-2 ring-rose-100 shadow-rose-100/50' 
+                    : 'border border-gray-100 hover:border-primary/30'
+                }`}
               >
                 {/* Header card */}
                 <div className="p-6 pb-4">
                   <div className="flex items-start justify-between gap-3 mb-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-gray-100 text-gray-800">
                         {bloqueo.codigo}
                       </span>
@@ -1275,6 +1356,21 @@ ${hotelesTexto}
                       )}
                     </div>
                   </div>
+
+                  {/* Alertas de Time Limit si existen */}
+                  {alerts.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {alerts.map((al, alIdx) => (
+                        <span
+                          key={alIdx}
+                          className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg flex items-center gap-1 shadow-2xs ${al.color}`}
+                        >
+                          <AlertTriangle size={11} className="shrink-0" />
+                          <span>{al.label}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
                   <h3 className="text-lg font-black text-gray-900 group-hover:text-primary transition-colors leading-tight line-clamp-1">
                     {bloqueo.titulo}
