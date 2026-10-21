@@ -102,6 +102,7 @@ export default function BloqueoDetallePage() {
   const [singlePasteDetectedInfo, setSinglePasteDetectedInfo] = useState('')
   const [showEditBloqueoModal, setShowEditBloqueoModal] = useState(false)
   const [showAddPaxMenu, setShowAddPaxMenu] = useState(false)
+  const [showExportMenu, setShowExportMenu] = useState(false)
   const [selectedSlotNumber, setSelectedSlotNumber] = useState(null)
 
   // Modal Manifiesto Aéreo GDS
@@ -2324,41 +2325,44 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
       )}
 
       {/* Top Navigation & Bloqueo Overview Header */}
-      <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div className="flex items-start gap-4">
+      <div className="bg-white p-5 sm:p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+        <div className="flex items-start gap-4 flex-1 min-w-0">
           <Link
             href="/dashboard/bloqueos"
-            className="w-11 h-11 rounded-2xl bg-gray-50 border border-gray-100 text-gray-600 hover:bg-gray-100 flex items-center justify-center transition-colors shrink-0 mt-1"
+            className="w-11 h-11 rounded-2xl bg-gray-50 border border-gray-200/80 text-gray-700 hover:bg-gray-100 flex items-center justify-center transition-all shrink-0 mt-1 active:scale-95 shadow-2xs"
+            title="Volver a Bloqueos"
           >
             <ArrowLeft size={20} />
           </Link>
-          <div>
+          <div className="min-w-0 flex-1">
+            {/* Badges superiores alineados */}
             <div className="flex flex-wrap items-center gap-2">
-              <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest bg-gray-900 text-white">
+              <span className="px-3 py-1 rounded-xl text-xs font-black uppercase tracking-wider bg-gray-900 text-white shadow-2xs">
                 {bloqueo.codigo}
               </span>
-              <span className="text-gray-300">•</span>
-              <span className="text-xs font-bold text-gray-600 flex items-center gap-1">
-                <MapPin size={13} className="text-primary" /> {bloqueo.destino}
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-blue-50 text-blue-900 text-xs font-bold border border-blue-200/60">
+                <MapPin size={13} className="text-primary shrink-0" />
+                <span>{bloqueo.destino}</span>
               </span>
               {bloqueo.aerolinea && (
-                <>
-                  <span className="text-gray-300">•</span>
-                  <span className="text-xs font-bold text-gray-600 flex items-center gap-1">
-                    <Plane size={13} className="text-gray-400" /> {bloqueo.aerolinea}
-                  </span>
-                </>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gray-100 text-gray-700 text-xs font-bold border border-gray-200/60">
+                  <Plane size={13} className="text-gray-500 shrink-0" />
+                  <span>{bloqueo.aerolinea}</span>
+                </span>
               )}
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight mt-1">
+            {/* Título Principal */}
+            <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight mt-1.5 leading-tight truncate" title={bloqueo.titulo}>
               {bloqueo.titulo}
             </h1>
 
-            <div className="flex flex-wrap items-center gap-4 mt-2 text-xs text-gray-500 font-medium">
-              <span className="flex items-center gap-1.5">
-                <Calendar size={14} className="text-gray-400" />
-                Salida: <strong className="text-gray-800">
+            {/* Fechas de Salida y Límite */}
+            <div className="flex flex-wrap items-center gap-3 mt-2 text-xs">
+              <span className="inline-flex items-center gap-1.5 text-gray-600 font-medium">
+                <Calendar size={14} className="text-gray-400 shrink-0" />
+                <span>Salida:</span>
+                <strong className="text-gray-900">
                   {(() => {
                     if (!bloqueo.fecha_salida) return 'Por definir'
                     try {
@@ -2372,84 +2376,151 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
                   })()}
                 </strong>
               </span>
+
               {bloqueo.fecha_limite_emision && (
-                <span className="flex items-center gap-1.5 text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full font-bold">
-                  <Clock size={12} /> Fecha límite para nombres: {(() => {
-                    try {
-                      const clean = String(bloqueo.fecha_limite_emision).replace(' ', 'T').split('T')[0]
-                      const d = parseISO(clean)
-                      if (isNaN(d.getTime())) return String(bloqueo.fecha_limite_emision)
-                      return format(d, "d 'de' MMMM", { locale: es })
-                    } catch {
-                      return String(bloqueo.fecha_limite_emision)
-                    }
-                  })()}
+                <span className="inline-flex items-center gap-1.5 text-amber-900 bg-amber-50 border border-amber-200/80 px-2.5 py-0.5 rounded-full font-bold text-[11px]">
+                  <Clock size={12} className="text-amber-600 shrink-0" />
+                  <span>
+                    Fecha límite nombres: {(() => {
+                      try {
+                        const clean = String(bloqueo.fecha_limite_emision).replace(' ', 'T').split('T')[0]
+                        const d = parseISO(clean)
+                        if (isNaN(d.getTime())) return String(bloqueo.fecha_limite_emision)
+                        return format(d, "d 'de' MMMM", { locale: es })
+                      } catch {
+                        return String(bloqueo.fecha_limite_emision)
+                      }
+                    })()}
+                  </span>
                 </span>
               )}
             </div>
           </div>
         </div>
 
-        {/* Action Buttons: Configurar + Rooming List + Menú Primario "Registrar Pasajeros" */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          {/* Botón 1: Configurar Parámetros (Para Admins) */}
+        {/* Grupos de Acciones Organizados y Jerarquizados */}
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0 self-start lg:self-center">
+          {/* GRUPO 1: Ajustes Administrativos (Para Administradores) */}
           {isPrivileged && (
-            <button
-              onClick={handleOpenEditBloqueoModal}
-              className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-white border border-gray-200/90 text-gray-700 hover:text-gray-900 hover:bg-gray-50/90 font-black text-xs uppercase tracking-wider transition-all shadow-xs active:scale-95"
-              title="Editar parámetros, fechas y costos del bloqueo"
-            >
-              <Settings size={15} className="text-gray-400" />
-              <span className="hidden sm:inline">Configuración</span>
-            </button>
+            <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-2xl border border-gray-200/80 shadow-2xs">
+              <button
+                onClick={handleOpenEditBloqueoModal}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-gray-700 hover:text-gray-900 hover:bg-white text-xs font-bold transition-all"
+                title="Editar fechas, precios y cupos del programa"
+              >
+                <Settings size={14} className="text-gray-500" />
+                <span className="hidden sm:inline">Ajustes</span>
+              </button>
+
+              {bloqueo.estado !== 'eliminado' && (
+                <button
+                  onClick={handleDeleteThisBloqueo}
+                  className="p-2 rounded-xl text-gray-400 hover:text-rose-600 hover:bg-white transition-all"
+                  title="Mover este bloqueo a la papelera (respaldado)"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
           )}
 
-          {/* Botón Papelera / Respaldo (Para Admins) */}
-          {isPrivileged && bloqueo.estado !== 'eliminado' && (
+          {/* GRUPO 2: Descargas y Manifiestos (Menú Desplegable Unificado) */}
+          <div className="relative">
             <button
-              onClick={handleDeleteThisBloqueo}
-              className="flex items-center gap-2 px-3 py-2.5 rounded-2xl bg-white border border-gray-200/90 text-gray-400 hover:text-rose-600 hover:bg-rose-50/60 hover:border-rose-200 font-bold text-xs uppercase tracking-wider transition-all shadow-xs active:scale-95"
-              title="Mover este programa a la papelera (respaldado)"
+              onClick={() => {
+                setShowExportMenu(prev => !prev)
+                setShowAddPaxMenu(false)
+              }}
+              className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-white border border-gray-200/90 text-gray-700 hover:text-gray-950 hover:bg-gray-50/80 font-black text-xs uppercase tracking-wider transition-all shadow-xs active:scale-95"
+              title="Descargar o exportar listas de pasajeros y manifiestos"
             >
-              <Trash2 size={15} />
-              <span className="hidden xl:inline">Papelera</span>
+              <Download size={15} className="text-gray-500" />
+              <span>Exportar</span>
+              <ChevronDown size={13} className={`text-gray-400 transition-transform duration-200 ${showExportMenu ? 'rotate-180' : ''}`} />
             </button>
-          )}
 
-          {/* Botón 2: Exportar Rooming List en Excel */}
-          <button
-            onClick={handleExportRoomingList}
-            className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-white border border-gray-200/90 text-gray-700 hover:text-emerald-700 hover:bg-emerald-50/50 hover:border-emerald-200 font-black text-xs uppercase tracking-wider transition-all shadow-xs active:scale-95"
-            title="Exportar Rooming List en formato Excel para aerolíneas y hoteles"
-          >
-            <FileSpreadsheet size={15} className="text-emerald-600" />
-            <span className="hidden sm:inline">Excel</span>
-          </button>
+            {showExportMenu && (
+              <>
+                <div 
+                  className="fixed inset-0 z-40 bg-transparent" 
+                  onClick={() => setShowExportMenu(false)} 
+                />
+                <div className="absolute right-0 mt-2 w-72 bg-white rounded-3xl shadow-2xl border border-gray-100 p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="px-3 py-2 border-b border-gray-100">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                      Formatos de Descarga
+                    </span>
+                  </div>
 
-          {/* Botón PDF Oficial Membretado */}
-          <button
-            onClick={() => {
-              showToast('Generando Rooming List Oficial en PDF...', 'info')
-              exportBloqueoRoomingPDF(bloqueo, pasajeros)
-            }}
-            className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-white border border-gray-200/90 text-gray-700 hover:text-rose-700 hover:bg-rose-50/50 hover:border-rose-200 font-black text-xs uppercase tracking-wider transition-all shadow-xs active:scale-95"
-            title="Descargar Rooming List Oficial membretada en formato PDF de alta calidad"
-          >
-            <Download size={15} className="text-rose-600" />
-            <span className="hidden sm:inline">PDF Oficial</span>
-          </button>
+                  {/* Opción 1: Excel Rooming List */}
+                  <button
+                    onClick={() => {
+                      setShowExportMenu(false)
+                      handleExportRoomingList()
+                    }}
+                    className="w-full text-left p-2.5 rounded-2xl hover:bg-emerald-50/60 flex items-center gap-3 transition-colors group mt-1"
+                  >
+                    <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-all shadow-2xs">
+                      <FileSpreadsheet size={16} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black text-gray-900 group-hover:text-emerald-800">
+                        Rooming en Excel (.xlsx)
+                      </p>
+                      <p className="text-[10px] text-gray-500 leading-snug">
+                        Para hoteles y operadores terrestres.
+                      </p>
+                    </div>
+                  </button>
 
-          {/* Botón Manifiesto Aéreo GDS */}
-          <button
-            onClick={() => setShowGdsModal(true)}
-            className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-white border border-gray-200/90 text-gray-700 hover:text-blue-700 hover:bg-blue-50/50 hover:border-blue-200 font-black text-xs uppercase tracking-wider transition-all shadow-xs active:scale-95"
-            title="Generar Manifiesto de Nombres en formato Amadeus, Sabre o Web"
-          >
-            <Plane size={15} className="text-blue-600" />
-            <span className="hidden sm:inline">GDS</span>
-          </button>
+                  {/* Opción 2: PDF Oficial */}
+                  <button
+                    onClick={() => {
+                      setShowExportMenu(false)
+                      showToast('Generando Rooming List Oficial en PDF...', 'info')
+                      exportBloqueoRoomingPDF(bloqueo, pasajeros)
+                    }}
+                    className="w-full text-left p-2.5 rounded-2xl hover:bg-rose-50/60 flex items-center gap-3 transition-colors group"
+                  >
+                    <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 group-hover:bg-rose-600 group-hover:text-white transition-all shadow-2xs">
+                      <Download size={16} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black text-gray-900 group-hover:text-rose-800">
+                        PDF Oficial Membretado
+                      </p>
+                      <p className="text-[10px] text-gray-500 leading-snug">
+                        Documento oficial de presentación de reserva.
+                      </p>
+                    </div>
+                  </button>
 
-          {/* Botón Importar Excel */}
+                  {/* Opción 3: Manifiesto GDS */}
+                  <button
+                    onClick={() => {
+                      setShowExportMenu(false)
+                      setShowGdsModal(true)
+                    }}
+                    className="w-full text-left p-2.5 rounded-2xl hover:bg-blue-50/60 flex items-center gap-3 transition-colors group"
+                  >
+                    <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-2xs">
+                      <Plane size={16} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black text-gray-900 group-hover:text-blue-800">
+                        Manifiesto Aéreo GDS
+                      </p>
+                      <p className="text-[10px] text-gray-500 leading-snug">
+                        Comandos Amadeus, Sabre o carga Web.
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* GRUPO 3: Importar desde Excel (Acción Rápida Destacada) */}
           <button
             onClick={() => {
               setExcelImportedData(null)
@@ -2460,13 +2531,16 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
             title="Importar pasajeros y pagos automáticamente desde Excel o Portapapeles"
           >
             <FileSpreadsheet size={15} />
-            <span className="hidden md:inline">Importar Excel</span>
+            <span>Importar Excel</span>
           </button>
 
-          {/* Botón 3 (ACCIÓN PRINCIPAL): Registrar Pasajeros con Menú Desplegable Inteligente */}
+          {/* GRUPO 4: Acción Primaria: Registrar Pasajeros */}
           <div className="relative">
             <button
-              onClick={() => setShowAddPaxMenu(prev => !prev)}
+              onClick={() => {
+                setShowAddPaxMenu(prev => !prev)
+                setShowExportMenu(false)
+              }}
               className="btn-primary flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-2xl shadow-lg shadow-primary/25 hover:shadow-primary/40 active:scale-95 transition-all text-xs font-black uppercase tracking-wider whitespace-nowrap"
             >
               <Plus size={16} />
