@@ -4,8 +4,10 @@ import React, { useState, useEffect } from 'react'
 import { 
   Hotel, Plus, Trash2, BedDouble, Bed, Star, Utensils, 
   ChevronDown, ChevronUp, Sparkles, DollarSign, Info,
-  CheckCircle2, AlertTriangle, AlertCircle, Users, Scale
+  CheckCircle2, AlertTriangle, AlertCircle, Users, Scale,
+  Check
 } from 'lucide-react'
+import { showToast } from '@/utils/toast'
 
 const CATEGORIAS_HOTEL = [
   'Clase 1 (Económica / 3★)',
@@ -71,12 +73,17 @@ export default function BloqueoHotelesConfig({
   const isMatchExacto = !hasOpenHotel && totalConCupoFijo === totalGeneral
   const isOverLimit = totalConCupoFijo > totalGeneral
   const cuposFaltantes = totalGeneral - totalConCupoFijo
+  const hasIncompleteHotel = hoteles.some(h => !h || !h.nombre || String(h.nombre).trim() === '')
 
   const handleAddHotel = () => {
+    if (hasIncompleteHotel) {
+      showToast('Completa el nombre del hotel actual antes de agregar otro.', 'warning')
+      return
+    }
     const newId = `hotel_${Date.now()}`
     const basePrice = Number(precioBaseSugerido) || 750
-    // Default hotel cupos to the remaining unallocated cupos
-    const initialCupos = cuposFaltantes > 0 ? cuposFaltantes : (hoteles.length === 0 ? totalGeneral : Math.max(1, Math.floor(totalGeneral / (hoteles.length + 1))))
+    // Si los hoteles anteriores están en cupo abierto, el nuevo inicia en cupo abierto (0)
+    const initialCupos = (hoteles.length > 0 && (allOpen || hasOpenHotel)) ? 0 : (cuposFaltantes > 0 ? cuposFaltantes : 0)
 
     const newHotel = {
       id: newId,
@@ -86,8 +93,8 @@ export default function BloqueoHotelesConfig({
       cupos: initialCupos,
       notas: '',
       habitaciones: [
-        { id: `hab_${Date.now()}_1`, tipo: 'Doble', precio: basePrice, cupos: Math.round(initialCupos * 0.7) },
-        { id: `hab_${Date.now()}_2`, tipo: 'Simple (SGL)', precio: Math.round(basePrice * 1.25), cupos: Math.max(0, initialCupos - Math.round(initialCupos * 0.7)) },
+        { id: `hab_${Date.now()}_1`, tipo: 'Doble', precio: basePrice, cupos: 0 },
+        { id: `hab_${Date.now()}_2`, tipo: 'Simple (SGL)', precio: Math.round(basePrice * 1.25), cupos: 0 },
         { id: `hab_${Date.now()}_3`, tipo: 'Triple', precio: basePrice, cupos: 0 },
         { id: `hab_${Date.now()}_4`, tipo: 'Matrimonial', precio: basePrice, cupos: 0 }
       ]
@@ -305,8 +312,20 @@ export default function BloqueoHotelesConfig({
 
           <button
             type="button"
-            onClick={handleAddHotel}
-            className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all"
+            disabled={hasIncompleteHotel}
+            onClick={() => {
+              if (hasIncompleteHotel) {
+                showToast('Completa el nombre del hotel actual antes de agregar uno nuevo.', 'warning')
+                return
+              }
+              handleAddHotel()
+            }}
+            className={`px-3 py-1.5 rounded-xl font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all ${
+              hasIncompleteHotel
+                ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed shadow-none'
+                : 'bg-blue-600 hover:bg-blue-700 active:scale-95 text-white'
+            }`}
+            title={hasIncompleteHotel ? 'Completa el nombre del hotel actual para poder agregar otro' : 'Agregar nuevo hotel'}
           >
             <Plus size={14} /> + Agregar Hotel
           </button>
@@ -682,11 +701,84 @@ export default function BloqueoHotelesConfig({
                         })}
                       </div>
                     </div>
+
+                    {/* Botón de Confirmación / Agregar al final de los datos del Hotel */}
+                    <div className="pt-3 border-t border-gray-150 flex flex-col sm:flex-row items-center justify-between gap-3 bg-gray-50/90 -mx-4 -mb-4 p-4 rounded-b-2xl">
+                      <div className="text-[11px] text-gray-500 font-medium">
+                        {hotel.nombre?.trim() ? (
+                          <span className="text-emerald-700 font-bold flex items-center gap-1.5">
+                            <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                            Hotel "{hotel.nombre}" listo con {hotel.habitaciones?.length || 0} tipo(s) de habitación.
+                          </span>
+                        ) : (
+                          <span className="text-amber-800 font-bold flex items-center gap-1.5">
+                            <AlertCircle size={14} className="text-amber-600 shrink-0" />
+                            Ingresa el nombre del hotel para poder agregarlo.
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!hotel.nombre || !hotel.nombre.trim()) {
+                              showToast('Ingresa el nombre del hotel para confirmarlo.', 'error')
+                              return
+                            }
+                            setExpandedHotelId(null)
+                            showToast(`¡Hotel "${hotel.nombre}" confirmado!`, 'success')
+                          }}
+                          className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md shadow-emerald-600/20 active:scale-95 transition-all"
+                        >
+                          <Check size={14} />
+                          <span>✓ Listo / Agregar Hotel</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!hotel.nombre || !hotel.nombre.trim()) {
+                              showToast('Ingresa el nombre del hotel actual antes de agregar otro.', 'error')
+                              return
+                            }
+                            setExpandedHotelId(null)
+                            handleAddHotel()
+                          }}
+                          className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md shadow-blue-600/20 active:scale-95 transition-all"
+                        >
+                          <Plus size={14} />
+                          <span>+ Agregar Otro Hotel</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
             )
           })}
+
+          {/* Botón grande al pie de la lista para agregar hotel */}
+          <div className="pt-2 flex justify-center">
+            <button
+              type="button"
+              disabled={hasIncompleteHotel}
+              onClick={() => {
+                if (hasIncompleteHotel) {
+                  showToast('Completa el nombre del hotel actual antes de agregar uno nuevo.', 'warning')
+                  return
+                }
+                handleAddHotel()
+              }}
+              className={`w-full py-3.5 rounded-2xl border-2 border-dashed flex items-center justify-center gap-2 font-black text-xs uppercase tracking-wider transition-all ${
+                hasIncompleteHotel
+                  ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed opacity-60'
+                  : 'border-blue-300 bg-blue-50/50 hover:bg-blue-100/60 text-blue-700 hover:border-blue-400 active:scale-98 shadow-xs'
+              }`}
+            >
+              <Plus size={16} /> + Agregar Nuevo Hotel
+            </button>
+          </div>
         </div>
       )}
     </div>
