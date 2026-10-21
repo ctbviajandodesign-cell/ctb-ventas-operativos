@@ -377,9 +377,10 @@ export default function BloqueosPage() {
       // Validar hoteles SOLO si fueron activados y tienen hoteles en la lista
       const validHoteles = (formData.hoteles || []).filter(h => h.nombre && h.nombre.trim() !== '')
       if (validHoteles.length > 0) {
+        const hasOpenHotel = validHoteles.some(h => !h.cupos || Number(h.cupos) === 0)
         const totalAsignado = validHoteles.reduce((acc, h) => acc + (Number(h.cupos) || 0), 0)
-        if (totalAsignado !== cupos) {
-          showToast(`Los espacios asignados a los hoteles (${totalAsignado}) deben coincidir con los ${cupos} cupos totales del bloqueo. O desactiva los hoteles para guardar en modo básico.`, 'error')
+        if (!hasOpenHotel && totalAsignado > cupos) {
+          showToast(`Los cupos fijos asignados (${totalAsignado}) superan los ${cupos} cupos del viaje. Reduce los cupos o usa 0 para cupo abierto.`, 'error')
           setCreating(false)
           return
         }
@@ -628,9 +629,10 @@ export default function BloqueosPage() {
 
       const validHoteles = (editFormData.hoteles || []).filter(h => h.nombre && h.nombre.trim() !== '')
       if (validHoteles.length > 0) {
+        const hasOpenHotel = validHoteles.some(h => !h.cupos || Number(h.cupos) === 0)
         const totalAsignado = validHoteles.reduce((acc, h) => acc + (Number(h.cupos) || 0), 0)
-        if (totalAsignado !== newCupos) {
-          showToast(`Los espacios asignados a los hoteles (${totalAsignado}) deben coincidir con los ${newCupos} cupos totales del bloqueo. O desactiva los hoteles para guardar en modo básico.`, 'error')
+        if (!hasOpenHotel && totalAsignado > newCupos) {
+          showToast(`Los cupos fijos asignados (${totalAsignado}) superan los ${newCupos} cupos del viaje. Reduce los cupos o usa 0 para cupo abierto.`, 'error')
           setUpdating(false)
           return
         }
@@ -753,7 +755,7 @@ export default function BloqueosPage() {
     if (Array.isArray(bloqueo.hoteles) && bloqueo.hoteles.length > 0) {
       hotelesTexto = '🏨 *Hoteles Disponibles y Tarifas por Pax:*\n' + bloqueo.hoteles.map(h => {
         const habs = (h.habitaciones || []).map(r => `   • Hab. ${r.tipo}: *$${Number(r.precio || bloqueo.precio_venta_pax || 0).toLocaleString('es-EC')} USD*`).join('\n')
-        const cuposInfo = h.cupos ? ` · ${h.cupos} cupos contratados` : ''
+        const cuposInfo = Number(h.cupos) > 0 ? ` · ${h.cupos} cupos contratados` : ' · Cupo Abierto'
         return `🌴 *${h.nombre}* (${h.categoria || '4★'}${h.regimen ? ` · ${h.regimen}` : ''}${cuposInfo}):\n${habs || `   • Tarifa Base: *$${Number(bloqueo.precio_venta_pax || 0).toLocaleString('es-EC')} USD*`}`
       }).join('\n\n')
     } else {
@@ -817,13 +819,17 @@ ${hotelesTexto}
 
       if (error) throw error
 
-      await supabase.from('logs_actividad').insert([{
-        usuario_id: user?.id,
-        usuario_nombre: profile?.nombre || 'Admin',
-        usuario_email: user?.email || profile?.email || '',
-        accion: 'MOVER_BLOQUEO_PAPELERA',
-        detalles: `Bloqueo ${bloqueo.codigo} - "${bloqueo.titulo}" (${bloqueo.destino}) movido a papelera de respaldo.`
-      }]).catch(() => {})
+      try {
+        await supabase.from('logs_actividad').insert([{
+          usuario_id: user?.id,
+          usuario_nombre: profile?.nombre || 'Admin',
+          usuario_email: user?.email || profile?.email || '',
+          accion: 'MOVER_BLOQUEO_PAPELERA',
+          detalles: `Bloqueo ${bloqueo.codigo} - "${bloqueo.titulo}" (${bloqueo.destino}) movido a papelera de respaldo.`
+        }])
+      } catch (logErr) {
+        console.warn('Error registrando log de actividad:', logErr)
+      }
 
       const updated = bloqueos.map(b => b.id === bloqueo.id ? { ...b, estado: 'eliminado' } : b)
       setBloqueos(updated)
@@ -846,13 +852,17 @@ ${hotelesTexto}
 
       if (error) throw error
 
-      await supabase.from('logs_actividad').insert([{
-        usuario_id: user?.id,
-        usuario_nombre: profile?.nombre || 'Admin',
-        usuario_email: user?.email || profile?.email || '',
-        accion: 'RESTAURAR_BLOQUEO',
-        detalles: `Bloqueo ${bloqueo.codigo} - "${bloqueo.titulo}" restaurado y reactivado.`
-      }]).catch(() => {})
+      try {
+        await supabase.from('logs_actividad').insert([{
+          usuario_id: user?.id,
+          usuario_nombre: profile?.nombre || 'Admin',
+          usuario_email: user?.email || profile?.email || '',
+          accion: 'RESTAURAR_BLOQUEO',
+          detalles: `Bloqueo ${bloqueo.codigo} - "${bloqueo.titulo}" restaurado y reactivado.`
+        }])
+      } catch (logErr) {
+        console.warn('Error registrando log de actividad:', logErr)
+      }
 
       const updated = bloqueos.map(b => b.id === bloqueo.id ? { ...b, estado: 'activo' } : b)
       setBloqueos(updated)
@@ -881,13 +891,17 @@ ${hotelesTexto}
 
       if (error) throw error
 
-      await supabase.from('logs_actividad').insert([{
-        usuario_id: user?.id,
-        usuario_nombre: profile?.nombre || 'Superadmin',
-        usuario_email: user?.email || profile?.email || '',
-        accion: 'ELIMINAR_PERMANENTE_BLOQUEO',
-        detalles: `⚠️ ELIMINACIÓN DEFINITIVA: Bloqueo ${bloqueo.codigo} - "${bloqueo.titulo}" borrado de la base de datos.`
-      }]).catch(() => {})
+      try {
+        await supabase.from('logs_actividad').insert([{
+          usuario_id: user?.id,
+          usuario_nombre: profile?.nombre || 'Superadmin',
+          usuario_email: user?.email || profile?.email || '',
+          accion: 'ELIMINAR_PERMANENTE_BLOQUEO',
+          detalles: `⚠️ ELIMINACIÓN DEFINITIVA: Bloqueo ${bloqueo.codigo} - "${bloqueo.titulo}" borrado de la base de datos.`
+        }])
+      } catch (logErr) {
+        console.warn('Error registrando log de actividad:', logErr)
+      }
 
       const updated = bloqueos.filter(b => b.id !== bloqueo.id)
       setBloqueos(updated)
@@ -1401,7 +1415,9 @@ ${hotelesTexto}
                             <span key={h?.id || i} className="text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200/60 px-2 py-0.5 rounded-lg flex items-center gap-1">
                               <Hotel size={11} className="text-blue-600" />
                               <span className="truncate max-w-[130px]">{h?.nombre || `Hotel ${i+1}`}</span>
-                              <span className="text-blue-900 font-black">({h?.cupos || 0} cupos)</span>
+                              <span className="text-blue-900 font-black">
+                                ({Number(h?.cupos) > 0 ? `${h.cupos} cupos` : 'Cupo Abierto'})
+                              </span>
                             </span>
                           ))}
                         </div>

@@ -480,7 +480,8 @@ export default function BloqueoDetallePage() {
   // Ocupación y disponibilidad en tiempo real por cada hotel
   const hotelStats = useMemo(() => {
     const stats = {}
-    const occupiedList = (pasajeros || []).filter(p => p && String(p.nombres || '').trim() !== '');
+    const occupiedList = (pasajeros || []).filter(p => p && String(p.nombres || '').trim() !== '')
+    const remainingInBloqueo = Math.max(0, (Number(bloqueo?.cupos_totales) || 30) - occupiedList.length)
 
     // Inicializar hoteles configurados de forma segura
     const hotelList = Array.isArray(configuredHoteles) ? configuredHoteles : []
@@ -489,16 +490,18 @@ export default function BloqueoDetallePage() {
       const hKey = String(h.nombre || '').trim().toLowerCase()
       if (!hKey) return
       const totCupos = Number(h.cupos) || 0
+      const isOpen = totCupos === 0
       stats[hKey] = {
         hotel: h,
         nombre: h.nombre,
         categoria: h.categoria,
         regimen: h.regimen,
         cuposTotales: totCupos,
+        isOpen,
         ocupados: 0,
-        disponibles: totCupos
+        disponibles: isOpen ? remainingInBloqueo : totCupos
       }
-    });
+    })
 
     // Contabilizar pasajeros asignados
     occupiedList.forEach(p => {
@@ -508,19 +511,22 @@ export default function BloqueoDetallePage() {
           stats[hName] = {
             nombre: p.hoteles,
             cuposTotales: 0,
+            isOpen: true,
             ocupados: 0,
-            disponibles: 0
+            disponibles: remainingInBloqueo
           }
         }
         stats[hName].ocupados += 1
         if (stats[hName].cuposTotales > 0) {
           stats[hName].disponibles = Math.max(0, stats[hName].cuposTotales - stats[hName].ocupados)
+        } else {
+          stats[hName].disponibles = remainingInBloqueo
         }
       }
-    });
+    })
 
     return stats
-  }, [configuredHoteles, pasajeros])
+  }, [configuredHoteles, pasajeros, bloqueo?.cupos_totales])
 
   const handleSingleHotelSelect = (hotelName) => {
     if (hotelName === '__custom__') {
@@ -1564,13 +1570,17 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
 
       if (error) throw error
 
-      await supabase.from('logs_actividad').insert([{
-        usuario_id: user?.id,
-        usuario_nombre: profile?.nombre || 'Admin',
-        usuario_email: user?.email || profile?.email || '',
-        accion: 'MOVER_BLOQUEO_PAPELERA',
-        detalles: `Bloqueo ${bloqueo.codigo} - "${bloqueo.titulo}" (${bloqueo.destino}) movido a papelera de respaldo desde el detalle.`
-      }]).catch(() => {})
+      try {
+        await supabase.from('logs_actividad').insert([{
+          usuario_id: user?.id,
+          usuario_nombre: profile?.nombre || 'Admin',
+          usuario_email: user?.email || profile?.email || '',
+          accion: 'MOVER_BLOQUEO_PAPELERA',
+          detalles: `Bloqueo ${bloqueo.codigo} - "${bloqueo.titulo}" (${bloqueo.destino}) movido a papelera de respaldo desde el detalle.`
+        }])
+      } catch (logErr) {
+        console.warn('Error registrando log de actividad:', logErr)
+      }
 
       showToast(`Programa ${bloqueo.codigo} respaldado y movido a la papelera.`, 'success')
       router.push('/dashboard/bloqueos')
@@ -1591,13 +1601,17 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
 
       if (error) throw error
 
-      await supabase.from('logs_actividad').insert([{
-        usuario_id: user?.id,
-        usuario_nombre: profile?.nombre || 'Admin',
-        usuario_email: user?.email || profile?.email || '',
-        accion: 'RESTAURAR_BLOQUEO',
-        detalles: `Bloqueo ${bloqueo.codigo} - "${bloqueo.titulo}" restaurado desde el detalle.`
-      }]).catch(() => {})
+      try {
+        await supabase.from('logs_actividad').insert([{
+          usuario_id: user?.id,
+          usuario_nombre: profile?.nombre || 'Admin',
+          usuario_email: user?.email || profile?.email || '',
+          accion: 'RESTAURAR_BLOQUEO',
+          detalles: `Bloqueo ${bloqueo.codigo} - "${bloqueo.titulo}" restaurado desde el detalle.`
+        }])
+      } catch (logErr) {
+        console.warn('Error registrando log de actividad:', logErr)
+      }
 
       setBloqueo(prev => ({ ...prev, estado: 'activo' }))
       showToast(`¡Programa ${bloqueo.codigo} restaurado y reactivado con éxito!`, 'success')
@@ -1640,9 +1654,10 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
       // Validación: solo si hay hoteles con nombre configurados
       const validHoteles = (editBloqueoForm.hoteles || []).filter(h => h.nombre && h.nombre.trim() !== '')
       if (validHoteles.length > 0) {
+        const hasOpenHotel = validHoteles.some(h => !h.cupos || Number(h.cupos) === 0)
         const totalAsignadoHoteles = validHoteles.reduce((acc, h) => acc + (Number(h.cupos) || 0), 0)
-        if (totalAsignadoHoteles !== newCupos) {
-          showToast(`Los espacios asignados a los hoteles (${totalAsignadoHoteles}) deben coincidir exactamente con los ${newCupos} cupos totales del bloqueo. O desactiva los hoteles para guardar en modo básico.`, 'error')
+        if (!hasOpenHotel && totalAsignadoHoteles > newCupos) {
+          showToast(`Los cupos fijos asignados a los hoteles (${totalAsignadoHoteles}) superan los ${newCupos} cupos totales del viaje. Ajusta los valores o usa 0 para cupo abierto.`, 'error')
           setSaving(false)
           return
         }
@@ -2411,10 +2426,18 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
                           ? 'bg-red-600 text-white'
                           : isFull
                           ? 'bg-amber-500 text-white'
+                          : totCupos === 0
+                          ? 'bg-blue-100 text-blue-800 border border-blue-200'
                           : 'bg-emerald-100 text-emerald-800'
                       }`}
                     >
-                      {isOver ? '⚠️ Excedido' : isFull ? 'Agotado' : `${disponibles} libres`}
+                      {isOver 
+                        ? '⚠️ Excedido' 
+                        : isFull 
+                        ? 'Agotado' 
+                        : totCupos === 0 
+                        ? `Abierto · ${metrics.disponibles} libres` 
+                        : `${disponibles} libres`}
                     </span>
                   </div>
 
@@ -2425,28 +2448,26 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
                         {totCupos > 0 ? (
                           <>
                             <strong className="text-gray-900">{ocupados}</strong> de{' '}
-                            <strong className="text-gray-900">{totCupos}</strong> cupos
+                            <strong className="text-gray-900">{totCupos}</strong> cupos fijos
                           </>
                         ) : (
-                          <>{ocupados} pax asignados</>
+                          <>
+                            <strong className="text-gray-900">{ocupados}</strong> asignados · <span className="text-blue-700 font-bold">Cupo abierto (hasta {metrics.totalCupos} PAX)</span>
+                          </>
                         )}
                       </span>
-                      {totCupos > 0 && (
-                        <span className={`text-[11px] font-black ${isOver ? 'text-red-600' : isFull ? 'text-amber-600' : 'text-gray-600'}`}>
-                          {pct}%
-                        </span>
-                      )}
+                      <span className={`text-[11px] font-black ${isOver ? 'text-red-600' : isFull ? 'text-amber-600' : 'text-gray-600'}`}>
+                        {totCupos > 0 ? `${pct}%` : `${metrics.porcentaje}% ocupado`}
+                      </span>
                     </div>
-                    {totCupos > 0 && (
-                      <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-300 ${
-                            isOver ? 'bg-red-500' : isFull ? 'bg-amber-500' : 'bg-primary'
-                          }`}
-                          style={{ width: `${Math.min(100, pct)}%` }}
-                        />
-                      </div>
-                    )}
+                    <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${
+                          isOver ? 'bg-red-500' : isFull ? 'bg-amber-500' : totCupos === 0 ? 'bg-blue-500' : 'bg-primary'
+                        }`}
+                        style={{ width: `${totCupos > 0 ? Math.min(100, pct) : metrics.porcentaje}%` }}
+                      />
+                    </div>
                   </div>
 
                   {/* Habitaciones y tarifas disponibles */}
@@ -3281,7 +3302,7 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
                         const disp = stat ? stat.disponibles : tot
                         return (
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${tot > 0 && disp <= 0 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-800'}`}>
-                            {tot > 0 ? `${disp} de ${tot} cupos disponibles` : (selectedSingleHotelObj.regimen || selectedSingleHotelObj.categoria?.split(' ')[0])}
+                            {tot > 0 ? `${disp} de ${tot} cupos disponibles` : `🌐 Cupo Abierto (${metrics.disponibles} libres)`}
                           </span>
                         )
                       })()}
@@ -3302,7 +3323,7 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
                             const isAgotado = tot > 0 && disp <= 0
                             return (
                               <option key={h.id} value={h.nombre} disabled={isAgotado && singleForm.hoteles !== h.nombre}>
-                                {h.nombre} ({h.categoria?.split(' ')[0] || '4★'}) {tot > 0 ? `· [${disp}/${tot} disp.]` : ''} {isAgotado ? '❌ ¡AGOTADO!' : ''}
+                                {h.nombre} ({h.categoria?.split(' ')[0] || '4★'}) {tot > 0 ? `· [${disp}/${tot} disp.]` : '· [🌐 Cupo Abierto]'} {isAgotado ? '❌ ¡AGOTADO!' : ''}
                               </option>
                             )
                           })}
@@ -3563,7 +3584,7 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
                         const isOver = tot > 0 && groupForm.pasajeros_lista.length > disp
                         return (
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isOver ? 'bg-amber-100 text-amber-800' : 'bg-purple-100 text-purple-800'}`}>
-                            {tot > 0 ? `${disp} de ${tot} cupos disponibles` : (selectedGroupHotelObj.regimen || selectedGroupHotelObj.categoria?.split(' ')[0])}
+                            {tot > 0 ? `${disp} de ${tot} cupos disponibles` : `🌐 Cupo Abierto (${metrics.disponibles} libres)`}
                           </span>
                         )
                       })()}
@@ -3585,7 +3606,7 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
                             const notEnough = tot > 0 && disp < groupForm.pasajeros_lista.length
                             return (
                               <option key={h.id} value={h.nombre} disabled={isAgotado && groupForm.hoteles !== h.nombre}>
-                                {h.nombre} ({h.categoria?.split(' ')[0] || '4★'}) {tot > 0 ? `· [${disp}/${tot} disp.]` : ''} {isAgotado ? '❌ ¡AGOTADO!' : (notEnough ? '⚠️ Cupos insuficientes' : '')}
+                                {h.nombre} ({h.categoria?.split(' ')[0] || '4★'}) {tot > 0 ? `· [${disp}/${tot} disp.]` : '· [🌐 Cupo Abierto]'} {isAgotado ? '❌ ¡AGOTADO!' : (notEnough ? '⚠️ Cupos insuficientes' : '')}
                               </option>
                             )
                           })}

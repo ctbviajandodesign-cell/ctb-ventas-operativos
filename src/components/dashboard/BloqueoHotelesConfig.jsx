@@ -65,9 +65,12 @@ export default function BloqueoHotelesConfig({
   }, [hoteles.length, expandedHotelId])
 
   const totalGeneral = Number(cuposTotalesBloqueo) || 30
-  const totalAsignado = hoteles.reduce((acc, h) => acc + (Number(h?.cupos) || 0), 0)
-  const cuposFaltantes = totalGeneral - totalAsignado
-  const isMatchExacto = totalAsignado === totalGeneral
+  const hasOpenHotel = hoteles.some(h => !h.cupos || Number(h.cupos) === 0)
+  const allOpen = hoteles.length > 0 && hoteles.every(h => !h.cupos || Number(h.cupos) === 0)
+  const totalConCupoFijo = hoteles.reduce((acc, h) => acc + (Number(h?.cupos) || 0), 0)
+  const isMatchExacto = !hasOpenHotel && totalConCupoFijo === totalGeneral
+  const isOverLimit = totalConCupoFijo > totalGeneral
+  const cuposFaltantes = totalGeneral - totalConCupoFijo
 
   const handleAddHotel = () => {
     const newId = `hotel_${Date.now()}`
@@ -322,69 +325,87 @@ export default function BloqueoHotelesConfig({
       {/* BANNER DE VALIDACIÓN DE CUPOS GENERALES VS HOTELES */}
       {hoteles.length > 0 && (
         <div className={`p-3.5 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-          isMatchExacto 
-            ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950 shadow-2xs' 
-            : cuposFaltantes > 0
-              ? 'bg-amber-50/90 border-amber-300 text-amber-950 shadow-2xs'
-              : 'bg-red-50/90 border-red-300 text-red-950 shadow-2xs'
+          isOverLimit
+            ? 'bg-red-50/90 border-red-300 text-red-950 shadow-2xs'
+            : isMatchExacto
+              ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950 shadow-2xs'
+              : (hasOpenHotel || allOpen)
+                ? 'bg-blue-50/80 border-blue-300 text-blue-950 shadow-2xs'
+                : 'bg-amber-50/90 border-amber-300 text-amber-950 shadow-2xs'
         }`}>
           <div className="flex items-start sm:items-center gap-2.5">
-            {isMatchExacto ? (
-              <CheckCircle2 size={20} className="text-emerald-600 shrink-0 mt-0.5 sm:mt-0" />
-            ) : cuposFaltantes > 0 ? (
-              <AlertTriangle size={20} className="text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
-            ) : (
+            {isOverLimit ? (
               <AlertCircle size={20} className="text-red-600 shrink-0 mt-0.5 sm:mt-0" />
+            ) : isMatchExacto ? (
+              <CheckCircle2 size={20} className="text-emerald-600 shrink-0 mt-0.5 sm:mt-0" />
+            ) : (hasOpenHotel || allOpen) ? (
+              <Sparkles size={20} className="text-blue-600 shrink-0 mt-0.5 sm:mt-0" />
+            ) : (
+              <AlertTriangle size={20} className="text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
             )}
             <div>
               <div className="flex items-center gap-2">
                 <strong className="text-xs font-black">
-                  {isMatchExacto 
-                    ? `¡Distribución Perfecta! ${totalAsignado} de ${totalGeneral} Cupos Asignados`
-                    : cuposFaltantes > 0
-                      ? `Distribución Incompleta: ${totalAsignado} de ${totalGeneral} Cupos Asignados`
-                      : `¡Cupos Excedidos! ${totalAsignado} asignados para ${totalGeneral} cupos del bloqueo`}
+                  {isOverLimit
+                    ? `¡Cupos Fijos Excedidos! ${totalConCupoFijo} asignados para ${totalGeneral} cupos del viaje`
+                    : isMatchExacto
+                      ? `Distribución Fija Exacta: ${totalConCupoFijo} de ${totalGeneral} Cupos Asignados`
+                      : (hasOpenHotel || allOpen)
+                        ? `Modalidad Cupo Abierto: Disponible hasta ${totalGeneral} Cupos del Bloqueo`
+                        : `Distribución Mixta: ${totalConCupoFijo} Cupos Fijos · ${cuposFaltantes} Abiertos`}
                 </strong>
                 <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                  isMatchExacto 
-                    ? 'bg-emerald-200/80 text-emerald-900' 
-                    : cuposFaltantes > 0 
-                      ? 'bg-amber-200/80 text-amber-900' 
-                      : 'bg-red-200/80 text-red-900'
+                  isOverLimit
+                    ? 'bg-red-200/80 text-red-900'
+                    : isMatchExacto
+                      ? 'bg-emerald-200/80 text-emerald-900'
+                      : (hasOpenHotel || allOpen)
+                        ? 'bg-blue-200/80 text-blue-900'
+                        : 'bg-amber-200/80 text-amber-900'
                 }`}>
-                  {isMatchExacto ? '100% Cuadrado' : cuposFaltantes > 0 ? `Faltan ${cuposFaltantes}` : `Sobran ${Math.abs(cuposFaltantes)}`}
+                  {isOverLimit
+                    ? `Sobran ${totalConCupoFijo - totalGeneral}`
+                    : isMatchExacto
+                      ? '100% Cuadrado'
+                      : (hasOpenHotel || allOpen)
+                        ? 'Cupo Abierto'
+                        : `${cuposFaltantes} Flexibles`}
                 </span>
               </div>
               <p className="text-[11px] opacity-85 font-medium mt-0.5">
-                {isMatchExacto 
-                  ? `La suma de espacios hoteleros coincide con los cupos totales contratados en el bloqueo.`
-                  : cuposFaltantes > 0
-                    ? `Asegúrate de asignar los ${cuposFaltantes} espacios restantes a tus hoteles para completar el bloqueo.`
-                    : `Reduce ${Math.abs(cuposFaltantes)} espacios en tus hoteles para no sobrepasar el cupo aéreo del bloqueo.`}
+                {isOverLimit
+                  ? `Reduce ${totalConCupoFijo - totalGeneral} cupos fijos o pon 0 para dejar cupo abierto.`
+                  : isMatchExacto
+                    ? `La suma de espacios hoteleros fijos coincide exactamente con los cupos totales contratados.`
+                    : (hasOpenHotel || allOpen)
+                      ? `Los hoteles con cupo 0 están abiertos. Podrás registrar pasajeros en cualquier hotel hasta alcanzar los ${totalGeneral} cupos totales del bloqueo.`
+                      : `Los ${cuposFaltantes} cupos sin asignar quedan disponibles para registrarse en cualquiera de los hoteles.`}
               </p>
             </div>
           </div>
 
-          {!isMatchExacto && hoteles.length > 0 && (
-            <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
+            {hoteles.length > 0 && (
               <button
                 type="button"
                 onClick={handleAutoDistribute}
                 className="px-3 py-1.5 rounded-xl bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 text-xs font-bold shadow-xs transition-colors"
+                title="Distribuir cupos equitativamente"
               >
-                Distribuir Equitativamente
+                Equilibrar Fijos
               </button>
-              {cuposFaltantes > 0 && (
-                <button
-                  type="button"
-                  onClick={() => handleAssignRemainingToHotel(hoteles[0].id)}
-                  className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-black shadow-xs transition-colors"
-                >
-                  Asignar +{cuposFaltantes} al Hotel 1
-                </button>
-              )}
-            </div>
-          )}
+            )}
+            {cuposFaltantes > 0 && (
+              <button
+                type="button"
+                onClick={() => handleAssignRemainingToHotel(hoteles[0].id)}
+                className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-xs transition-colors"
+                title="Asignar cupo al Hotel 1"
+              >
+                Asignar +{cuposFaltantes} al Hotel 1
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -439,9 +460,15 @@ export default function BloqueoHotelesConfig({
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
                           {hotel.categoria?.split(' ')[0] || '4★'}
                         </span>
-                        <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-blue-100/80 text-blue-800 border border-blue-200 shrink-0 flex items-center gap-1">
-                          <Users size={11} /> {hotelCupos} Espacios ({percentOfBloqueo}%)
-                        </span>
+                        {hotelCupos === 0 ? (
+                          <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0 flex items-center gap-1">
+                            🌐 Cupo Abierto (hasta {totalGeneral})
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-blue-100/80 text-blue-800 border border-blue-200 shrink-0 flex items-center gap-1">
+                            <Users size={11} /> {hotelCupos} Espacios ({percentOfBloqueo}%)
+                          </span>
+                        )}
                       </div>
                       <p className="text-[10px] text-gray-500 font-medium truncate mt-0.5">
                         {hotel.regimen || 'All Inclusive'} · <span className="font-bold text-emerald-700">{roomCount} tipo(s) de habitación</span>
@@ -490,24 +517,25 @@ export default function BloqueoHotelesConfig({
                       <div>
                         <label className="block text-blue-900 font-black mb-1 text-[11px] flex items-center justify-between">
                           <span className="flex items-center gap-1">
-                            <Users size={12} className="text-blue-600" /> Espacios / Cupos Hotel *
+                            <Users size={12} className="text-blue-600" /> Espacios / Cupos Hotel
                           </span>
-                          <span className="text-[10px] text-gray-400 font-normal">
-                            de {totalGeneral} totales
+                          <span className={`text-[10px] font-black ${Number(hotel.cupos) === 0 ? 'text-emerald-700' : 'text-blue-700'}`}>
+                            {Number(hotel.cupos) === 0 ? '🌐 Abierto' : `Fijo (${hotel.cupos} PAX)`}
                           </span>
                         </label>
                         <div className="relative">
                           <input
                             type="number"
                             min={0}
-                            max={totalGeneral}
-                            required
-                            placeholder="0"
-                            value={hotel.cupos ?? ''}
+                            placeholder="0 (Cupo abierto)"
+                            value={hotel.cupos ?? 0}
                             onChange={(e) => handleUpdateHotel(hotel.id, 'cupos', e.target.value)}
                             className="input w-full bg-blue-50/50 text-blue-950 border border-blue-300 font-black text-xs"
                           />
                         </div>
+                        <span className="text-[10px] text-gray-500 font-medium block mt-1">
+                          Pon <strong>0</strong> para Cupo Abierto (hasta agotar los {totalGeneral} del bloqueo).
+                        </span>
                       </div>
 
                       <div>
@@ -558,7 +586,7 @@ export default function BloqueoHotelesConfig({
                         <div className="flex items-center gap-2">
                           <BedDouble size={15} className="text-blue-600" />
                           <span className="text-xs font-black uppercase tracking-wider text-slate-800">
-                            Habitaciones & Tarifas (Capacidad Hotel: {hotelCupos} Espacios)
+                            Habitaciones & Tarifas {hotelCupos > 0 ? `(${hotelCupos} Cupos Fijos)` : '(🌐 Cupo Abierto)'}
                           </span>
                         </div>
 
