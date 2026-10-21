@@ -39,7 +39,8 @@ import {
   Download,
   Share2,
   Copy,
-  Check
+  Check,
+  UploadCloud
 } from 'lucide-react'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -48,6 +49,16 @@ import IataSelector from '@/components/IataSelector'
 import BloqueoCountdownTimer from '@/components/BloqueoCountdownTimer'
 import BloqueoHotelesConfig from '@/components/dashboard/BloqueoHotelesConfig'
 import { exportBloqueoRoomingPDF } from '@/lib/pdf-generator'
+import { 
+  cleanMoney, 
+  cleanPassengerName, 
+  detectRoomType, 
+  parseBloqueoRows, 
+  parseBloqueoText, 
+  parseBloqueoExcelBuffer,
+  parseSinglePassengerInput,
+  matchTeamMember 
+} from '@/lib/excel-bloqueo-parser'
 
 // Module-level caches for instant detail loading & team helpers
 const memoryCacheBloqueoDetail = {}
@@ -82,6 +93,13 @@ export default function BloqueoDetallePage() {
   const [showSingleModal, setShowSingleModal] = useState(false)
   const [showGroupModal, setShowGroupModal] = useState(false)
   const [showQuickPasteModal, setShowQuickPasteModal] = useState(false)
+  const [showExcelImportModal, setShowExcelImportModal] = useState(false)
+  const [excelImportTab, setExcelImportTab] = useState('paste') // 'paste' | 'file'
+  const [excelImportRawText, setExcelImportRawText] = useState('')
+  const [excelImportedData, setExcelImportedData] = useState(null)
+  const [isParsingExcelImport, setIsParsingExcelImport] = useState(false)
+  const [singlePasteText, setSinglePasteText] = useState('')
+  const [singlePasteDetectedInfo, setSinglePasteDetectedInfo] = useState('')
   const [showEditBloqueoModal, setShowEditBloqueoModal] = useState(false)
   const [showAddPaxMenu, setShowAddPaxMenu] = useState(false)
   const [selectedSlotNumber, setSelectedSlotNumber] = useState(null)
@@ -596,6 +614,8 @@ export default function BloqueoDetallePage() {
   // Open Single Slot Modal
   const handleOpenSingleSlot = (slot) => {
     setSelectedSlotNumber(slot.numero_cupo)
+    setSinglePasteText('')
+    setSinglePasteDetectedInfo('')
     const initialPlan = getSlotInstallments(slot)
 
     setSingleForm({
@@ -1556,6 +1576,333 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
     }
   }
 
+  // Autocompletar formulario individual desde fila de Excel o texto copiado
+  const handleInterpretSinglePaste = () => {
+    if (!singlePasteText || !singlePasteText.trim()) {
+      showToast('Pega una fila de Excel o texto con datos del pasajero primero.', 'error')
+      return
+    }
+
+    const detected = parseSinglePassengerInput(singlePasteText, {
+      operativosList,
+      comercialesList,
+      configuredHoteles
+    })
+
+    if (!detected || detected.detectedFields.length === 0) {
+      showToast('No se pudieron reconocer datos válidos en el texto ingresado.', 'error')
+      return
+    }
+
+    setSingleForm(prev => {
+      const updated = { ...prev }
+
+      if (detected.nombres) updated.nombres = detected.nombres
+      if (detected.apellidos) updated.apellidos = detected.apellidos
+      if (detected.numero_documento) {
+        updated.numero_documento = detected.numero_documento
+        updated.tipo_documento = detected.tipo_documento || 'Cédula'
+      }
+      if (detected.agencia) updated.agencia = detected.agencia
+      if (detected.ciudad) updated.ciudad = detected.ciudad
+      if (detected.tipo_habitacion) updated.tipo_habitacion = detected.tipo_habitacion
+      if (detected.hoteles) updated.hoteles = detected.hoteles
+      if (detected.operativo_id) {
+        updated.operativo_id = detected.operativo_id
+        updated.operativo_nombre = detected.operativo_nombre
+      }
+      if (detected.comercial_id) {
+        updated.comercial_id = detected.comercial_id
+        updated.comercial_nombre = detected.comercial_nombre
+      }
+      if (detected.observaciones) {
+        updated.observaciones = prev.observaciones 
+          ? `${prev.observaciones} | ${detected.observaciones}` 
+          : detected.observaciones
+      }
+
+      // Si detectó abonos, agregarlos al plan de pagos
+      if (detected.abonos && detected.abonos.length > 0) {
+        const today = format(new Date(), 'yyyy-MM-dd')
+        const existingPlan = Array.isArray(prev.plan_pagos) && prev.plan_pagos.length > 0 
+          ? [...prev.plan_pagos] 
+          : []
+        
+        detected.abonos.forEach((monto, idx) => {
+          if (existingPlan[idx]) {
+            existingPlan[idx] = {
+              ...existingPlan[idx],
+              monto,
+              estado: 'pagado',
+              fecha: existingPlan[idx].fecha || today
+            }
+          } else {
+            existingPlan.push({
+              id: String(idx + 1),
+              numero: idx + 1,
+              label: `Abono ${idx + 1}`,
+              monto,
+              fecha: today,
+              estado: 'pagado'
+            })
+          }
+        })
+        updated.plan_pagos = existingPlan
+      }
+
+      return updated
+    })
+
+    const fieldsLabels = {
+      nombres: 'Nombre',
+      documento: 'Cédula/Doc',
+      agencia: 'Agencia',
+      ciudad: 'Ciudad',
+      tipo_habitacion: 'Habitación',
+      hoteles: 'Hotel',
+      operativo: 'Operativo',
+      comercial: 'Comercial',
+      abono: 'Abono(s)',
+      observaciones: 'Notas'
+    }
+    const detectedNames = Array.from(new Set(detected.detectedFields.map(f => fieldsLabels[f] || f)))
+    setSinglePasteDetectedInfo(`¡Datos aplicados con éxito! Se detectó: ${detectedNames.join(', ')}.`)
+    showToast(`¡Se interpretaron ${detectedNames.length} campos desde Excel!`, 'success')
+  }
+
+  // Parsear texto para importación masiva de bloqueo
+  const handleParseExcelText = () => {
+    if (!excelImportRawText || !excelImportRawText.trim()) {
+      showToast('Pega las celdas o filas de Excel antes de procesar.', 'error')
+      return
+    }
+    setIsParsingExcelImport(true)
+    try {
+      const parsed = parseBloqueoText(excelImportRawText)
+      if (!parsed || parsed.passengers.length === 0) {
+        showToast('No se detectaron filas válidas de pasajeros en el texto pegado.', 'error')
+        setExcelImportedData(null)
+      } else {
+        setExcelImportedData(parsed)
+        showToast(`¡${parsed.passengers.length} pasajeros reconocidos con éxito!`, 'success')
+      }
+    } catch (err) {
+      console.error('Error parseando texto Excel:', err)
+      showToast('Error al procesar los datos: ' + err.message, 'error')
+    } finally {
+      setIsParsingExcelImport(false)
+    }
+  }
+
+  // Subir y parsear archivo .xlsx o .csv
+  const handleExcelFileUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsParsingExcelImport(true)
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase()
+      let parsed = null
+
+      if (ext === 'xlsx' || ext === 'xls') {
+        const buffer = await file.arrayBuffer()
+        parsed = await parseBloqueoExcelBuffer(buffer)
+      } else if (ext === 'csv' || ext === 'tsv' || ext === 'txt') {
+        const text = await file.text()
+        parsed = parseBloqueoText(text)
+      } else {
+        showToast('Formato no soportado. Sube un archivo .xlsx, .xls o .csv', 'error')
+        setIsParsingExcelImport(false)
+        return
+      }
+
+      if (!parsed || parsed.passengers.length === 0) {
+        showToast('No se encontraron filas con pasajeros válidos en el archivo.', 'error')
+        setExcelImportedData(null)
+      } else {
+        setExcelImportedData(parsed)
+        showToast(`¡Archivo procesado! Se detectaron ${parsed.passengers.length} pasajeros.`, 'success')
+      }
+    } catch (err) {
+      console.error('Error leyendo archivo:', err)
+      showToast('Error al leer el archivo Excel: ' + err.message, 'error')
+    } finally {
+      setIsParsingExcelImport(false)
+    }
+  }
+
+  // Asignar los pasajeros importados a los cupos disponibles de este bloqueo
+  const handleApplyExcelImport = async () => {
+    if (!excelImportedData || !excelImportedData.passengers || excelImportedData.passengers.length === 0) {
+      showToast('No hay pasajeros detectados para importar.', 'error')
+      return
+    }
+
+    const rawPaxList = excelImportedData.passengers
+    // Encontrar cupos libres en el bloqueo
+    const availableSlots = (pasajeros || []).filter(p => !p || !p.nombres || String(p.nombres).trim() === '' || p.nombres === '-')
+
+    if (availableSlots.length === 0) {
+      showToast('Todos los cupos de este bloqueo ya están ocupados.', 'error')
+      return
+    }
+
+    const assignCount = Math.min(rawPaxList.length, availableSlots.length)
+    if (rawPaxList.length > availableSlots.length) {
+      showToast(`El bloqueo solo tiene ${availableSlots.length} cupos libres. Se asignarán los primeros ${availableSlots.length} pasajeros.`, 'info')
+    }
+
+    setSaving(true)
+    try {
+      // 1. Si el Excel trae hoteles que no están en el bloqueo, agregarlos con cupo abierto (0)
+      let currentHotels = Array.isArray(bloqueo?.hoteles) ? [...bloqueo.hoteles] : []
+      const existingHotelNames = new Set(currentHotels.map(h => (h.nombre || '').toUpperCase()))
+      let hotelsUpdated = false
+
+      if (Array.isArray(excelImportedData.hotels)) {
+        excelImportedData.hotels.forEach(hName => {
+          if (hName && !existingHotelNames.has(hName.toUpperCase())) {
+            currentHotels.push({
+              id: `htl-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+              nombre: hName.toUpperCase(),
+              categoria: 'Clase 2 (Estándar / 4★)',
+              cupos: 0 // Cupo Abierto
+            })
+            existingHotelNames.add(hName.toUpperCase())
+            hotelsUpdated = true
+          }
+        })
+      }
+
+      if (hotelsUpdated) {
+        await supabase.from('bloqueos').update({ hoteles: currentHotels }).eq('id', bloqueo.id)
+        setBloqueo(prev => ({ ...prev, hoteles: currentHotels }))
+      }
+
+      // 2. Asignar los pasajeros a los slots disponibles
+      const today = format(new Date(), 'yyyy-MM-dd')
+      const targetSlots = availableSlots.slice(0, assignCount)
+
+      const updateOps = targetSlots.map(async (slot, i) => {
+        const p = rawPaxList[i]
+        
+        // Mapear operativo y comercial
+        const opObj = matchTeamMember(p.operativo_nombre, operativosList)
+        const comObj = matchTeamMember(p.comercial_nombre, comercialesList)
+        const opNombre = opObj ? opObj.nombre : (profile?.nombre || 'Operativo')
+        const comNombre = comObj ? comObj.nombre : (p.comercial_nombre || '')
+
+        // Construir plan de pagos
+        const planPagos = []
+        if (p.abono_1 > 0) {
+          planPagos.push({ id: '1', numero: 1, label: 'Abono 1', monto: p.abono_1, fecha: today, estado: 'pagado' })
+        }
+        if (p.abono_2 > 0) {
+          planPagos.push({ id: '2', numero: 2, label: 'Abono 2', monto: p.abono_2, fecha: today, estado: 'pagado' })
+        }
+        if (p.abono_3 > 0) {
+          planPagos.push({ id: '3', numero: 3, label: 'Abono 3', monto: p.abono_3, fecha: today, estado: 'pagado' })
+        }
+
+        const agreedPrice = Number(bloqueo?.precio_venta_pax || 0)
+        const totalPaid = p.total_abonos || 0
+        const isPaid = totalPaid >= agreedPrice && agreedPrice > 0
+
+        const payload = {
+          agencia: p.agencia || 'Directo',
+          ciudad: p.ciudad || 'GYE',
+          tipo_servicio: 'PAQUETE COMPLETO',
+          operativo_id: opObj?.id || user?.id || null,
+          operativo_nombre: opNombre,
+          comercial_id: comObj?.id || null,
+          comercial_nombre: comNombre,
+          hoteles: p.hoteles || (currentHotels[0]?.nombre || ''),
+          nombres: p.nombres,
+          apellidos: '',
+          tipo_documento: 'Cédula',
+          numero_documento: '',
+          tipo_habitacion: p.tipo_habitacion || 'Doble',
+          categoria_habitacion: 'Clase 2 (Estándar / 4★)',
+          precio_acordado: agreedPrice,
+          abono_1: p.abono_1 || 0,
+          fecha_abono_1: p.abono_1 > 0 ? today : null,
+          abono_2: p.abono_2 || 0,
+          fecha_abono_2: p.abono_2 > 0 ? today : null,
+          abono_3: p.abono_3 || 0,
+          fecha_abono_3: p.abono_3 > 0 ? today : null,
+          plan_pagos: planPagos,
+          estado_pago: isPaid ? 'pagado' : 'pendiente',
+          observaciones: p.observaciones || ''
+        }
+
+        const { error: updErr } = await supabase
+          .from('bloqueo_pasajeros')
+          .update(payload)
+          .eq('id', slot.id)
+
+        if (updErr) {
+          const { plan_pagos, ...cleanPayload } = payload
+          await supabase
+            .from('bloqueo_pasajeros')
+            .update(cleanPayload)
+            .eq('id', slot.id)
+        }
+
+        return { slotId: slot.id, payload }
+      })
+
+      const results = await Promise.all(updateOps)
+
+      // Actualización optimista instantánea
+      setPasajeros(prev => prev.map(s => {
+        const match = results.find(r => r.slotId === s.id)
+        if (match) {
+          const total = match.payload.precio_acordado
+          const totalAbonado = match.payload.plan_pagos.reduce((acc, it) => acc + (Number(it.monto) || 0), 0)
+          return {
+            ...s,
+            ...match.payload,
+            faltante: Math.max(0, total - totalAbonado)
+          }
+        }
+        return s
+      }))
+
+      // Notificación Telegram
+      fetch('/api/notify/bloqueo-venta', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bloqueoTitulo: bloqueo.titulo,
+          bloqueoCodigo: bloqueo.codigo,
+          destino: bloqueo.destino,
+          fechaSalida: bloqueo.fecha_salida,
+          cuposVendidos: assignCount,
+          pasajerosNombres: `Importación Excel (${targetSlots.length} cupos asignados)`,
+          agencia: rawPaxList[0]?.agencia || 'Directo',
+          ciudad: rawPaxList[0]?.ciudad || 'GYE',
+          operativoNombre: profile?.nombre || 'Operativo',
+          comercialNombre: rawPaxList[0]?.comercial_nombre || '',
+          cuposRestantes: Math.max(0, availableSlots.length - assignCount),
+          cuposTotales: metrics.totalCupos,
+          hoteles: rawPaxList[0]?.hoteles || ''
+        })
+      }).catch(e => console.error('Telegram notification error:', e))
+
+      showToast(`¡${assignCount} pasajeros asignados exitosamente desde Excel!`, 'success')
+      setShowExcelImportModal(false)
+      setShowQuickPasteModal(false)
+      setExcelImportedData(null)
+      setExcelImportRawText('')
+      fetchBloqueoData(false)
+    } catch (err) {
+      console.error('Error importing passengers from Excel:', err)
+      showToast('Error al importar pasajeros: ' + err.message, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   // Mover este bloqueo a Papelera (Respaldo)
   const handleDeleteThisBloqueo = async () => {
     if (!isPrivileged) return
@@ -2102,6 +2449,20 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
             <span className="hidden sm:inline">GDS</span>
           </button>
 
+          {/* Botón Importar Excel */}
+          <button
+            onClick={() => {
+              setExcelImportedData(null)
+              setExcelImportRawText('')
+              setShowExcelImportModal(true)
+            }}
+            className="flex items-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-emerald-600/25 active:scale-95"
+            title="Importar pasajeros y pagos automáticamente desde Excel o Portapapeles"
+          >
+            <FileSpreadsheet size={15} />
+            <span className="hidden md:inline">Importar Excel</span>
+          </button>
+
           {/* Botón 3 (ACCIÓN PRINCIPAL): Registrar Pasajeros con Menú Desplegable Inteligente */}
           <div className="relative">
             <button
@@ -2178,28 +2539,30 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
 
                   <div className="my-1.5 border-t border-gray-100"></div>
 
-                  {/* Opción C: Carga Rápida */}
+                  {/* Opción C: Importar desde Excel */}
                   <button
                     onClick={() => {
                       setShowAddPaxMenu(false)
-                      setShowQuickPasteModal(true)
+                      setExcelImportedData(null)
+                      setExcelImportRawText('')
+                      setShowExcelImportModal(true)
                     }}
-                    className="w-full text-left p-3 rounded-2xl hover:bg-amber-50/70 flex items-start gap-3 transition-colors group"
+                    className="w-full text-left p-3 rounded-2xl hover:bg-emerald-50/70 flex items-start gap-3 transition-colors group"
                   >
-                    <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 group-hover:bg-amber-500 group-hover:text-white transition-all shadow-xs">
-                      <Zap size={17} />
+                    <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-all shadow-xs">
+                      <FileSpreadsheet size={17} />
                     </div>
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <p className="text-xs font-black text-gray-900 group-hover:text-amber-800">
-                          Carga Rápida Masiva
+                        <p className="text-xs font-black text-gray-900 group-hover:text-emerald-800">
+                          Importar desde Excel
                         </p>
-                        <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded-md bg-amber-100 text-amber-700">
-                          Pegar
+                        <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded-md bg-emerald-100 text-emerald-700">
+                          Inteligente
                         </span>
                       </div>
                       <p className="text-[10px] text-gray-500 mt-0.5 leading-snug">
-                        Pega listas completas de nombres directo desde WhatsApp o Excel.
+                        Carga tablas de Excel (.xlsx, .csv o copiado directo) con nombres, hoteles y pagos.
                       </p>
                     </div>
                   </button>
@@ -3032,6 +3395,53 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
 
             {/* Form */}
             <form onSubmit={handleSaveSingleBooking} className="p-6 overflow-y-auto space-y-5 flex-1 text-xs">
+              {/* Autocompletar desde Excel / Portapapeles */}
+              <div className="bg-emerald-50/70 border border-emerald-200/90 rounded-2xl p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileSpreadsheet size={16} className="text-emerald-700" />
+                    <span className="text-xs font-black text-emerald-950 uppercase tracking-wider">
+                      Autocompletar datos desde Excel o Portapapeles
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100/80 px-2 py-0.5 rounded-full">
+                    Búsqueda inteligente
+                  </span>
+                </div>
+                <p className="text-[11px] text-emerald-800 leading-snug">
+                  Copia una fila de Excel o texto del pasajero (Nombre, Cédula, Agencia, Ciudad, Habitación, Hotel, Abonos) y pégala aquí:
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Pega aquí (ej: 1  CARLOS MENDOZA  0923847581  INOVA TOURS  GYE  TWIN  GIMANI  500)..."
+                    value={singlePasteText}
+                    onChange={(e) => setSinglePasteText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        handleInterpretSinglePaste()
+                      }
+                    }}
+                    className="input flex-1 bg-white text-gray-900 border border-emerald-300 font-mono text-xs focus:ring-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleInterpretSinglePaste}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-sm active:scale-95 transition-all shrink-0"
+                  >
+                    <Zap size={14} />
+                    <span>Interpretar</span>
+                  </button>
+                </div>
+                {singlePasteDetectedInfo && (
+                  <div className="text-[11px] text-emerald-900 font-bold bg-white/90 border border-emerald-200 rounded-xl p-2 flex items-center gap-2">
+                    <Check size={14} className="text-emerald-600 shrink-0" />
+                    <span>{singlePasteDetectedInfo}</span>
+                  </div>
+                )}
+              </div>
+
               {/* Agencia & Trazabilidad */}
               <div>
                 <h4 className="text-xs font-black uppercase tracking-widest text-primary mb-2">
@@ -4136,240 +4546,256 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
         </div>
       )}
 
-      {/* MODAL 4: CARGA RÁPIDA (QUICK PASTE) */}
-      {showQuickPasteModal && (
+      {/* MODAL 4: IMPORTACIÓN INTELIGENTE DESDE EXCEL / PORTAPAPELES */}
+      {(showExcelImportModal || showQuickPasteModal) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-3xl rounded-[2rem] shadow-2xl border border-gray-100 max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="bg-white w-full max-w-4xl rounded-[2rem] shadow-2xl border border-gray-100 max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
             {/* Header */}
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-amber-50/70">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-emerald-50/70">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black">
-                  <Zap size={20} />
+                <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-black shadow-md shadow-emerald-600/30">
+                  <FileSpreadsheet size={20} />
                 </div>
                 <div>
                   <h3 className="text-base font-black text-gray-900 tracking-tight flex items-center gap-2">
-                    Carga Rápida de Pasajeros (WhatsApp / Excel)
+                    Importar Pasajeros desde Excel o Portapapeles
                   </h3>
-                  <p className="text-xs text-amber-800 font-medium">
-                    Copia y pega la lista enviada por la agencia o desde una hoja de cálculo.
+                  <p className="text-xs text-emerald-800 font-medium">
+                    {bloqueo.titulo} · Asigna automáticamente pasajeros y pagos a los cupos libres.
                   </p>
                 </div>
               </div>
               <button
-                onClick={() => setShowQuickPasteModal(false)}
-                className="w-8 h-8 rounded-full bg-white text-gray-500 hover:text-gray-900 flex items-center justify-center transition-colors"
+                onClick={() => {
+                  setShowExcelImportModal(false)
+                  setShowQuickPasteModal(false)
+                }}
+                className="w-8 h-8 rounded-full bg-white text-gray-500 hover:text-gray-900 flex items-center justify-center transition-colors shadow-xs"
               >
                 <X size={16} />
               </button>
             </div>
 
-            {/* Form */}
-            <form onSubmit={handleSaveQuickPaste} className="p-6 overflow-y-auto space-y-4 flex-1 text-xs">
-              {/* Metadata de los pasajeros a cargar */}
-              <div className="bg-gray-50/70 p-4 rounded-2xl border border-gray-100 space-y-3">
-                <h4 className="text-xs font-black uppercase tracking-wider text-gray-700">
-                  Configuración Base de la Asignación
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-gray-800 font-bold mb-1">Agencia / Cliente Solicitante</label>
-                    <input
-                      type="text"
-                      placeholder="Ej. Inova Tours"
-                      value={quickPasteMeta.agencia}
-                      onChange={(e) => setQuickPasteMeta({ ...quickPasteMeta, agencia: e.target.value })}
-                      className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-gray-800 font-bold mb-1">Ciudad</label>
-                    <select
-                      value={quickPasteMeta.ciudad}
-                      onChange={(e) => setQuickPasteMeta({ ...quickPasteMeta, ciudad: e.target.value })}
-                      className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
-                    >
-                      <option value="GYE">Guayaquil (GYE)</option>
-                      <option value="UIO">Quito (UIO)</option>
-                      <option value="CUE">Cuenca (CUE)</option>
-                      <option value="Nacional">Nacional</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-amber-900 font-bold mb-1 flex items-center gap-1">
-                      <Star size={12} className="text-amber-500 fill-amber-500" /> Categoría Hotel Base
-                    </label>
-                    <select
-                      value={quickPasteMeta.categoria_habitacion}
-                      onChange={(e) => setQuickPasteMeta({ ...quickPasteMeta, categoria_habitacion: e.target.value })}
-                      className="input w-full bg-amber-50/50 text-gray-900 border border-amber-300 font-bold"
-                    >
-                      <option value="Clase 1 (Económica / 3★)">⭐ Clase 1 (Económica / 3★)</option>
-                      <option value="Clase 2 (Estándar / 4★)">⭐⭐ Clase 2 (Estándar / 4★)</option>
-                      <option value="Clase 3 (Superior / 5★)">⭐⭐⭐ Clase 3 (Superior / 5★)</option>
-                      <option value="Clase VIP / Luxury">👑 Clase VIP / Luxury</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-gray-800 font-bold mb-1">Operativo</label>
-                    <select
-                      value={quickPasteMeta.operativo_id}
-                      onChange={(e) => setQuickPasteMeta({ ...quickPasteMeta, operativo_id: e.target.value })}
-                      className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
-                    >
-                      <option value="">Seleccionar...</option>
-                      {operativosList.map(op => (
-                        <option key={op.id} value={op.id}>{op.nombre}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-gray-800 font-bold mb-1">Comercial</label>
-                    <select
-                      value={quickPasteMeta.comercial_id}
-                      onChange={(e) => setQuickPasteMeta({ ...quickPasteMeta, comercial_id: e.target.value })}
-                      className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
-                    >
-                      <option value="">Seleccionar...</option>
-                      {comercialesList.map(c => (
-                        <option key={c.id} value={c.id}>{c.nombre}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-gray-800 font-bold mb-1">Hotel Asignado</label>
-                    {configuredHoteles.length > 0 ? (
-                      <div className="space-y-1.5">
-                        <select
-                          value={configuredHoteles.some(h => h.nombre === quickPasteMeta.hoteles) ? quickPasteMeta.hoteles : (quickPasteMeta.hoteles ? '__custom__' : '')}
-                          onChange={(e) => {
-                            const val = e.target.value
-                            if (val === '__custom__') {
-                              setQuickPasteMeta(prev => ({ ...prev, hoteles: '' }))
-                            } else {
-                              const hotelObj = configuredHoteles.find(h => h.nombre === val)
-                              setQuickPasteMeta(prev => ({
-                                ...prev,
-                                hoteles: val,
-                                categoria_habitacion: hotelObj?.categoria || prev.categoria_habitacion
-                              }))
-                            }
-                          }}
-                          className="input w-full bg-white text-gray-900 border border-gray-200 font-bold"
-                        >
-                          <option value="">-- Seleccionar Hotel --</option>
-                          {configuredHoteles.map(h => (
-                            <option key={h.id} value={h.nombre}>
-                              {h.nombre} ({h.categoria?.split(' ')[0] || '4★'})
-                            </option>
-                          ))}
-                          <option value="__custom__">➕ Otro hotel no listado...</option>
-                        </select>
-
-                        {(!configuredHoteles.some(h => h.nombre === quickPasteMeta.hoteles) || quickPasteMeta.hoteles === '__custom__') && (
-                          <input
-                            type="text"
-                            placeholder="Escribe el nombre del hotel..."
-                            value={quickPasteMeta.hoteles === '__custom__' ? '' : quickPasteMeta.hoteles}
-                            onChange={(e) => setQuickPasteMeta({ ...quickPasteMeta, hoteles: e.target.value })}
-                            className="input w-full bg-gray-50 text-gray-900 border border-gray-300 font-semibold text-xs"
-                          />
-                        )}
-                      </div>
-                    ) : (
-                      <input
-                        type="text"
-                        placeholder="Ej. Hotel Decameron Barú"
-                        value={quickPasteMeta.hoteles}
-                        onChange={(e) => setQuickPasteMeta({ ...quickPasteMeta, hoteles: e.target.value })}
-                        className="input w-full bg-white text-gray-900 border border-gray-200 font-semibold"
-                      />
-                    )}
-                  </div>
-                </div>
+            {/* Content Body */}
+            <div className="p-6 overflow-y-auto space-y-5 flex-1 text-xs">
+              {/* Selector de Pestañas */}
+              <div className="flex border-b border-gray-200 gap-6">
+                <button
+                  type="button"
+                  onClick={() => setExcelImportTab('paste')}
+                  className={`pb-3 font-black text-xs uppercase tracking-wider flex items-center gap-2 transition-all relative ${
+                    excelImportTab === 'paste'
+                      ? 'text-emerald-700 border-b-2 border-emerald-600'
+                      : 'text-gray-400 hover:text-gray-700'
+                  }`}
+                >
+                  <FileSpreadsheet size={15} />
+                  <span>Pegar desde Portapapeles / Excel</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExcelImportTab('file')}
+                  className={`pb-3 font-black text-xs uppercase tracking-wider flex items-center gap-2 transition-all relative ${
+                    excelImportTab === 'file'
+                      ? 'text-emerald-700 border-b-2 border-emerald-600'
+                      : 'text-gray-400 hover:text-gray-700'
+                  }`}
+                >
+                  <UploadCloud size={15} />
+                  <span>Subir Archivo (.xlsx / .csv)</span>
+                </button>
               </div>
 
-              {/* Textarea */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="block text-gray-800 font-black">
-                    Pega aquí la lista de pasajeros (WhatsApp o columnas de Excel):
-                  </label>
-                  <span className="text-[11px] text-gray-400">
-                    Soporta: &quot;1. Juan Pérez 0912345678 Doble Clase 2&quot; o tabulaciones
-                  </span>
-                </div>
-                <textarea
-                  rows={6}
-                  value={quickPasteText}
-                  onChange={(e) => setQuickPasteText(e.target.value)}
-                  placeholder={`Ejemplo formato WhatsApp:\n1. Carlos Mendoza 0923847581 Doble Clase 2\n2. Andrea Solís 0983748291 Doble Clase 2\n3. Pedro Gómez A18472910 Simple Clase 3\n\nO simplemente copia y pega celdas de Excel.`}
-                  className="w-full p-3 rounded-2xl bg-gray-50 border border-gray-200 text-xs font-mono text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                />
-              </div>
-
-              {/* Vista previa de detección */}
-              {String(quickPasteText || '').trim() && (
-                <div className="space-y-2">
+              {/* Pestaña 1: Pegar Texto */}
+              {excelImportTab === 'paste' && (
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-black uppercase tracking-wider text-gray-700">
-                      Vista Previa Detectada ({parsedQuickPasteList.length} pasajeros)
-                    </span>
-                    <span className={`text-xs font-bold ${
-                      parsedQuickPasteList.length > metrics.disponibles ? 'text-red-600' : 'text-emerald-700'
-                    }`}>
-                      Cupos disponibles: {metrics.disponibles}
+                    <label className="block text-gray-800 font-black">
+                      Copia las celdas en tu Excel y pégalas aquí:
+                    </label>
+                    <span className="text-[11px] text-gray-500 font-medium">
+                      Soporta tablas con cabecera (# PAX, Nombres, Agencia, Hotel...) o filas directas
                     </span>
                   </div>
-
-                  <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-2xl divide-y divide-gray-100 bg-white">
-                    {parsedQuickPasteList.map((p, idx) => (
-                      <div key={idx} className="p-2.5 flex items-center justify-between text-xs gap-3">
-                        <div className="flex items-center gap-2">
-                          <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-800 font-black text-[10px] flex items-center justify-center">
-                            {idx + 1}
-                          </span>
-                          <span className="font-bold text-gray-900">{p.nombres} {p.apellidos}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {p.numero_documento && (
-                            <span className="px-2 py-0.5 rounded-lg bg-gray-100 text-gray-700 font-mono text-[10px]">
-                              {p.tipo_documento}: {p.numero_documento}
-                            </span>
-                          )}
-                          <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 font-bold text-[10px]">
-                            {p.tipo_habitacion}
-                          </span>
-                          <span className="px-2 py-0.5 rounded-lg bg-amber-50 text-amber-800 font-bold text-[10px]">
-                            {p.categoria_habitacion}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+                  <textarea
+                    rows={7}
+                    value={excelImportRawText}
+                    onChange={(e) => setExcelImportRawText(e.target.value)}
+                    placeholder="Pega aquí la tabla o celdas copiadas de Excel o Google Sheets..."
+                    className="w-full p-3.5 rounded-2xl bg-gray-50 border border-gray-200 text-xs font-mono text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all leading-relaxed"
+                  />
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleParseExcelText}
+                      disabled={isParsingExcelImport || !excelImportRawText.trim()}
+                      className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-sm active:scale-95 transition-all"
+                    >
+                      <Zap size={14} />
+                      <span>{isParsingExcelImport ? 'Procesando...' : 'Interpretar Datos de Excel'}</span>
+                    </button>
                   </div>
                 </div>
               )}
 
-              {/* Footer */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setShowQuickPasteModal(false)}
-                  className="px-5 py-3 rounded-2xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving || parsedQuickPasteList.length === 0 || parsedQuickPasteList.length > metrics.disponibles}
-                  className="btn-primary px-7 py-3 rounded-2xl font-black uppercase tracking-wider shadow-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50"
-                >
-                  {saving ? 'Cargando...' : `Asignar ${parsedQuickPasteList.length} Pasajeros`}
-                </button>
-              </div>
-            </form>
+              {/* Pestaña 2: Subir Archivo */}
+              {excelImportTab === 'file' && (
+                <div className="space-y-3">
+                  <div className="border-2 border-dashed border-gray-300 hover:border-emerald-500 rounded-3xl p-8 text-center bg-gray-50/60 hover:bg-emerald-50/30 transition-all cursor-pointer relative group">
+                    <input
+                      type="file"
+                      accept=".xlsx, .xls, .csv"
+                      onChange={handleExcelFileUpload}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    />
+                    <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center group-hover:scale-110 transition-transform shadow-xs">
+                      <UploadCloud size={28} />
+                    </div>
+                    <p className="font-black text-gray-800 text-sm">
+                      Haz clic para subir o arrastra tu archivo Excel
+                    </p>
+                    <p className="text-gray-400 text-xs mt-1">
+                      Archivos soportados: .xlsx, .xls, .csv
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Previsualización de Datos Interpretados */}
+              {excelImportedData && (
+                <div className="space-y-4 pt-3 border-t border-gray-100 animate-in fade-in duration-200">
+                  {/* Tarjetas de Resumen */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-100">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+                        Pasajeros Detectados
+                      </p>
+                      <p className="text-xl font-black text-emerald-900 mt-0.5">
+                        {excelImportedData.passengers.length}
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-blue-50 rounded-2xl border border-blue-100">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-blue-800">
+                        Cupos Libres en Bloqueo
+                      </p>
+                      <p className="text-xl font-black text-blue-900 mt-0.5">
+                        {metrics.disponibles}
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-purple-50 rounded-2xl border border-purple-100">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-purple-800">
+                        Total en Abonos
+                      </p>
+                      <p className="text-xl font-black text-purple-900 mt-0.5">
+                        ${excelImportedData.totalAbonado.toLocaleString('en-US')}
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-amber-50 rounded-2xl border border-amber-100">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">
+                        Hoteles Detectados
+                      </p>
+                      <p className="text-xs font-black text-amber-900 mt-1 truncate">
+                        {excelImportedData.hotels.length > 0 ? excelImportedData.hotels.join(', ') : 'Ninguno'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {excelImportedData.passengers.length > metrics.disponibles && (
+                    <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 font-bold text-xs flex items-center gap-2">
+                      <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+                      <span>
+                        Atención: Hay {excelImportedData.passengers.length} pasajeros en el Excel y solo {metrics.disponibles} cupos libres. Se asignarán los primeros {metrics.disponibles} pasajeros.
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Tabla de Previsualización */}
+                  <div className="border border-gray-200 rounded-2xl overflow-hidden bg-white shadow-2xs">
+                    <div className="px-4 py-2.5 bg-gray-50/80 border-b border-gray-200 flex items-center justify-between">
+                      <span className="font-black text-gray-700 uppercase tracking-wider text-[11px]">
+                        Listado de Pasajeros a Asignar ({excelImportedData.passengers.length})
+                      </span>
+                      <span className="text-[10px] text-gray-500 font-medium">
+                        Se aplicarán automáticamente a los cupos disponibles
+                      </span>
+                    </div>
+
+                    <div className="max-h-60 overflow-y-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-gray-50 text-gray-400 font-black uppercase text-[10px] sticky top-0 z-10 border-b border-gray-100">
+                          <tr>
+                            <th className="py-2 px-3">#</th>
+                            <th className="py-2 px-3">Pasajero</th>
+                            <th className="py-2 px-3">Agencia</th>
+                            <th className="py-2 px-3">Ciudad</th>
+                            <th className="py-2 px-3">Habitación</th>
+                            <th className="py-2 px-3">Hotel</th>
+                            <th className="py-2 px-3 text-right">Abonos</th>
+                            <th className="py-2 px-3">Observaciones</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 font-medium text-gray-800">
+                          {excelImportedData.passengers.map((p, idx) => (
+                            <tr key={idx} className="hover:bg-gray-50/60">
+                              <td className="py-2 px-3 font-bold text-gray-500">{p.numero_cupo || idx + 1}</td>
+                              <td className="py-2 px-3 font-black text-gray-900">{p.nombres}</td>
+                              <td className="py-2 px-3 font-semibold text-gray-700">{p.agencia}</td>
+                              <td className="py-2 px-3">
+                                <span className="px-1.5 py-0.5 rounded bg-gray-100 font-bold text-[10px]">
+                                  {p.ciudad}
+                                </span>
+                              </td>
+                              <td className="py-2 px-3">
+                                <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-bold text-[10px]">
+                                  {p.tipo_habitacion}
+                                </span>
+                              </td>
+                              <td className="py-2 px-3 font-bold text-gray-700 truncate max-w-[130px]">
+                                {p.hoteles || '-'}
+                              </td>
+                              <td className="py-2 px-3 text-right font-black text-emerald-700 font-mono">
+                                {p.total_abonos > 0 ? `$${p.total_abonos.toLocaleString('en-US')}` : '-'}
+                              </td>
+                              <td className="py-2 px-3 text-gray-500 truncate max-w-[140px]">
+                                {p.observaciones || '-'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between p-5 border-t border-gray-100 bg-gray-50/50">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowExcelImportModal(false)
+                  setShowQuickPasteModal(false)
+                }}
+                className="px-5 py-2.5 rounded-2xl bg-white border border-gray-200 text-gray-700 font-bold hover:bg-gray-100 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyExcelImport}
+                disabled={saving || !excelImportedData || excelImportedData.passengers.length === 0 || metrics.disponibles === 0}
+                className="btn-primary px-7 py-3 rounded-2xl font-black uppercase tracking-wider shadow-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                <Check size={16} />
+                <span>
+                  {saving ? 'Asignando...' : `Asignar ${excelImportedData ? Math.min(excelImportedData.passengers.length, metrics.disponibles) : 0} Pasajeros al Bloqueo`}
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       )}
