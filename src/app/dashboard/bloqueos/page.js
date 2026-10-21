@@ -29,7 +29,12 @@ import {
   Edit2,
   Share2,
   Hotel,
-  RefreshCw
+  RefreshCw,
+  FileSpreadsheet,
+  UploadCloud,
+  Check,
+  FileText,
+  Layers
 } from 'lucide-react'
 import { format, differenceInDays, differenceInCalendarDays, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -37,6 +42,7 @@ import { showToast } from '@/utils/toast'
 import IataSelector from '@/components/IataSelector'
 import BloqueoCountdownTimer from '@/components/BloqueoCountdownTimer'
 import BloqueoHotelesConfig from '@/components/dashboard/BloqueoHotelesConfig'
+import { parseBloqueoText, parseBloqueoExcelBuffer } from '@/lib/excel-bloqueo-parser'
 
 // Module-level in-memory cache for instant 0ms page loads and navigation
 let memoryCacheBloqueos = null
@@ -90,6 +96,13 @@ export default function BloqueosPage() {
   const [availableTags, setAvailableTags] = useState([])
   const [newTagConcepto, setNewTagConcepto] = useState('')
   const [newTagPrecio, setNewTagPrecio] = useState('')
+
+  // Modal State (Import from Excel / CSV)
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [importTab, setImportTab] = useState('paste') // 'paste' | 'file'
+  const [importRawText, setImportRawText] = useState('')
+  const [importedData, setImportedData] = useState(null)
+  const [isParsingImport, setIsParsingImport] = useState(false)
 
   // Generador de plantilla de hotel por defecto con cupos cuadrados al 100%
   const createDefaultHotelList = (cupos = 30, baseRate = 750) => [
@@ -169,6 +182,98 @@ export default function BloqueosPage() {
         hoteles: updatedHoteles
       }
     })
+  }
+
+  // Interpretar texto pegado de Excel / Google Sheets
+  const handleParseImportText = () => {
+    if (!importRawText || !importRawText.trim()) {
+      showToast('Pega las filas de Excel antes de interpretar.', 'warning')
+      return
+    }
+    const parsed = parseBloqueoText(importRawText)
+    if (!parsed || parsed.passengers.length === 0) {
+      showToast('No se detectaron columnas válidas (# PAX, Nombres, etc.). Revisa el formato pegado.', 'error')
+      return
+    }
+    setImportedData(parsed)
+    showToast(`¡Detectados ${parsed.totalCupos} cupos y ${parsed.occupiedCount} pasajeros con éxito!`, 'success')
+  }
+
+  // Interpretar archivo subido (.xlsx, .xls, .csv)
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsParsingImport(true)
+    try {
+      const fileName = file.name.toLowerCase()
+      let parsed = null
+
+      if (fileName.endsWith('.csv')) {
+        const text = await file.text()
+        parsed = parseBloqueoText(text)
+      } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+        const buffer = await file.arrayBuffer()
+        parsed = await parseBloqueoExcelBuffer(buffer)
+      } else {
+        showToast('Formato no soportado. Sube un archivo .xlsx, .xls o .csv', 'error')
+        setIsParsingImport(false)
+        return
+      }
+
+      if (!parsed || parsed.passengers.length === 0) {
+        showToast('No se detectaron pasajeros en la hoja. Asegúrate que tenga encabezados (# PAX, Nombres, Agencia...).', 'error')
+        return
+      }
+
+      setImportedData(parsed)
+      showToast(`¡Archivo "${file.name}" leído! ${parsed.totalCupos} cupos y ${parsed.occupiedCount} pasajeros.`, 'success')
+    } catch (err) {
+      console.error('Error al leer archivo Excel:', err)
+      showToast('Error al leer archivo Excel: ' + err.message, 'error')
+    } finally {
+      setIsParsingImport(false)
+      e.target.value = ''
+    }
+  }
+
+  // Aplicar datos interpretados al formulario de creación
+  const handleApplyImportedData = () => {
+    if (!importedData) return
+    const parsed = importedData
+
+    setFormData(prev => {
+      let updatedHoteles = prev.hoteles || []
+      if (parsed.hotels && parsed.hotels.length > 0) {
+        updatedHoteles = parsed.hotels.map((hName, idx) => ({
+          id: `hotel_imp_${Date.now()}_${idx}`,
+          nombre: hName,
+          categoria: 'Clase 2 (Estándar / 4★)',
+          regimen: 'Todo Incluido (All Inclusive)',
+          cupos: 0,
+          notas: 'Importado de hoja de cálculo',
+          habitaciones: [
+            { id: `hab_${Date.now()}_1`, tipo: 'Doble', precio: Number(prev.precio_venta_pax) || 750, cupos: 0 },
+            { id: `hab_${Date.now()}_2`, tipo: 'Twin', precio: Number(prev.precio_venta_pax) || 750, cupos: 0 },
+            { id: `hab_${Date.now()}_3`, tipo: 'Simple (SGL)', precio: Math.round((Number(prev.precio_venta_pax) || 750) * 1.25), cupos: 0 },
+            { id: `hab_${Date.now()}_4`, tipo: 'Triple', precio: Number(prev.precio_venta_pax) || 750, cupos: 0 }
+          ]
+        }))
+      }
+
+      const suggestedTitle = prev.titulo ? prev.titulo : (parsed.hotels[0] ? `Bloqueo ${parsed.hotels[0]}` : '')
+
+      return {
+        ...prev,
+        titulo: suggestedTitle,
+        cupos_totales: parsed.totalCupos,
+        hoteles: updatedHoteles
+      }
+    })
+
+    setShowImportModal(false)
+    setShowCreateModal(true)
+    showToast(`¡${parsed.occupiedCount} pasajeros precargados para los ${parsed.totalCupos} cupos del viaje!`, 'success')
   }
 
   useEffect(() => {
@@ -425,27 +530,88 @@ export default function BloqueosPage() {
       if (blqError) throw blqError
       newBloqueo = blqData
 
-      // Initialize empty slots (1 to cupos)
+      // Inicializar cupos (1 a cupos) con pasajeros importados si existen
+      const todayStr = new Date().toISOString().slice(0, 10)
+      const importedList = importedData?.passengers || []
       const slotsPayload = []
+
       for (let i = 1; i <= cupos; i++) {
-        slotsPayload.push({
-          bloqueo_id: newBloqueo.id,
-          numero_cupo: i,
-          nombres: '',
-          precio_acordado: precioVenta,
-          estado_pago: 'pendiente'
-        })
+        const pax = importedList.find(p => p.numero_cupo === i) || (i <= importedList.length ? importedList[i - 1] : null)
+
+        if (pax && pax.nombres) {
+          const plan = []
+          if (pax.abono_1 > 0) plan.push({ id: '1', numero: 1, label: 'Abono 1', monto: pax.abono_1, fecha: todayStr, estado: 'pagado', nota: 'Importado de Excel' })
+          if (pax.abono_2 > 0) plan.push({ id: '2', numero: 2, label: 'Abono 2', monto: pax.abono_2, fecha: todayStr, estado: 'pagado', nota: 'Importado de Excel' })
+          if (pax.abono_3 > 0) plan.push({ id: '3', numero: 3, label: 'Abono 3', monto: pax.abono_3, fecha: todayStr, estado: 'pagado', nota: 'Importado de Excel' })
+
+          const totalAbonado = Number(pax.total_abonos) || (Number(pax.abono_1) || 0) + (Number(pax.abono_2) || 0) + (Number(pax.abono_3) || 0)
+          const isFullyPaid = totalAbonado >= precioVenta
+          const estadoPago = isFullyPaid ? 'pagado' : (totalAbonado > 0 ? 'abono_1' : 'pendiente')
+          const faltante = Math.max(0, precioVenta - totalAbonado)
+
+          slotsPayload.push({
+            bloqueo_id: newBloqueo.id,
+            numero_cupo: i,
+            nombres: pax.nombres,
+            agencia: pax.agencia || 'Directo',
+            ciudad: pax.ciudad || 'GYE',
+            tipo_habitacion: pax.tipo_habitacion || 'Doble',
+            categoria_habitacion: 'Clase 2 (Estándar / 4★)',
+            hoteles: pax.hoteles || (validHoteles[0]?.nombre || ''),
+            operativo_nombre: pax.operativo_nombre || '',
+            comercial_nombre: pax.comercial_nombre || '',
+            abono_1: pax.abono_1 || 0,
+            fecha_abono_1: pax.abono_1 > 0 ? todayStr : null,
+            abono_2: pax.abono_2 || 0,
+            fecha_abono_2: pax.abono_2 > 0 ? todayStr : null,
+            abono_3: pax.abono_3 || 0,
+            fecha_abono_3: pax.abono_3 > 0 ? todayStr : null,
+            observaciones: pax.observaciones || null,
+            precio_acordado: precioVenta,
+            faltante,
+            estado_pago: estadoPago,
+            plan_pagos: plan
+          })
+        } else {
+          slotsPayload.push({
+            bloqueo_id: newBloqueo.id,
+            numero_cupo: i,
+            nombres: '',
+            precio_acordado: precioVenta,
+            estado_pago: 'pendiente'
+          })
+        }
       }
 
-      const { error: slotsError } = await supabase
+      let { error: slotsError } = await supabase
         .from('bloqueo_pasajeros')
         .insert(slotsPayload)
 
       if (slotsError) {
-        console.error('Error pre-creating slots:', slotsError)
+        console.error('Error pre-creating slots with details, falling back:', slotsError)
+        const basicSlots = slotsPayload.map(s => ({
+          bloqueo_id: s.bloqueo_id,
+          numero_cupo: s.numero_cupo,
+          nombres: s.nombres || '',
+          agencia: s.agencia || 'Directo',
+          ciudad: s.ciudad || 'GYE',
+          precio_acordado: s.precio_acordado,
+          estado_pago: s.estado_pago,
+          abono_1: s.abono_1 || 0,
+          abono_2: s.abono_2 || 0,
+          abono_3: s.abono_3 || 0,
+          observaciones: s.observaciones || null
+        }))
+        const retry = await supabase.from('bloqueo_pasajeros').insert(basicSlots)
+        slotsError = retry.error
       }
 
-      showToast(`¡Bloqueo ${newBloqueo.codigo} creado con éxito con ${cupos} cupos!`, 'success')
+      if (importedData && importedData.occupiedCount > 0) {
+        showToast(`¡Bloqueo ${newBloqueo.codigo} creado con éxito con ${cupos} cupos y ${importedData.occupiedCount} pasajeros importados!`, 'success')
+      } else {
+        showToast(`¡Bloqueo ${newBloqueo.codigo} creado con éxito con ${cupos} cupos!`, 'success')
+      }
+      setImportedData(null)
       setShowCreateModal(false)
       const updatedList = [newBloqueo, ...bloqueos]
       setBloqueos(updatedList)
@@ -1065,13 +1231,27 @@ ${hotelesTexto}
         </div>
 
         {isPrivileged && (
-          <button
-            onClick={handleOpenCreateBloqueo}
-            className="btn-primary flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl shadow-xl shadow-primary/25 hover:shadow-primary/40 active:scale-95 transition-all text-xs font-black uppercase tracking-widest whitespace-nowrap"
-          >
-            <Plus size={18} />
-            Crear Bloqueo
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                handleOpenCreateBloqueo()
+                setShowImportModal(true)
+              }}
+              className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80 active:scale-95 transition-all text-xs font-black uppercase tracking-wider whitespace-nowrap shadow-xs"
+              title="Importar bloqueo completo desde Excel o CSV"
+            >
+              <FileSpreadsheet size={16} className="text-emerald-600" />
+              <span>Importar Excel</span>
+            </button>
+
+            <button
+              onClick={handleOpenCreateBloqueo}
+              className="btn-primary flex items-center justify-center gap-2 px-6 py-3 rounded-2xl shadow-xl shadow-primary/25 hover:shadow-primary/40 active:scale-95 transition-all text-xs font-black uppercase tracking-widest whitespace-nowrap"
+            >
+              <Plus size={18} />
+              <span>Crear Bloqueo</span>
+            </button>
+          </div>
         )}
       </div>
 
@@ -1708,6 +1888,79 @@ ${hotelesTexto}
 
             {/* Modal Body */}
             <form onSubmit={handleCreateBloqueo} className="p-6 overflow-y-auto space-y-6 flex-1 text-xs">
+              {/* Banner / Selector de Importación Inteligente de Excel */}
+              {!importedData ? (
+                <div className="p-3.5 bg-gradient-to-r from-emerald-50 via-teal-50/60 to-blue-50 border border-emerald-200/90 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black shrink-0 shadow-sm shadow-emerald-600/20">
+                      <FileSpreadsheet size={18} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-gray-900">
+                        ¿Tienes la hoja de cálculo o Excel del viaje?
+                      </h4>
+                      <p className="text-[11px] text-gray-600 font-medium mt-0.5">
+                        Carga o pega tu Excel con cupos, agencias, abonos y hoteles para autocompletar todo en 1 clic.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowImportModal(true)}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider shadow-sm active:scale-95 transition-all flex items-center gap-1.5 shrink-0 self-end sm:self-auto"
+                  >
+                    <UploadCloud size={14} />
+                    <span>Importar Excel</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="p-4 bg-emerald-50/90 border border-emerald-300 rounded-2xl space-y-2.5 animate-in fade-in-50 duration-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={16} className="text-emerald-600" />
+                      <strong className="text-xs font-black text-emerald-950">
+                        Hoja Interpretada: {importedData.totalCupos} Cupos ({importedData.occupiedCount} Pasajeros Listos)
+                      </strong>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowImportModal(true)}
+                        className="text-[10px] text-emerald-800 hover:text-emerald-900 font-bold underline"
+                      >
+                        Ver / Cambiar datos
+                      </button>
+                      <span className="text-emerald-300">•</span>
+                      <button
+                        type="button"
+                        onClick={() => setImportedData(null)}
+                        className="text-[10px] text-red-600 hover:text-red-800 font-bold underline"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-[11px]">
+                    <div className="bg-white p-2 rounded-xl border border-emerald-200">
+                      <span className="text-gray-400 block text-[9px] uppercase font-bold">Cupos Totales</span>
+                      <strong className="text-gray-900 font-black">{importedData.totalCupos} Cupos</strong>
+                    </div>
+                    <div className="bg-white p-2 rounded-xl border border-emerald-200">
+                      <span className="text-gray-400 block text-[9px] uppercase font-bold">Pasajeros Ocupados</span>
+                      <strong className="text-emerald-700 font-black">{importedData.occupiedCount} Registrados</strong>
+                    </div>
+                    <div className="bg-white p-2 rounded-xl border border-emerald-200">
+                      <span className="text-gray-400 block text-[9px] uppercase font-bold">Hoteles</span>
+                      <strong className="text-blue-800 font-black truncate block">{importedData.hotels.join(', ') || 'Sin hotel'}</strong>
+                    </div>
+                    <div className="bg-white p-2 rounded-xl border border-emerald-200">
+                      <span className="text-gray-400 block text-[9px] uppercase font-bold">Abonos Iniciales</span>
+                      <strong className="text-emerald-800 font-black">${importedData.totalAbonado.toLocaleString('es-EC')} USD</strong>
+                    </div>
+                  </div>
+                </div>
+              )}
               {/* Sección 1: Datos Generales */}
               <div>
                 <h4 className="text-xs font-black uppercase tracking-widest text-primary mb-3 flex items-center gap-1.5">
@@ -2408,6 +2661,290 @@ ${hotelesTexto}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL IMPORTAR DESDE EXCEL / HOJA DE CÁLCULO */}
+      {showImportModal && isPrivileged && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-3xl rounded-[2rem] shadow-2xl border border-gray-100 max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-black shadow-md shadow-emerald-600/20">
+                  <FileSpreadsheet size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-gray-900 tracking-tight flex items-center gap-2">
+                    Importador Inteligente de Bloqueo
+                  </h3>
+                  <p className="text-xs text-emerald-800 font-medium">
+                    Pega o sube tu Excel con cupos, agencias, abonos y hoteles para cargarlo todo en 1 clic.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="w-8 h-8 rounded-full bg-white text-gray-500 hover:text-gray-900 flex items-center justify-center transition-colors shadow-xs"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+              {/* Tabs */}
+              <div className="flex items-center gap-2 bg-gray-100 p-1.5 rounded-2xl">
+                <button
+                  type="button"
+                  onClick={() => setImportTab('paste')}
+                  className={`flex-1 py-2 px-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-1.5 ${
+                    importTab === 'paste' 
+                      ? 'bg-white text-emerald-700 shadow-sm' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <FileText size={14} />
+                  <span>Pegar Filas de Excel / Portapapeles</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setImportTab('file')}
+                  className={`flex-1 py-2 px-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-1.5 ${
+                    importTab === 'file' 
+                      ? 'bg-white text-emerald-700 shadow-sm' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <UploadCloud size={14} />
+                  <span>Subir Archivo (.xlsx / .csv)</span>
+                </button>
+              </div>
+
+              {/* Contenido según Tab */}
+              {importTab === 'paste' ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-gray-800 font-bold">
+                      Pega aquí tus datos copiados de Excel o Google Sheets:
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const sampleText = `,# PAX,Nombres,agencia,ciudad,SOLO LAND TOUR ,Operativo,comercial,HOTELES,ABONO 1,ABONO 2,ABONO 3,OBSEVACIONES
+||||,1,MERCY BARRA -,JENNIFER CASTRO,GYE,TWINS,LEO,JC,GIMANI + PARAISO,$100,922,436,PAGO TOTAL POR LOS 2 PAX
+,2, JULIA CEVALLOS,JENNIFER CASTRO,GYE,TWINS,LEO,JC,GIMANI + PARAISO,$100,,,
+,3,LILIBETH SALAZAR,INOVA VIAJES ILIANA DELGADO,GYE,-,LEO,JC,GIMANI + PARAISO,$100,3.954,,PAGO TOTAL POR LOS 6 PAX
+,4,BIANCA SALAZAR,INOVA VIAJES,GYE,-,LEO,JC,GIMANI + PARAISO,$100,,,
+,5,JELITZA SALAZAR,INOVA VIAJES,GYE,-,LEO,JC,GIMANI + PARAISO,$100,,,
+,6,ELOY SALAZAR,INOVA VIAJES,GYE,-,LEO,JC,GIMANI + PARAISO,$100,,,
+,7,GUILLERMO FIGUEROA,INOVA VIAJES,GYE,-,LEO,JC,GIMANI + PARAISO,$100,,,
+,8,ROSA RODRIGUEZ,INOVA VIAJES,GYE,-,LEO,JC,GIMANI + PARAISO,$100,,,
+,9,CANDO ESPINOZA JENNIFER MARIELA,ADVENTURE TRAVEL,CUE,-,,MATEO,GIMANI + PARAISO,$100,,,
+,10,CHACON SALINAS KEICY AMADA,ADVENTURE TRAVEL,CUE,-,,MATEO,GIMANI + PARAISO,$100,,,
+,11,TIGRE LUCERO ERIKA ROCIO,ADVENTURE TRAVEL,CUE,-,,MATEO,GIMANI + PARAISO,$100,,,
+,12,SONIA BARROS ,VUELA MUNDO ,CUE,-,Sebastian ,MATEO,GIMANI + PARAISO,,,,HABITACIONES GRANDES
+,13,FABIAN BARROS ,VUELA MUNDO ,CUE,-,Sebastian ,MATEO,GIMANI + PARAISO,,,,HABITACIONES GRANDES
+,14,JENNY ALMEA ,TU DESTINO ,GYE,,Sebastian ,JC,GIMANI + PARAISO,$100,,,
+,15,SANDRA VERA ,TU DESTINO ,GYE,,Sebastian ,JC,GIMANI + PARAISO,$100,,,
+,16,ANDREA ANGELINA LEON VEGA,TU DESTINO ,GYE,,Sebastian ,JC,GIMANI + PARAISO,$100,,,
+,17,,,,,,,,,,,
+,18,,,,,,,,,,,
+,19,,,,,,,,,,,
+,20,,,,,,,,,,,
+,21,,,,,,,,,,,
+,22,,,,,,,,,,,
+,23,,,,,,,,,,,
+,24,,,,,,,,,,,
+,25,,,,,,,,,,,
+,26,,,,,,,,,,,
+,27,,,,,,,,,,,
+,28,,,,,,,,,,,
+,29,,,,,,,,,,,
+,30,,,,,,,,,,,`
+                        setImportRawText(sampleText)
+                        const parsed = parseBloqueoText(sampleText)
+                        if (parsed) setImportedData(parsed)
+                      }}
+                      className="text-[10px] text-blue-600 hover:text-blue-800 font-bold bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 transition-colors"
+                    >
+                      Cargar Ejemplo de Prueba
+                    </button>
+                  </div>
+
+                  <textarea
+                    rows={8}
+                    value={importRawText}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setImportRawText(val)
+                      if (val.trim()) {
+                        const parsed = parseBloqueoText(val)
+                        if (parsed && parsed.passengers.length > 0) {
+                          setImportedData(parsed)
+                        }
+                      }
+                    }}
+                    placeholder={`Pega aquí tus columnas directamente de Excel o Sheets...\nEjemplo:\n# PAX\tNombres\tAgencia\tCiudad\tLand Tour\tOperativo\tComercial\tHoteles\tAbono 1\tObservaciones\n1\tMERCY BARRA\tJENNIFER CASTRO\tGYE\tTWINS\tLEO\tJC\tGIMANI + PARAISO\t100\tPAGO TOTAL`}
+                    className="w-full p-3 font-mono text-[11px] bg-slate-900 text-emerald-400 rounded-2xl border border-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                  />
+
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleParseImportText}
+                      className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors"
+                    >
+                      <Sparkles size={13} className="text-amber-400" />
+                      <span>Interpretar Filas</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <label className="block text-gray-800 font-bold">
+                    Arrastra o selecciona tu archivo Excel (.xlsx, .xls o .csv):
+                  </label>
+                  <div className="border-2 border-dashed border-gray-300 hover:border-emerald-500 hover:bg-emerald-50/20 p-8 rounded-2xl text-center transition-all cursor-pointer relative">
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls,.csv"
+                      onChange={handleFileUpload}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    />
+                    <UploadCloud size={36} className="mx-auto text-emerald-600 mb-2" />
+                    <p className="text-xs font-black text-gray-800">
+                      Haz clic para seleccionar o arrastra tu archivo aquí
+                    </p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      Soporta libros de Excel (.xlsx, .xls) y hojas delimitadas (.csv)
+                    </p>
+                    {isParsingImport && (
+                      <p className="text-xs font-bold text-emerald-600 mt-2 animate-pulse">
+                        Leyendo e interpretando archivo Excel...
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Previsualización de Datos Interpretados */}
+              {importedData && (
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3 animate-in fade-in-50 duration-200">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={16} className="text-emerald-600" />
+                      <strong className="text-xs text-gray-900 font-black">
+                        Datos Detectados con Éxito
+                      </strong>
+                    </div>
+                    <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                      Listo para cargar
+                    </span>
+                  </div>
+
+                  {/* KPIs */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                    <div className="bg-white p-2.5 rounded-xl border border-gray-200">
+                      <span className="text-[9px] text-gray-400 font-bold uppercase block">Cupos Totales</span>
+                      <strong className="text-sm font-black text-gray-900 mt-0.5 block">
+                        {importedData.totalCupos} Cupos
+                      </strong>
+                    </div>
+                    <div className="bg-white p-2.5 rounded-xl border border-emerald-200/80">
+                      <span className="text-[9px] text-emerald-700 font-bold uppercase block">Pasajeros Ocupados</span>
+                      <strong className="text-sm font-black text-emerald-800 mt-0.5 block">
+                        {importedData.occupiedCount} Registrados
+                      </strong>
+                    </div>
+                    <div className="bg-white p-2.5 rounded-xl border border-blue-200/80">
+                      <span className="text-[9px] text-blue-700 font-bold uppercase block">Cupos Libres</span>
+                      <strong className="text-sm font-black text-blue-800 mt-0.5 block">
+                        {importedData.freeSlotsCount} Disponibles
+                      </strong>
+                    </div>
+                    <div className="bg-white p-2.5 rounded-xl border border-gray-200">
+                      <span className="text-[9px] text-gray-400 font-bold uppercase block">Total Abonos</span>
+                      <strong className="text-sm font-black text-gray-900 mt-0.5 block">
+                        ${importedData.totalAbonado.toLocaleString('es-EC')} USD
+                      </strong>
+                    </div>
+                  </div>
+
+                  {/* Hoteles */}
+                  {importedData.hotels && importedData.hotels.length > 0 && (
+                    <div className="text-[11px] flex items-center gap-2">
+                      <span className="font-bold text-gray-500">Hoteles detectados:</span>
+                      <div className="flex flex-wrap gap-1">
+                        {importedData.hotels.map((h, i) => (
+                          <span key={i} className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 font-bold text-[10px]">
+                            🌴 {h} (Cupo Abierto)
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Mini-tabla de primeros pasajeros */}
+                  <div className="max-h-48 overflow-y-auto rounded-xl border border-gray-200 bg-white">
+                    <table className="w-full text-left text-[11px]">
+                      <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 sticky top-0">
+                        <tr>
+                          <th className="py-2 px-2.5 text-center font-black">#</th>
+                          <th className="py-2 px-2.5 font-black">Pasajero</th>
+                          <th className="py-2 px-2.5 font-black">Agencia / Ciudad</th>
+                          <th className="py-2 px-2.5 font-black">Acomodación / Hotel</th>
+                          <th className="py-2 px-2.5 text-right font-black">Abonos</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {importedData.passengers.map((p, idx) => (
+                          <tr key={idx} className="hover:bg-gray-50/50">
+                            <td className="py-1.5 px-2.5 text-center font-bold text-gray-400">
+                              {p.numero_cupo}
+                            </td>
+                            <td className="py-1.5 px-2.5 font-bold text-gray-900">
+                              {p.nombres}
+                            </td>
+                            <td className="py-1.5 px-2.5 text-gray-600">
+                              {p.agencia} {p.ciudad ? `(${p.ciudad})` : ''}
+                            </td>
+                            <td className="py-1.5 px-2.5 text-gray-600">
+                              {p.tipo_habitacion} {p.hoteles ? `· ${p.hoteles}` : ''}
+                            </td>
+                            <td className="py-1.5 px-2.5 text-right font-mono font-bold text-emerald-700">
+                              {p.total_abonos > 0 ? `$${p.total_abonos.toLocaleString('es-EC')}` : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-gray-100 flex items-center justify-between bg-gray-50/50">
+              <button
+                type="button"
+                onClick={() => setShowImportModal(false)}
+                className="px-4 py-2.5 rounded-xl bg-gray-100 text-gray-700 font-bold text-xs hover:bg-gray-200 transition-colors"
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                disabled={!importedData || importedData.occupiedCount === 0}
+                onClick={handleApplyImportedData}
+                className="btn-primary px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                <Check size={15} />
+                <span>✓ Aplicar al Nuevo Bloqueo</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
