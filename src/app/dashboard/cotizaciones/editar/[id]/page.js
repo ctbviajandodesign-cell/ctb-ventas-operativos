@@ -356,7 +356,6 @@ export default function EditarCotizacionPage() {
             <h3 className="font-bold text-gray-800 border-b pb-2">Observaciones / Especificaciones del Programa</h3>
             <textarea
               className="input mt-1 min-h-[120px] text-sm resize-none"
-              placeholder="Descripción del viaje, preferencias, tipo de servicio requerido..."
               value={formData.notas_iniciales}
               onChange={e => setFormData({ ...formData, notas_iniciales: e.target.value })}
             />
