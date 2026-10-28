@@ -249,39 +249,50 @@ export function parseBloqueoRows(rows) {
 
     const rawPax = idxPax !== -1 ? cols[idxPax] : ''
     let paxNum = parseInt(rawPax, 10)
-    if (!isNaN(paxNum) && paxNum > maxCupo) maxCupo = paxNum
+    const hasExplicitCupo = !isNaN(paxNum) && paxNum > 0
+    if (hasExplicitCupo && paxNum > maxCupo) maxCupo = paxNum
 
     const rawName = idxNom !== -1 ? cols[idxNom] : ''
     let nombres = cleanPassengerName(rawName)
+    let isUnnamedReservation = false
 
     const rawAgency = (idxAge !== -1 ? cols[idxAge] : '') || ''
-    const agencia = rawAgency.trim() || 'Directo'
+    const hasExplicitAgency = Boolean(rawAgency.trim())
+    const agencia = rawAgency.trim()
 
     // Si el nombre viene como guión o vacío pero hay agencia, se trata de una reserva para esa agencia
     if (!nombres) {
       if (rawAgency && rawAgency.toLowerCase() !== 'directo' && rawAgency !== '-') {
         nombres = `${rawAgency.toUpperCase()} (POR ASIGNAR)`
+        isUnnamedReservation = true
       } else {
         // Fila completamente vacía o sin pasajero ni agencia
         continue
       }
+    } else if (nombres.includes('(POR ASIGNAR)')) {
+      isUnnamedReservation = true
     }
 
-    if (isNaN(paxNum) || paxNum <= 0) {
+    if (!hasExplicitCupo) {
       paxNum = passengers.length + 1
     }
     if (paxNum > maxCupo) maxCupo = paxNum
 
-    const ciudad = (idxCiu !== -1 ? cols[idxCiu] : '') || 'GYE'
-    const habRaw = idxHab !== -1 ? cols[idxHab] : ''
-    const roomType = detectRoomType(habRaw)
+    const rawCity = (idxCiu !== -1 ? cols[idxCiu] : '') || ''
+    const hasExplicitCity = Boolean(rawCity.trim())
+    const ciudad = hasExplicitCity ? rawCity.trim().toUpperCase() : ''
+
+    const habRaw = (idxHab !== -1 ? cols[idxHab] : '') || ''
+    const hasExplicitRoom = Boolean(habRaw.trim())
+    const roomType = hasExplicitRoom ? detectRoomType(habRaw) : ''
 
     const operativo = (idxOpe !== -1 ? cols[idxOpe] : '') || ''
     const comercial = (idxCom !== -1 ? cols[idxCom] : '') || ''
-    const hotel = (idxHot !== -1 ? cols[idxHot] : '') || ''
+    const rawHotel = (idxHot !== -1 ? cols[idxHot] : '') || ''
+    const hotel = rawHotel.trim().toUpperCase()
 
     if (hotel && !hotel.startsWith('$') && !/^\d+$/.test(hotel)) {
-      hotelsSet.add(hotel.trim().toUpperCase())
+      hotelsSet.add(hotel)
     }
 
     let abono1 = 0
@@ -305,13 +316,19 @@ export function parseBloqueoRows(rows) {
 
     passengers.push({
       numero_cupo: paxNum,
+      has_explicit_cupo: hasExplicitCupo,
+      is_unnamed_reservation: isUnnamedReservation,
       nombres,
-      agencia: agencia.trim(),
-      ciudad: ciudad.trim().toUpperCase(),
+      agencia: agencia,
+      has_agency: hasExplicitAgency,
+      ciudad: ciudad,
+      has_city: hasExplicitCity,
       tipo_habitacion: roomType,
+      has_room: hasExplicitRoom,
       operativo_nombre: operativo.trim(),
       comercial_nombre: comercial.trim(),
-      hoteles: hotel.trim().toUpperCase(),
+      hoteles: hotel,
+      has_hotel: Boolean(hotel),
       abono_1: abono1,
       abono_2: abono2,
       abono_3: abono3,

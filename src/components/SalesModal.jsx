@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { 
-  X, Calendar, DollarSign, Plus, Trash2, 
+import {
+  X, Calendar, DollarSign, Plus, Trash2,
   CheckCircle2, AlertCircle, Hotel, Bus, Plane, Map,
-  QrCode, ExternalLink, Sparkles, User
+  QrCode, ExternalLink, Sparkles, User, PhoneCall
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -28,6 +28,7 @@ export default function SalesModal() {
     fecha_viaje_desde: '', fecha_viaje_hasta: '',
     fecha_caducidad_voucher: '', notas_voucher: '',
     pasajeros_voucher: '',
+    numero_emergencia: '',
     recordatorio_dias_antes: '',
     recordatorio_texto: ''
   })
@@ -52,7 +53,8 @@ export default function SalesModal() {
           fecha_caducidad_voucher: '', notas_voucher: '',
           pasajeros_voucher: Array.isArray(q.nombres_pasajeros) ? q.nombres_pasajeros.join('\n') : (q.nombres_pasajeros || ''),
           agencia: q.cotizaciones?.agencia || q.agencia || '',
-          destino: q.cotizaciones?.destino || q.destino || ''
+          destino: q.cotizaciones?.destino || q.destino || '',
+          numero_emergencia: ''
         })
         if (s.plan_pagos?.length) setMilestones(s.plan_pagos)
         else setMilestones([{ id: Date.now(), label: 'Primer Pago', amount: s.total || 0, percent: 100, date: new Date().toISOString().split('T')[0], status: 'pagado', method: 'efectivo' }])
@@ -73,6 +75,7 @@ export default function SalesModal() {
             generar_voucher: true,
             fecha_viaje_desde: voucher.fecha_viaje_desde || '',
             fecha_viaje_hasta: voucher.fecha_viaje_hasta || '',
+            numero_emergencia: voucher.numero_emergencia || '',
             notas_voucher: voucher.notas || '',
             recordatorio_dias_antes: voucher.recordatorio_dias_antes?.toString() || '',
             recordatorio_texto: voucher.recordatorio_texto || ''
@@ -94,7 +97,8 @@ export default function SalesModal() {
           fecha_caducidad_voucher: '', notas_voucher: '',
           pasajeros_voucher: Array.isArray(q.nombres_pasajeros) ? q.nombres_pasajeros.join('\n') : (q.nombres_pasajeros || ''),
           agencia: q.cotizaciones?.agencia || q.agencia || '',
-          destino: q.cotizaciones?.destino || q.destino || ''
+          destino: q.cotizaciones?.destino || q.destino || '',
+          numero_emergencia: ''
         })
         setMilestones([
           { id: Date.now(), label: 'Primer Pago', amount: initialTotal, percent: 100, date: new Date().toISOString().split('T')[0], status: 'pagado', method: 'efectivo' }
@@ -165,7 +169,7 @@ export default function SalesModal() {
         if (vError) throw vError
         ventaId = venta.id
 
-        await supabase.from('cotizaciones').update({ 
+        await supabase.from('cotizaciones').update({
           estado: 'ganada',
           valor_total: Number(formData.total) || 0,
           valor_comision: Number(formData.comision) || 0,
@@ -226,40 +230,65 @@ export default function SalesModal() {
       }
 
       if (formData.generar_voucher) {
+        const vchCommon = {
+          fecha_viaje_desde: formData.fecha_viaje_desde || null,
+          fecha_viaje_hasta: formData.fecha_viaje_hasta || null,
+          fecha_caducidad: formData.fecha_viaje_hasta || null,
+          inclusiones: inclusions,
+          notas: formData.notas_voucher,
+          agencia: formData.agencia,
+          valor_total: Number(formData.total) || 0,
+          pasajeros: pasajerosArr,
+          destino: formData.destino,
+          numero_emergencia: formData.numero_emergencia?.trim() || null,
+          recordatorio_dias_antes: formData.recordatorio_dias_antes ? Number(formData.recordatorio_dias_antes) : null,
+          recordatorio_texto: formData.recordatorio_texto || null
+        }
+
+        let missingEmergencyCol = false
         if (existingVoucher) {
-          const { error: vchError } = await supabase.from('vouchers').update({
-            fecha_viaje_desde: formData.fecha_viaje_desde || null,
-            fecha_viaje_hasta: formData.fecha_viaje_hasta || null,
-            fecha_caducidad: formData.fecha_viaje_hasta || null,
-            inclusiones: inclusions,
-            notas: formData.notas_voucher,
-            agencia: formData.agencia,
-            valor_total: Number(formData.total) || 0,
-            pasajeros: pasajerosArr,
-            destino: formData.destino,
-            recordatorio_dias_antes: formData.recordatorio_dias_antes ? Number(formData.recordatorio_dias_antes) : null,
-            recordatorio_texto: formData.recordatorio_texto || null
-          }).eq('id', existingVoucher.id)
+          let { error: vchError } = await supabase.from('vouchers').update(vchCommon).eq('id', existingVoucher.id)
+          if (vchError && (vchError.code === '42703' || vchError.message?.includes('numero_emergencia'))) {
+            missingEmergencyCol = Boolean(vchCommon.numero_emergencia)
+            const { numero_emergencia: _ignored, ...fallbackPayload } = vchCommon
+            if (missingEmergencyCol) {
+              fallbackPayload.notas = fallbackPayload.notas
+                ? `${fallbackPayload.notas}\n[Emergencia: ${vchCommon.numero_emergencia}]`
+                : `[Emergencia: ${vchCommon.numero_emergencia}]`
+            }
+            const retry = await supabase.from('vouchers').update(fallbackPayload).eq('id', existingVoucher.id)
+            vchError = retry.error
+          }
           if (vchError) throw vchError
+          if (missingEmergencyCol) {
+            showToast('Voucher actualizado (contacto en notas). Falta migración SQL para columna numero_emergencia.', 'warning')
+          }
         } else {
-          const { error: vchError } = await supabase.from('vouchers').insert([{
+          const insertPayload = {
             venta_id: ventaId,
             operativo_id: user.id,
             codigo: `VCH-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
             estado: 'activo',
-            fecha_viaje_desde: formData.fecha_viaje_desde || null,
-            fecha_viaje_hasta: formData.fecha_viaje_hasta || null,
-            fecha_caducidad: formData.fecha_viaje_hasta || null,
-            inclusiones: inclusions,
-            notas: formData.notas_voucher,
+            ...vchCommon,
             agencia: formData.agencia || quote.agencia,
-            valor_total: Number(formData.total) || 0,
-            pasajeros: pasajerosArr,
-            destino: formData.destino || quote.destino,
-            recordatorio_dias_antes: formData.recordatorio_dias_antes ? Number(formData.recordatorio_dias_antes) : null,
-            recordatorio_texto: formData.recordatorio_texto || null
-          }])
+            destino: formData.destino || quote.destino
+          }
+          let { error: vchError } = await supabase.from('vouchers').insert([insertPayload])
+          if (vchError && (vchError.code === '42703' || vchError.message?.includes('numero_emergencia'))) {
+            missingEmergencyCol = Boolean(vchCommon.numero_emergencia)
+            const { numero_emergencia: _ignored, ...fallbackPayload } = insertPayload
+            if (missingEmergencyCol) {
+              fallbackPayload.notas = fallbackPayload.notas
+                ? `${fallbackPayload.notas}\n[Emergencia: ${vchCommon.numero_emergencia}]`
+                : `[Emergencia: ${vchCommon.numero_emergencia}]`
+            }
+            const retry = await supabase.from('vouchers').insert([fallbackPayload])
+            vchError = retry.error
+          }
           if (vchError) throw vchError
+          if (missingEmergencyCol) {
+            showToast('Voucher emitido (contacto en notas). Falta migración SQL para columna numero_emergencia.', 'warning')
+          }
           if (!isEditing) {
             window.location.href = '/dashboard/vouchers'
             return
@@ -337,7 +366,7 @@ export default function SalesModal() {
                 <span className={`text-xs font-black px-2.5 py-1 rounded-full uppercase ${existingVoucher.estado === 'activo' ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'}`}>
                   {existingVoucher.estado}
                 </span>
-                <button 
+                <button
                   type="button"
                   onClick={() => router.push('/dashboard/vouchers')}
                   className="flex items-center gap-1.5 text-xs font-black text-primary bg-primary/10 px-3 py-1.5 rounded-xl hover:bg-primary/20 transition-colors"
@@ -365,29 +394,29 @@ export default function SalesModal() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
                 <p className="text-xs font-black text-gray-400 uppercase mb-1">Ref / Código</p>
-                <input 
-                  type="text" 
-                  className="bg-transparent border-none font-black text-gray-900 text-sm p-0 w-full outline-none" 
-                  value={formData.numero_proforma} 
-                  onChange={e => setFormData({ ...formData, numero_proforma: e.target.value })} 
+                <input
+                  type="text"
+                  className="bg-transparent border-none font-black text-gray-900 text-sm p-0 w-full outline-none"
+                  value={formData.numero_proforma}
+                  onChange={e => setFormData({ ...formData, numero_proforma: e.target.value })}
                 />
               </div>
               <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
                 <p className="text-xs font-black text-gray-400 uppercase mb-1">Agencia / Cliente</p>
-                <input 
-                  type="text" 
-                  className="bg-transparent border-none font-black text-gray-900 text-sm p-0 w-full outline-none" 
-                  value={formData.agencia} 
-                  onChange={e => setFormData({ ...formData, agencia: e.target.value })} 
+                <input
+                  type="text"
+                  className="bg-transparent border-none font-black text-gray-900 text-sm p-0 w-full outline-none"
+                  value={formData.agencia}
+                  onChange={e => setFormData({ ...formData, agencia: e.target.value })}
                 />
               </div>
               <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
                 <p className="text-xs font-black text-gray-400 uppercase mb-1">Destino</p>
-                <input 
-                  type="text" 
-                  className="bg-transparent border-none font-black text-gray-900 text-sm p-0 w-full outline-none" 
-                  value={formData.destino} 
-                  onChange={e => setFormData({ ...formData, destino: e.target.value })} 
+                <input
+                  type="text"
+                  className="bg-transparent border-none font-black text-gray-900 text-sm p-0 w-full outline-none"
+                  value={formData.destino}
+                  onChange={e => setFormData({ ...formData, destino: e.target.value })}
                 />
               </div>
             </div>
@@ -436,11 +465,11 @@ export default function SalesModal() {
               <User size={16} /> Nombres de Pasajeros / Nombre de Grupo
             </p>
             <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-              <textarea 
-                className="bg-transparent border-none font-black text-gray-900 text-sm p-0 w-full outline-none resize-y min-h-[60px]" 
-                placeholder="Juan Pérez&#10;Familia García..." 
-                value={formData.pasajeros_voucher} 
-                onChange={e => setFormData({ ...formData, pasajeros_voucher: e.target.value })} 
+              <textarea
+                className="bg-transparent border-none font-black text-gray-900 text-sm p-0 w-full outline-none resize-y min-h-[60px]"
+                placeholder="Juan Pérez&#10;Familia García..."
+                value={formData.pasajeros_voucher}
+                onChange={e => setFormData({ ...formData, pasajeros_voucher: e.target.value })}
               />
               <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold">Un nombre por línea. Esto actualizará la proforma original y el voucher si existe.</p>
             </div>
@@ -552,6 +581,19 @@ export default function SalesModal() {
                   <div>
                     <label className="text-xs font-black text-gray-400 uppercase">Fin del viaje</label>
                     <input type="date" className="input font-bold mt-1 text-xs" value={formData.fecha_viaje_hasta} onChange={e => setFormData({ ...formData, fecha_viaje_hasta: e.target.value })} />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-xs font-black text-gray-400 uppercase flex items-center gap-1.5">
+                      <PhoneCall size={14} className="text-primary" /> Número de emergencia
+                    </label>
+                    <input
+                      type="text"
+                      className="input font-bold mt-1 text-xs"
+                      placeholder="Nombre y número de emergencia (ej: Juan Pérez - +593 99 999 9999)"
+                      value={formData.numero_emergencia}
+                      onChange={e => setFormData({ ...formData, numero_emergencia: e.target.value })}
+                    />
+                    <p className="text-[10px] text-gray-400 mt-1">Nombre y número de contacto en caso de emergencia para el pasajero o guía</p>
                   </div>
                   <div className="col-span-2">
                     <label className="text-xs font-black text-gray-400 uppercase">Notas para el pasajero</label>

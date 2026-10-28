@@ -23,7 +23,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar,
-  Filter
+  Filter,
+  PhoneCall
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -241,6 +242,7 @@ export default function VouchersPage() {
           matchesCode ||
           (v.agencia || '').toLowerCase().includes(s) ||
           (v.destino || '').toLowerCase().includes(s) ||
+          (v.numero_emergencia || '').toLowerCase().includes(s) ||
           passengerNames.includes(s) ||
           (v.profiles?.nombre || '').toLowerCase().includes(s) ||
           (v.ventas?.cotizaciones?.comercial || '').toLowerCase().includes(s) ||
@@ -828,6 +830,22 @@ export default function VouchersPage() {
                     </div>
                   </div>
                 </div>
+
+                {viewingVoucher.numero_emergencia && (
+                  <div className="flex gap-3 sm:gap-4 items-center bg-red-50 p-3 sm:p-4 rounded-2xl border border-red-100 text-red-900">
+                    <div className="bg-red-100 p-2 rounded-xl text-red-600 shrink-0">
+                      <PhoneCall size={16} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] sm:text-xs font-black text-red-500 uppercase tracking-widest">
+                        Número de Emergencia
+                      </p>
+                      <p className="text-xs sm:text-sm font-black break-words">
+                        {viewingVoucher.numero_emergencia}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {viewingVoucher.notas && (

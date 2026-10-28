@@ -14,10 +14,10 @@ import DashboardCharts from '@/components/DashboardCharts'
 import VoucherEditModal from '@/components/dashboard/VoucherEditModal'
 import OperativePanelModal from '@/components/dashboard/OperativePanelModal'
 import DashboardFilters from '@/components/dashboard/DashboardFilters'
-import { 
-  DollarSign, 
-  TrendingUp, 
-  FileText, 
+import {
+  DollarSign,
+  TrendingUp,
+  FileText,
   Target,
   Trophy,
   Users,
@@ -165,14 +165,14 @@ export default function DashboardClient() {
         .select('*')
         .eq('id', user.id)
         .single()
-      
+
       setProfile(profileData)
       const isAdmin = profileData?.rol === 'admin' || profileData?.rol === 'superadmin'
       const isAuditor = profileData?.rol === 'auditor'
       const isPrivileged = isAdmin || isAuditor
-      
+
       const activeOpId = isPrivileged && selectedOperative !== 'global' ? selectedOperative : user.id
-      
+
       let initialOperatives = operatives;
       if (isPrivileged && operatives.length === 0) {
         // Will fetch in parallel later
@@ -184,7 +184,7 @@ export default function DashboardClient() {
 
       // CONSTRUIR QUERIES EN PARALELO
       const activeCityFilter = isPrivileged ? selectedCity : profileData?.ciudad
-      
+
       let allowedCities = null;
       if (isAuditor && profileData?.ciudad && !profileData.ciudad.includes('Nacional')) {
         allowedCities = profileData.ciudad.split(',').map(c => c.trim())
@@ -210,7 +210,7 @@ export default function DashboardClient() {
       // ── MODO RENDIMIENTO EXTREMO (RPC) ──
       // Si es auditor con múltiples ciudades en modo global, la RPC no soporta array. Pasaremos null y luego ignoraremos el resultado RPC.
       const rpcCity = (activeCityFilter !== 'global') ? activeCityFilter : (allowedCities?.length === 1 ? allowedCities[0] : null);
-      
+
       const rpcPromise = supabase.rpc('get_dashboard_metrics', {
         p_start_iso: startIso,
         p_end_iso: endIso,
@@ -219,7 +219,7 @@ export default function DashboardClient() {
       });
 
       // EJECUTAR PROMISE.ALL PARA MAXIMA VELOCIDAD Y PARALELIZACIÓN COMPLETA
-      const opsPromise = (isPrivileged && operatives.length === 0) 
+      const opsPromise = (isPrivileged && operatives.length === 0)
         ? supabase.from('profiles').select('id, nombre, ciudad, meta_mensual').in('rol', ['operativo', 'comercial', 'auditor'])
         : Promise.resolve({ data: operatives });
 
@@ -277,7 +277,7 @@ export default function DashboardClient() {
 
       const rawBoard = resBoard?.success ? resBoard.leaderboard : []
       const userCity = profileData?.ciudad
-      
+
       let board = rawBoard
       if (!isPrivileged) {
         board = rawBoard.filter(op => op.ciudad && userCity && op.ciudad.trim().toLowerCase() === userCity.trim().toLowerCase())
@@ -297,7 +297,7 @@ export default function DashboardClient() {
       // Calcular motivos principales de pérdida para el periodo actual
       const lostFromPipeline = pipelineEnriched.filter(q => q.estado === 'perdida' || q.estado === 'anulada')
       setLostQuotes(lostFromPipeline)
-      
+
       const motivesMap = {}
       lostFromPipeline.forEach(q => {
         if (q.motivo_perdida) {
@@ -340,7 +340,7 @@ export default function DashboardClient() {
 
       // ── OVERRIDE FINAL: métricas usando la respuesta del RPC o Pipeline Local ──
       const useLocalPipeline = (isAuditor && allowedCities && allowedCities.length > 1 && activeCityFilter === 'global')
-      
+
       let ganadasCount = 0, totalVendidoReal = 0, totalGananciaReal = 0, vouchersCount = 0, porCobrarMes = 0, porCobrarGlobal = 0, caducadasReal = 0, abiertasReal = 0, perdidasReal = 0, anuladasReal = 0, totalReal = 0, convReal = 0;
 
       if (useLocalPipeline) {
@@ -421,11 +421,11 @@ export default function DashboardClient() {
   // Función de Exportación a CSV / Excel de Ventas No Concretadas
   const handleExportLostQuotes = () => {
     const filteredForExport = lostFilter === 'ALL'
-      ? lostQuotes 
-      : lostFilter === 'ANULADAS' 
+      ? lostQuotes
+      : lostFilter === 'ANULADAS'
         ? lostQuotes.filter(q => (q.estado || '').trim() === 'anulada')
         : lostQuotes.filter(q => (q.motivo_perdida || '').toLowerCase().includes(lostFilter.toLowerCase()) && q.estado !== 'anulada')
-    
+
     if (filteredForExport.length === 0) {
       showToast('No hay datos para exportar con el filtro actual.', 'error')
       return
@@ -469,7 +469,7 @@ export default function DashboardClient() {
         <AlertTriangle size={64} className="text-red-500 mb-6" />
         <h2 className="text-2xl font-black text-gray-800 mb-2 uppercase">Error de Conexión</h2>
         <p className="text-gray-500 max-w-md mb-8">{errorState}</p>
-        <button 
+        <button
           onClick={() => { setErrorState(null); fetchDashboardData(); }}
           className="bg-primary text-white px-8 py-3 rounded-full font-bold shadow-lg hover:shadow-xl transition-all uppercase tracking-widest text-sm flex items-center gap-2"
         >
@@ -503,7 +503,7 @@ export default function DashboardClient() {
 
     // IMPORTANTE: ganancia = comision + utilidad (aporte CTB), totalVendido = valor cliente
     const ganancia = ventasMes.reduce((a,v)=>a+(Number(v.comision)||0)+(Number(v.utilidad)||0),0)||0
-    
+
     // Aporte a meta = comision + utilidad de cotizaciones ganadas
     const aporteVentasCots = cots?.filter(c=>c.estado==='ganada').reduce((a,c)=>a+(Number(c.valor_comision||0))+(Number(c.valor_utilidad||0)),0)||0
     const totalVendido = aporteVentasCots  // Aporte CTB (comision+utilidad), para info
@@ -593,25 +593,43 @@ export default function DashboardClient() {
     const pasajerosArr = typeof editingVoucher.pasajeros === 'string'
       ? editingVoucher.pasajeros.split('\n').map(s => s.trim()).filter(Boolean)
       : editingVoucher.pasajeros || []
-    const { error } = await supabase
+    const vchPayload = {
+      agencia: editingVoucher.agencia,
+      destino: editingVoucher.destino,
+      pasajeros: pasajerosArr,
+      fecha_viaje_desde: editingVoucher.fecha_viaje_desde,
+      fecha_viaje_hasta: editingVoucher.fecha_viaje_hasta,
+      fecha_caducidad: editingVoucher.fecha_viaje_hasta,
+      numero_emergencia: editingVoucher.numero_emergencia?.trim() || null,
+      notas: editingVoucher.notas,
+      recordatorio_texto: editingVoucher.recordatorio_texto || null,
+      recordatorio_dias_antes: editingVoucher.recordatorio_dias_antes || null
+    }
+    let { error } = await supabase
       .from('vouchers')
-      .update({
-        agencia: editingVoucher.agencia,
-        destino: editingVoucher.destino,
-        pasajeros: pasajerosArr,
-        fecha_viaje_desde: editingVoucher.fecha_viaje_desde,
-        fecha_viaje_hasta: editingVoucher.fecha_viaje_hasta,
-        fecha_caducidad: editingVoucher.fecha_viaje_hasta,
-        notas: editingVoucher.notas,
-        recordatorio_texto: editingVoucher.recordatorio_texto || null,
-        recordatorio_dias_antes: editingVoucher.recordatorio_dias_antes || null
-      })
+      .update(vchPayload)
       .eq('id', editingVoucher.id)
+    let missingEmergencyCol = false
+    if (error && (error.code === '42703' || error.message?.includes('numero_emergencia'))) {
+      missingEmergencyCol = Boolean(vchPayload.numero_emergencia)
+      const { numero_emergencia: _ignored, ...fallbackPayload } = vchPayload
+      if (missingEmergencyCol) {
+        fallbackPayload.notas = fallbackPayload.notas
+          ? `${fallbackPayload.notas}\n[Emergencia: ${vchPayload.numero_emergencia}]`
+          : `[Emergencia: ${vchPayload.numero_emergencia}]`
+      }
+      const retry = await supabase.from('vouchers').update(fallbackPayload).eq('id', editingVoucher.id)
+      error = retry.error
+    }
     if (!error) {
       logActivity('editar_voucher', `Se editó el voucher ${editingVoucher.codigo} (Agencia: ${editingVoucher.agencia}, Destino: ${editingVoucher.destino}).`)
-      showToast('Voucher actualizado correctamente.')
+      if (missingEmergencyCol) {
+        showToast('Voucher actualizado (contacto en notas). Falta migración SQL para columna numero_emergencia.', 'warning')
+      } else {
+        showToast('Voucher actualizado correctamente.')
+      }
       setEditingVoucher(null)
-      
+
       // Actualizar los datos del panel operativo para refrescar la lista
       if (operativePanel) {
         handleOpenOperativePanel(operativePanel)
@@ -632,7 +650,7 @@ export default function DashboardClient() {
         let isSubBullet = false
         let content = line.replace(/^[#\s]+/, '')
         const trimmed = line.trim()
-        
+
         if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
           isBullet = true
           isSubBullet = line.startsWith('  ') || line.startsWith('\t')
@@ -667,7 +685,7 @@ export default function DashboardClient() {
   }
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
@@ -795,7 +813,7 @@ export default function DashboardClient() {
 
           {aiAnswer && (
             <div className="p-6 bg-gradient-to-r from-primary/[0.02] to-indigo-500/[0.02] border border-primary/10 rounded-3xl relative animate-in slide-in-from-top-4 duration-300">
-              <button 
+              <button
                 onClick={() => { setAiAnswer(null); setAiQuestion(''); }}
                 className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-all duration-300 active:scale-95"
                 title="Cerrar respuesta"
@@ -816,25 +834,25 @@ export default function DashboardClient() {
       </div>
       {/* KPI GRID FINANCIERO PRINCIPAL */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <StatsCard 
+        <StatsCard
           title="Ventas Totales (Mes Actual)"
-          value={`$${(metrics.totalVendido || 0).toLocaleString()}`} 
+          value={`$${(metrics.totalVendido || 0).toLocaleString()}`}
           icon={DollarSign}
           color="success"
           description="Volumen bruto de vendidas"
           href={`/dashboard/ventas?dateFilter=${selectedPeriod}`}
         />
-        <StatsCard 
+        <StatsCard
           title="Por Cobrar (Generado este Mes)"
-          value={`$${(metrics.porCobrarMes || 0).toLocaleString()}`} 
+          value={`$${(metrics.porCobrarMes || 0).toLocaleString()}`}
           icon={Target}
           color="warning"
           description="Deuda (faltante) de ventas de este periodo"
           href={`/dashboard/ventas?dateFilter=${selectedPeriod}&deuda=con_deuda`}
         />
-        <StatsCard 
+        <StatsCard
           title="Por Cobrar GLOBAL (Histórico Total)"
-          value={`$${(metrics.porCobrarGlobal || 0).toLocaleString()}`} 
+          value={`$${(metrics.porCobrarGlobal || 0).toLocaleString()}`}
           icon={AlertTriangle}
           color="danger"
           description="Toda la deuda acumulada a la fecha"
@@ -844,44 +862,44 @@ export default function DashboardClient() {
 
       {/* KPI GRID SECUNDARIO */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <StatsCard 
+        <StatsCard
           title="Total Ventas"
-          value={`$${metrics.totalVendido.toLocaleString()}`} 
+          value={`$${metrics.totalVendido.toLocaleString()}`}
           icon={DollarSign}
           color="success"
           description="Volumen bruto cliente"
         />
-        <StatsCard 
+        <StatsCard
           title="Vendidas"
-          value={(metrics.ganadas || 0).toLocaleString()} 
+          value={(metrics.ganadas || 0).toLocaleString()}
           icon={Trophy}
           color="accent"
           description="Ventas concretadas"
         />
-        <StatsCard 
-          title={isAdmin && selectedOperative === 'global' ? 'Ganancia CTB (Equipo)' : 'Mi Ganancia CTB'} 
-          value={`$${metrics.metaComputable.toLocaleString()}`} 
+        <StatsCard
+          title={isAdmin && selectedOperative === 'global' ? 'Ganancia CTB (Equipo)' : 'Mi Ganancia CTB'}
+          value={`$${metrics.metaComputable.toLocaleString()}`}
           icon={TrendingUp}
           color="primary"
           description="Comisión + Utilidad (Meta)"
         />
-        <StatsCard 
-          title="En Espera" 
-          value={metrics.cotizacionesAbiertas.toLocaleString()} 
+        <StatsCard
+          title="En Espera"
+          value={metrics.cotizacionesAbiertas.toLocaleString()}
           icon={Target}
           color="warning"
           description="Cotizaciones vigentes"
         />
-        <StatsCard 
-          title="Caducadas" 
-          value={metrics.cotizacionesCaducadas.toLocaleString()} 
+        <StatsCard
+          title="Caducadas"
+          value={metrics.cotizacionesCaducadas.toLocaleString()}
           icon={AlertTriangle}
           color="danger"
           description="Excedieron 24h/límite"
         />
-        <StatsCard 
-          title="Vouchers Emitidos" 
-          value={metrics.vouchersEmitidos.toLocaleString()} 
+        <StatsCard
+          title="Vouchers Emitidos"
+          value={metrics.vouchersEmitidos.toLocaleString()}
           icon={FileText}
           color="primary"
           description="Vouchers activos"
@@ -892,10 +910,10 @@ export default function DashboardClient() {
 
       {activeDashboardTab === 'charts' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 animate-in fade-in duration-500">
-        
+
         {/* COLUMNA IZQUIERDA: GRÁFICOS Y TABLA */}
         <div className="lg:col-span-2 space-y-10">
-          <DashboardCharts 
+          <DashboardCharts
             isAdmin={isAdmin}
             selectedOperative={selectedOperative}
             chartData={chartData}
@@ -1133,7 +1151,7 @@ export default function DashboardClient() {
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-                <select 
+                <select
                   className="bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2.5 text-xs font-black text-gray-700 uppercase tracking-widest outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                   value={lostFilter}
                   onChange={e => setLostFilter(e.target.value)}
@@ -1146,7 +1164,7 @@ export default function DashboardClient() {
                   <option value="ANULADAS">Canceladas (Anuladas)</option>
                 </select>
 
-                <button 
+                <button
                   onClick={handleExportLostQuotes}
                   className="bg-gray-900 hover:bg-primary text-white px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center gap-2 shadow-lg hover:shadow-xl transition-all"
                   title="Descargar reporte en Excel / CSV"
@@ -1199,7 +1217,7 @@ export default function DashboardClient() {
 
         {/* COLUMNA DERECHA: META, LEADERBOARD, INSIGHTS */}
         <div className="space-y-10">
-          
+
           {/* CUMPLIMIENTO DE META */}
           <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-gray-50 relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform"><Trophy size={120} /></div>
@@ -1293,7 +1311,7 @@ export default function DashboardClient() {
                 <div className="bg-white/5 p-5 rounded-3xl border border-white/5"><p className="text-xs font-black text-success uppercase tracking-widest mb-1">Tasa de Cierre</p><p className="text-3xl font-black">{metrics.conversionRate.toFixed(0)}%</p></div>
               </div>
               <div className="mt-4">
-                <AIInsightCard 
+                <AIInsightCard
                   modo={isAdmin && selectedOperative === 'global' ? 'GLOBAL_ADMIN' : 'OPERATIVE'}
                   metricas={{
                     total: metrics.total,
@@ -1307,7 +1325,7 @@ export default function DashboardClient() {
                     globalGoal: metrics.globalGoal,
                     porcentajeMeta: metrics.porcentajeMeta,
                     topMotivos: metrics.topMotivos
-                  }} 
+                  }}
                 />
               </div>
             </div>

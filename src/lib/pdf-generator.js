@@ -127,6 +127,20 @@ export const generateVoucherPDF = async (voucher, qrBase64) => {
 
   currentY += 15
 
+  // Contacto de Emergencia
+  if (voucher.numero_emergencia) {
+    doc.setFontSize(9)
+    doc.setTextColor(...greyColor)
+    doc.text('NÚMERO DE EMERGENCIA', 15, currentY)
+
+    doc.setTextColor(200, 30, 30)
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.text(cleanText(voucher.numero_emergencia), 15, currentY + 6)
+
+    currentY += 15
+  }
+
   // Inclusiones
   if (voucher.inclusiones) {
     doc.setFontSize(9)

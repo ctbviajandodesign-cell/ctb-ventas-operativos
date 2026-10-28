@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { 
-  X, AlertCircle, Hotel, Bus, Plane, Map, QrCode, DollarSign, User, Calendar
+import {
+  X, AlertCircle, Hotel, Bus, Plane, Map, QrCode, DollarSign, User, Calendar, PhoneCall
 } from 'lucide-react'
 import { showToast } from '@/utils/toast'
 
@@ -19,9 +19,10 @@ export default function VoucherStandaloneModal({ onSaved }) {
     destino: '',
     total: 0,
     pasajeros_voucher: '',
-    fecha_viaje_desde: '', 
+    fecha_viaje_desde: '',
     fecha_viaje_hasta: '',
     notas_voucher: '',
+    numero_emergencia: '',
     recordatorio_dias_antes: '',
     recordatorio_texto: ''
   })
@@ -39,6 +40,7 @@ export default function VoucherStandaloneModal({ onSaved }) {
           fecha_viaje_desde: v.fecha_viaje_desde || '',
           fecha_viaje_hasta: v.fecha_viaje_hasta || '',
           notas_voucher: v.notas || '',
+          numero_emergencia: v.numero_emergencia || '',
           recordatorio_dias_antes: v.recordatorio_dias_antes?.toString() || '',
           recordatorio_texto: v.recordatorio_texto || ''
         })
@@ -52,9 +54,10 @@ export default function VoucherStandaloneModal({ onSaved }) {
           destino: '',
           total: 0,
           pasajeros_voucher: '',
-          fecha_viaje_desde: '', 
+          fecha_viaje_desde: '',
           fecha_viaje_hasta: '',
           notas_voucher: '',
+          numero_emergencia: '',
           recordatorio_dias_antes: '',
           recordatorio_texto: ''
         })
@@ -76,48 +79,73 @@ export default function VoucherStandaloneModal({ onSaved }) {
 
       const pasajerosArr = formData.pasajeros_voucher ? formData.pasajeros_voucher.split('\n').map(s => s.trim()).filter(Boolean) : []
 
+      const vchCommon = {
+        fecha_viaje_desde: formData.fecha_viaje_desde || null,
+        fecha_viaje_hasta: formData.fecha_viaje_hasta || null,
+        fecha_caducidad: formData.fecha_viaje_hasta || null,
+        inclusiones: inclusions,
+        notas: formData.notas_voucher,
+        agencia: formData.agencia,
+        valor_total: Number(formData.total) || 0,
+        pasajeros: pasajerosArr,
+        destino: formData.destino,
+        numero_emergencia: formData.numero_emergencia?.trim() || null,
+        recordatorio_dias_antes: formData.recordatorio_dias_antes ? Number(formData.recordatorio_dias_antes) : null,
+        recordatorio_texto: formData.recordatorio_texto || null
+      }
+
+      let missingEmergencyCol = false
       if (isEditing) {
-        const { error: vchError } = await supabase.from('vouchers').update({
-          fecha_viaje_desde: formData.fecha_viaje_desde || null,
-          fecha_viaje_hasta: formData.fecha_viaje_hasta || null,
-          fecha_caducidad: formData.fecha_viaje_hasta || null,
-          inclusiones: inclusions,
-          notas: formData.notas_voucher,
-          agencia: formData.agencia,
-          valor_total: Number(formData.total) || 0,
-          pasajeros: pasajerosArr,
-          destino: formData.destino,
-          recordatorio_dias_antes: formData.recordatorio_dias_antes ? Number(formData.recordatorio_dias_antes) : null,
-          recordatorio_texto: formData.recordatorio_texto || null
-        }).eq('id', existingVoucher.id)
+        let { error: vchError } = await supabase.from('vouchers').update(vchCommon).eq('id', existingVoucher.id)
+        if (vchError && (vchError.code === '42703' || vchError.message?.includes('numero_emergencia'))) {
+          missingEmergencyCol = Boolean(vchCommon.numero_emergencia)
+          const { numero_emergencia: _ignored, ...fallbackPayload } = vchCommon
+          if (missingEmergencyCol) {
+            fallbackPayload.notas = fallbackPayload.notas
+              ? `${fallbackPayload.notas}\n[Emergencia: ${vchCommon.numero_emergencia}]`
+              : `[Emergencia: ${vchCommon.numero_emergencia}]`
+          }
+          const retry = await supabase.from('vouchers').update(fallbackPayload).eq('id', existingVoucher.id)
+          vchError = retry.error
+        }
         if (vchError) throw vchError
-        showToast('Voucher actualizado correctamente')
+        if (missingEmergencyCol) {
+          showToast('Voucher guardado (contacto en notas). Falta migración SQL para columna numero_emergencia.', 'warning')
+        } else {
+          showToast('Voucher actualizado correctamente')
+        }
       } else {
-        const { error: vchError } = await supabase.from('vouchers').insert([{
+        const insertPayload = {
           venta_id: null, // Voucher independiente
           operativo_id: user.id,
           codigo: `VCH-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
           estado: 'activo',
-          fecha_viaje_desde: formData.fecha_viaje_desde || null,
-          fecha_viaje_hasta: formData.fecha_viaje_hasta || null,
-          fecha_caducidad: formData.fecha_viaje_hasta || null,
-          inclusiones: inclusions,
-          notas: formData.notas_voucher,
-          agencia: formData.agencia,
-          valor_total: Number(formData.total) || 0,
-          pasajeros: pasajerosArr,
-          destino: formData.destino,
-          recordatorio_dias_antes: formData.recordatorio_dias_antes ? Number(formData.recordatorio_dias_antes) : null,
-          recordatorio_texto: formData.recordatorio_texto || null
-        }])
+          ...vchCommon
+        }
+        let { error: vchError } = await supabase.from('vouchers').insert([insertPayload])
+        if (vchError && (vchError.code === '42703' || vchError.message?.includes('numero_emergencia'))) {
+          missingEmergencyCol = Boolean(vchCommon.numero_emergencia)
+          const { numero_emergencia: _ignored, ...fallbackPayload } = insertPayload
+          if (missingEmergencyCol) {
+            fallbackPayload.notas = fallbackPayload.notas
+              ? `${fallbackPayload.notas}\n[Emergencia: ${vchCommon.numero_emergencia}]`
+              : `[Emergencia: ${vchCommon.numero_emergencia}]`
+          }
+          const retry = await supabase.from('vouchers').insert([fallbackPayload])
+          vchError = retry.error
+        }
         if (vchError) throw vchError
-        showToast('Voucher creado correctamente')
+        if (missingEmergencyCol) {
+          showToast('Voucher creado (contacto en notas). Falta migración SQL para columna numero_emergencia.', 'warning')
+        } else {
+          showToast('Voucher creado correctamente')
+        }
       }
 
       setIsOpen(false)
       if (onSaved) onSaved()
       else window.location.reload()
-      
+
     } catch (error) {
       console.error('Error al guardar voucher:', error)
       showToast(error.message || 'Error desconocido al guardar el voucher', 'error')
@@ -154,28 +182,28 @@ export default function VoucherStandaloneModal({ onSaved }) {
         </div>
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-7 space-y-7">
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
               <p className="text-xs font-black text-gray-400 uppercase mb-1">Agencia / Cliente</p>
-              <input 
-                type="text" 
-                className="bg-transparent border-none font-black text-gray-900 text-sm p-0 w-full outline-none" 
+              <input
+                type="text"
+                className="bg-transparent border-none font-black text-gray-900 text-sm p-0 w-full outline-none"
                 placeholder="Ej: Agencia de Viajes XYZ"
-                value={formData.agencia} 
+                value={formData.agencia}
                 required
-                onChange={e => setFormData({ ...formData, agencia: e.target.value })} 
+                onChange={e => setFormData({ ...formData, agencia: e.target.value })}
               />
             </div>
             <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
               <p className="text-xs font-black text-gray-400 uppercase mb-1">Destino</p>
-              <input 
-                type="text" 
-                className="bg-transparent border-none font-black text-gray-900 text-sm p-0 w-full outline-none" 
+              <input
+                type="text"
+                className="bg-transparent border-none font-black text-gray-900 text-sm p-0 w-full outline-none"
                 placeholder="Ej: UIO | Quito, Ecuador"
-                value={formData.destino} 
+                value={formData.destino}
                 required
-                onChange={e => setFormData({ ...formData, destino: e.target.value })} 
+                onChange={e => setFormData({ ...formData, destino: e.target.value })}
               />
             </div>
           </div>
@@ -186,11 +214,11 @@ export default function VoucherStandaloneModal({ onSaved }) {
             </p>
             <div className="flex items-baseline gap-1">
               <span className="text-gray-400 font-bold">$</span>
-              <input 
-                type="number" step="0.01" 
-                className="bg-transparent border-none font-black text-gray-900 text-xl p-0 w-full outline-none" 
-                value={formData.total} 
-                onChange={e => setFormData({ ...formData, total: e.target.value })} 
+              <input
+                type="number" step="0.01"
+                className="bg-transparent border-none font-black text-gray-900 text-xl p-0 w-full outline-none"
+                value={formData.total}
+                onChange={e => setFormData({ ...formData, total: e.target.value })}
               />
             </div>
           </div>
@@ -200,12 +228,12 @@ export default function VoucherStandaloneModal({ onSaved }) {
               <User size={16} /> Nombres de Pasajeros / Nombre de Grupo
             </p>
             <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-              <textarea 
-                className="bg-transparent border-none font-black text-gray-900 text-sm p-0 w-full outline-none resize-y min-h-[60px]" 
-                placeholder="Juan Pérez&#10;Familia García..." 
-                value={formData.pasajeros_voucher} 
+              <textarea
+                className="bg-transparent border-none font-black text-gray-900 text-sm p-0 w-full outline-none resize-y min-h-[60px]"
+                placeholder="Juan Pérez&#10;Familia García..."
+                value={formData.pasajeros_voucher}
                 required
-                onChange={e => setFormData({ ...formData, pasajeros_voucher: e.target.value })} 
+                onChange={e => setFormData({ ...formData, pasajeros_voucher: e.target.value })}
               />
               <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold">Un nombre por línea.</p>
             </div>
@@ -215,7 +243,7 @@ export default function VoucherStandaloneModal({ onSaved }) {
             <p className="font-black text-primary uppercase tracking-tighter flex items-center gap-2">
               <QrCode size={16} /> Configuración del Voucher
             </p>
-            
+
             <div className="grid grid-cols-5 gap-2">
               {Object.entries(incIcons).map(([item, Icon]) => (
                 <button key={item} type="button" onClick={() => setInclusions({ ...inclusions, [item]: !inclusions[item] })}
@@ -234,6 +262,19 @@ export default function VoucherStandaloneModal({ onSaved }) {
               <div>
                 <label className="text-xs font-black text-gray-400 uppercase">Fin del viaje</label>
                 <input type="date" required className="input font-bold mt-1 text-xs" value={formData.fecha_viaje_hasta} onChange={e => setFormData({ ...formData, fecha_viaje_hasta: e.target.value })} />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs font-black text-gray-400 uppercase flex items-center gap-1.5">
+                  <PhoneCall size={14} className="text-primary" /> Número de emergencia
+                </label>
+                <input
+                  type="text"
+                  className="input font-bold mt-1 text-xs"
+                  placeholder="Nombre y número de emergencia (ej: Juan Pérez - +593 99 999 9999)"
+                  value={formData.numero_emergencia}
+                  onChange={e => setFormData({ ...formData, numero_emergencia: e.target.value })}
+                />
+                <p className="text-[10px] text-gray-400 mt-1">Nombre y número de contacto en caso de emergencia para el pasajero o guía</p>
               </div>
               <div className="col-span-2">
                 <label className="text-xs font-black text-gray-400 uppercase">Notas para el pasajero</label>

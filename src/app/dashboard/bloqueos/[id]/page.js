@@ -5,21 +5,21 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useUserSession } from '@/hooks/useUserSession'
 import Link from 'next/link'
-import { 
-  ArrowLeft, 
-  Plus, 
-  Users, 
-  Clock, 
-  MapPin, 
-  Plane, 
-  Edit3, 
-  Trash2, 
-  CheckCircle2, 
-  AlertTriangle, 
-  DollarSign, 
-  Search, 
-  Hotel, 
-  User, 
+import {
+  ArrowLeft,
+  Plus,
+  Users,
+  Clock,
+  MapPin,
+  Plane,
+  Edit3,
+  Trash2,
+  CheckCircle2,
+  AlertTriangle,
+  DollarSign,
+  Search,
+  Hotel,
+  User,
   FileSpreadsheet,
   X,
   Calendar,
@@ -49,15 +49,15 @@ import IataSelector from '@/components/IataSelector'
 import BloqueoCountdownTimer from '@/components/BloqueoCountdownTimer'
 import BloqueoHotelesConfig from '@/components/dashboard/BloqueoHotelesConfig'
 import { exportBloqueoRoomingPDF } from '@/lib/pdf-generator'
-import { 
-  cleanMoney, 
-  cleanPassengerName, 
-  detectRoomType, 
-  parseBloqueoRows, 
-  parseBloqueoText, 
+import {
+  cleanMoney,
+  cleanPassengerName,
+  detectRoomType,
+  parseBloqueoRows,
+  parseBloqueoText,
   parseBloqueoExcelBuffer,
   parseSinglePassengerInput,
-  matchTeamMember 
+  matchTeamMember
 } from '@/lib/excel-bloqueo-parser'
 
 // Module-level caches for instant detail loading & team helpers
@@ -95,6 +95,7 @@ export default function BloqueoDetallePage() {
   const [showQuickPasteModal, setShowQuickPasteModal] = useState(false)
   const [showExcelImportModal, setShowExcelImportModal] = useState(false)
   const [excelImportTab, setExcelImportTab] = useState('paste') // 'paste' | 'file'
+  const [excelImportMode, setExcelImportMode] = useState('sync') // 'sync' | 'append'
   const [excelImportRawText, setExcelImportRawText] = useState('')
   const [excelImportedData, setExcelImportedData] = useState(null)
   const [isParsingExcelImport, setIsParsingExcelImport] = useState(false)
@@ -440,6 +441,37 @@ export default function BloqueoDetallePage() {
     return list
   }
 
+  // Normalizar nombres sin acentos, espacios múltiples y en mayúsculas para comparaciones seguras
+  const normalizePassengerName = (str) => (str || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase()
+
+  // Extract strictly stored payment installments without synthetic default fallbacks
+  const getSlotStoredPayments = (slot) => {
+    if (!slot) return []
+    let raw = slot.plan_pagos
+    if (typeof raw === 'string') {
+      try { raw = JSON.parse(raw) } catch {}
+    }
+    if (Array.isArray(raw) && raw.length > 0) {
+      return raw.filter(Boolean)
+    }
+    const list = []
+    if (Number(slot.abono_1) > 0) {
+      list.push({ id: '1', numero: 1, label: 'Abono 1', monto: Number(slot.abono_1), fecha: slot.fecha_abono_1 || '', estado: 'pagado' })
+    }
+    if (Number(slot.abono_2) > 0) {
+      list.push({ id: '2', numero: 2, label: 'Abono 2', monto: Number(slot.abono_2), fecha: slot.fecha_abono_2 || '', estado: 'pagado' })
+    }
+    if (Number(slot.abono_3) > 0) {
+      list.push({ id: '3', numero: 3, label: 'Abono 3', monto: Number(slot.abono_3), fecha: slot.fecha_abono_3 || '', estado: 'pagado' })
+    }
+    return list
+  }
+
   // Hoteles configurados en el bloqueo (solo hoteles válidos con nombre no vacío)
   const configuredHoteles = useMemo(() => {
     let raw = bloqueo?.hoteles
@@ -547,6 +579,171 @@ export default function BloqueoDetallePage() {
     return stats
   }, [configuredHoteles, pasajeros, bloqueo?.cupos_totales])
 
+  // Plan de sincronización inteligente de importación de Excel (Evita duplicados)
+  const excelImportPlan = useMemo(() => {
+    if (!excelImportedData || !excelImportedData.passengers) return []
+    const rawPaxList = excelImportedData.passengers
+
+    if (excelImportMode === 'sync') {
+      const allSlots = [...(pasajeros || [])]
+      const usedSlotIds = new Set()
+      const assignments = new Array(rawPaxList.length).fill(null)
+
+      // PASO 1: Asignar cupos explícitos (# PAX / cupo real en Excel)
+      rawPaxList.forEach((p, idx) => {
+        if (p.has_explicit_cupo && p.numero_cupo) {
+          const matchSlot = allSlots.find(s => s.numero_cupo === p.numero_cupo && !usedSlotIds.has(s.id))
+          if (matchSlot) {
+            usedSlotIds.add(matchSlot.id)
+            const isUpdate = Boolean(matchSlot.nombres && String(matchSlot.nombres).trim() !== '' && matchSlot.nombres !== '-')
+            const slotStoredFull = normalizePassengerName(`${matchSlot.nombres || ''} ${matchSlot.apellidos || ''}`)
+            const slotStoredNombres = normalizePassengerName(matchSlot.nombres)
+            const importedName = normalizePassengerName(p.nombres)
+            const slotHasRealPax = Boolean(matchSlot.nombres && !matchSlot.nombres.includes('(POR ASIGNAR)') && matchSlot.nombres !== '-')
+            const isSamePerson = !slotHasRealPax || p.is_unnamed_reservation || importedName === slotStoredFull || importedName === slotStoredNombres
+            const isReplacement = isUpdate && !isSamePerson
+
+            assignments[idx] = {
+              passenger: p,
+              targetSlot: matchSlot,
+              isUpdate,
+              isReplacement,
+              cupoNumber: matchSlot.numero_cupo
+            }
+          }
+        }
+      })
+
+      // PASO 2: Asignar por coincidencia de nombre o reserva de agencia
+      rawPaxList.forEach((p, idx) => {
+        if (assignments[idx]) return
+        const targetName = normalizePassengerName(p.nombres)
+
+        if (p.is_unnamed_reservation) {
+          // Reconciliar reservas de agencia sin nombre con cupos de la misma agencia aún por asignar
+          const agencyKey = normalizePassengerName(p.agencia)
+          if (agencyKey) {
+            const matchSlot = allSlots.find(s => {
+              if (usedSlotIds.has(s.id)) return false
+              const slotAgency = normalizePassengerName(s.agencia)
+              const slotName = normalizePassengerName(s.nombres)
+              return slotAgency === agencyKey && (!slotName || slotName.includes('(POR ASIGNAR)') || slotName === '-')
+            })
+            if (matchSlot) {
+              usedSlotIds.add(matchSlot.id)
+              const isUpdate = Boolean(matchSlot.nombres && String(matchSlot.nombres).trim() !== '' && matchSlot.nombres !== '-')
+              assignments[idx] = {
+                passenger: p,
+                targetSlot: matchSlot,
+                isUpdate,
+                cupoNumber: matchSlot.numero_cupo
+              }
+            }
+          }
+        } else if (targetName && !targetName.includes('(POR ASIGNAR)')) {
+          const importedAgency = (p.has_agency && p.agencia) ? normalizePassengerName(p.agencia) : null
+          const isAgencyCompatible = (s) => {
+            if (!importedAgency) return true
+            const slotAgency = normalizePassengerName(s.agencia)
+            return !slotAgency || slotAgency === 'DIRECTO' || slotAgency === importedAgency
+          }
+          const exactFullMatches = allSlots.filter(s => {
+            if (usedSlotIds.has(s.id) || !isAgencyCompatible(s)) return false
+            const storedFull = normalizePassengerName(`${s.nombres || ''} ${s.apellidos || ''}`)
+            return storedFull === targetName
+          })
+          let matchSlot = exactFullMatches.length === 1 ? exactFullMatches[0] : null
+          if (!matchSlot && exactFullMatches.length === 0) {
+            const firstNameMatches = allSlots.filter(s => {
+              if (usedSlotIds.has(s.id) || !isAgencyCompatible(s)) return false
+              const storedNombres = normalizePassengerName(s.nombres)
+              return storedNombres === targetName
+            })
+            if (firstNameMatches.length === 1) {
+              matchSlot = firstNameMatches[0]
+            }
+          }
+          if (matchSlot) {
+            usedSlotIds.add(matchSlot.id)
+            const isUpdate = Boolean(matchSlot.nombres && String(matchSlot.nombres).trim() !== '' && matchSlot.nombres !== '-')
+            assignments[idx] = {
+              passenger: p,
+              targetSlot: matchSlot,
+              isUpdate,
+              cupoNumber: matchSlot.numero_cupo
+            }
+          }
+        }
+      })
+
+      // PASO 2.5: Reconciliar pasajeros con nombre contra cupos por asignar de su misma agencia
+      rawPaxList.forEach((p, idx) => {
+        if (assignments[idx]) return
+        const agencyKey = normalizePassengerName(p.agencia)
+        if (agencyKey && agencyKey !== 'DIRECTO' && !p.is_unnamed_reservation) {
+          const matchSlot = allSlots.find(s => {
+            if (usedSlotIds.has(s.id)) return false
+            const slotAgency = normalizePassengerName(s.agencia)
+            const slotName = normalizePassengerName(s.nombres)
+            return slotAgency === agencyKey && (!slotName || slotName.includes('(POR ASIGNAR)') || slotName === '-')
+          })
+          if (matchSlot) {
+            usedSlotIds.add(matchSlot.id)
+            const isUpdate = Boolean(matchSlot.nombres && String(matchSlot.nombres).trim() !== '' && matchSlot.nombres !== '-')
+            assignments[idx] = {
+              passenger: p,
+              targetSlot: matchSlot,
+              isUpdate,
+              cupoNumber: matchSlot.numero_cupo
+            }
+          }
+        }
+      })
+
+      // PASO 3: Asignar filas restantes a cupos libres disponibles
+      rawPaxList.forEach((p, idx) => {
+        if (assignments[idx]) return
+        const matchSlot = allSlots.find(s => {
+          if (usedSlotIds.has(s.id)) return false
+          const name = String(s.nombres || '').trim()
+          return !name || name === '-'
+        })
+
+        if (matchSlot) {
+          usedSlotIds.add(matchSlot.id)
+          const isUpdate = Boolean(matchSlot.nombres && String(matchSlot.nombres).trim() !== '' && matchSlot.nombres !== '-')
+          assignments[idx] = {
+            passenger: p,
+            targetSlot: matchSlot,
+            isUpdate,
+            cupoNumber: matchSlot.numero_cupo
+          }
+        } else {
+          assignments[idx] = {
+            passenger: p,
+            targetSlot: null,
+            isUpdate: false,
+            cupoNumber: p.has_explicit_cupo ? p.numero_cupo : (idx + 1)
+          }
+        }
+      })
+
+      return assignments
+    } else {
+      // Modo append: Asignar secuencialmente solo a cupos libres
+      const availableSlots = (pasajeros || []).filter(p => !p || !p.nombres || String(p.nombres).trim() === '' || p.nombres === '-')
+      return rawPaxList.map((p, idx) => {
+        const targetSlot = availableSlots[idx] || null
+        return {
+          passenger: p,
+          targetSlot,
+          isUpdate: false,
+          cupoNumber: targetSlot?.numero_cupo || 'Sin cupo'
+        }
+      })
+    }
+  }, [excelImportedData, excelImportMode, pasajeros])
+
   const handleSingleHotelSelect = (hotelName) => {
     if (hotelName === '__custom__') {
       setSingleForm(prev => ({ ...prev, hoteles: '' }))
@@ -562,7 +759,7 @@ export default function BloqueoDetallePage() {
         categoria_habitacion: hotelObj.categoria || prev.categoria_habitacion,
         tipo_habitacion: firstRoom?.tipo || prev.tipo_habitacion,
         precio_acordado: newPrice,
-        plan_pagos: prev.plan_pagos.length === 1 
+        plan_pagos: prev.plan_pagos.length === 1
           ? [{ ...prev.plan_pagos[0], monto: newPrice }]
           : prev.plan_pagos
       }))
@@ -851,7 +1048,7 @@ export default function BloqueoDetallePage() {
       if (updError) {
         // Fallback without categoria_habitacion if column not added yet
         const { categoria_habitacion, ...cleanPayload } = payload
-        const obsWithCat = singleForm.categoria_habitacion 
+        const obsWithCat = singleForm.categoria_habitacion
           ? `[${singleForm.categoria_habitacion}] ${cleanPayload.observaciones || ''}`.trim()
           : cleanPayload.observaciones
 
@@ -1010,7 +1207,7 @@ export default function BloqueoDetallePage() {
         const match = completedSlots.find(c => c.slotId === slot.id)
         if (match) {
           const total = Number(match.payload.precio_acordado) || 0
-          const totalAbonos = match.isLead 
+          const totalAbonos = match.isLead
             ? (groupForm.plan_pagos || []).filter(item => item.estado === 'pagado').reduce((acc, item) => acc + (Number(item.monto) || 0), 0)
             : 0
           return {
@@ -1617,18 +1814,18 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
         updated.comercial_nombre = detected.comercial_nombre
       }
       if (detected.observaciones) {
-        updated.observaciones = prev.observaciones 
-          ? `${prev.observaciones} | ${detected.observaciones}` 
+        updated.observaciones = prev.observaciones
+          ? `${prev.observaciones} | ${detected.observaciones}`
           : detected.observaciones
       }
 
       // Si detectó abonos, agregarlos al plan de pagos
       if (detected.abonos && detected.abonos.length > 0) {
         const today = format(new Date(), 'yyyy-MM-dd')
-        const existingPlan = Array.isArray(prev.plan_pagos) && prev.plan_pagos.length > 0 
-          ? [...prev.plan_pagos] 
+        const existingPlan = Array.isArray(prev.plan_pagos) && prev.plan_pagos.length > 0
+          ? [...prev.plan_pagos]
           : []
-        
+
         detected.abonos.forEach((monto, idx) => {
           if (existingPlan[idx]) {
             existingPlan[idx] = {
@@ -1732,25 +1929,17 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
     }
   }
 
-  // Asignar los pasajeros importados a los cupos disponibles de este bloqueo
+  // Asignar o actualizar los pasajeros importados (Sincronización Inteligente sin duplicar)
   const handleApplyExcelImport = async () => {
-    if (!excelImportedData || !excelImportedData.passengers || excelImportedData.passengers.length === 0) {
-      showToast('No hay pasajeros detectados para importar.', 'error')
+    if (!excelImportPlan || excelImportPlan.length === 0) {
+      showToast('No hay pasajeros válidos para procesar.', 'error')
       return
     }
 
-    const rawPaxList = excelImportedData.passengers
-    // Encontrar cupos libres en el bloqueo
-    const availableSlots = (pasajeros || []).filter(p => !p || !p.nombres || String(p.nombres).trim() === '' || p.nombres === '-')
-
-    if (availableSlots.length === 0) {
-      showToast('Todos los cupos de este bloqueo ya están ocupados.', 'error')
+    const validOps = excelImportPlan.filter(item => item.targetSlot)
+    if (validOps.length === 0) {
+      showToast('No hay cupos disponibles para procesar los pasajeros.', 'error')
       return
-    }
-
-    const assignCount = Math.min(rawPaxList.length, availableSlots.length)
-    if (rawPaxList.length > availableSlots.length) {
-      showToast(`El bloqueo solo tiene ${availableSlots.length} cupos libres. Se asignarán los primeros ${availableSlots.length} pasajeros.`, 'info')
     }
 
     setSaving(true)
@@ -1760,7 +1949,7 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
       const existingHotelNames = new Set(currentHotels.map(h => (h.nombre || '').toUpperCase()))
       let hotelsUpdated = false
 
-      if (Array.isArray(excelImportedData.hotels)) {
+      if (Array.isArray(excelImportedData?.hotels)) {
         excelImportedData.hotels.forEach(hName => {
           if (hName && !existingHotelNames.has(hName.toUpperCase())) {
             currentHotels.push({
@@ -1780,60 +1969,179 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
         setBloqueo(prev => ({ ...prev, hoteles: currentHotels }))
       }
 
-      // 2. Asignar los pasajeros a los slots disponibles
+      // 2. Procesar las asignaciones / actualizaciones
       const today = format(new Date(), 'yyyy-MM-dd')
-      const targetSlots = availableSlots.slice(0, assignCount)
+      let updateCount = 0
+      let newCount = 0
 
-      const updateOps = targetSlots.map(async (slot, i) => {
-        const p = rawPaxList[i]
-        
+      const updateOps = validOps.map(async ({ passenger: p, targetSlot: slot, isUpdate }) => {
+        if (isUpdate) updateCount++
+        else newCount++
+
         // Mapear operativo y comercial
-        const opObj = matchTeamMember(p.operativo_nombre, operativosList)
-        const comObj = matchTeamMember(p.comercial_nombre, comercialesList)
-        const opNombre = opObj ? opObj.nombre : (profile?.nombre || 'Operativo')
-        const comNombre = comObj ? comObj.nombre : (p.comercial_nombre || '')
+        const opObj = p.operativo_nombre ? matchTeamMember(p.operativo_nombre, operativosList) : null
+        const comObj = p.comercial_nombre ? matchTeamMember(p.comercial_nombre, comercialesList) : null
+        const opNombre = opObj ? opObj.nombre : (p.operativo_nombre || slot.operativo_nombre || profile?.nombre || 'Operativo')
+        const comNombre = comObj ? comObj.nombre : (p.comercial_nombre || slot.comercial_nombre || '')
 
-        // Construir plan de pagos
-        const planPagos = []
-        if (p.abono_1 > 0) {
-          planPagos.push({ id: '1', numero: 1, label: 'Abono 1', monto: p.abono_1, fecha: today, estado: 'pagado' })
-        }
-        if (p.abono_2 > 0) {
-          planPagos.push({ id: '2', numero: 2, label: 'Abono 2', monto: p.abono_2, fecha: today, estado: 'pagado' })
-        }
-        if (p.abono_3 > 0) {
-          planPagos.push({ id: '3', numero: 3, label: 'Abono 3', monto: p.abono_3, fecha: today, estado: 'pagado' })
+        const slotStoredFull = normalizePassengerName(`${slot.nombres || ''} ${slot.apellidos || ''}`)
+        const slotStoredNombres = normalizePassengerName(slot.nombres)
+        const importedName = normalizePassengerName(p.nombres)
+        const slotHasRealPax = Boolean(slot.nombres && !slot.nombres.includes('(POR ASIGNAR)') && slot.nombres !== '-')
+
+        // Es la misma persona si el nombre normalizado coincide, o si el cupo solo tenía un placeholder por asignar, o si el Excel trae solo una reserva por asignar
+        const isSamePerson = !slotHasRealPax || p.is_unnamed_reservation || importedName === slotStoredFull || importedName === slotStoredNombres
+
+        // Reconciliar nombres y apellidos para evitar duplicaciones si el Excel trajo nombre completo
+        let finalNombres = p.nombres
+        let finalApellidos = isSamePerson ? (slot.apellidos || '') : ''
+
+        if (p.is_unnamed_reservation) {
+          // Si el Excel trajo solo una reserva por asignar de agencia, pero el cupo ya tiene un pasajero con nombre real, PRESERVAR al pasajero
+          if (slotHasRealPax) {
+            finalNombres = slot.nombres
+            finalApellidos = slot.apellidos || ''
+          } else {
+            finalNombres = p.nombres
+            finalApellidos = ''
+          }
+        } else if (isUpdate && slot.apellidos) {
+          if (importedName === slotStoredFull || (p.nombres && slot.nombres && (normalizePassengerName(p.nombres) === slotStoredNombres))) {
+            // El Excel contiene el nombre completo que coincide con nombres + apellidos almacenados
+            finalNombres = slot.nombres
+            finalApellidos = slot.apellidos
+          } else {
+            // Nombre diferente: actualizar nombres y limpiar apellidos para evitar duplicaciones
+            finalNombres = p.nombres
+            finalApellidos = ''
+          }
         }
 
-        const agreedPrice = Number(bloqueo?.precio_venta_pax || 0)
-        const totalPaid = p.total_abonos || 0
+        // Si es una persona diferente en un reemplazo de cupo (ej. BOB en lugar de ALICE):
+        // NO heredar documentos, tipo de documento ni pagos previos de la persona anterior.
+        const shouldPreserveIdentityAndPayments = isUpdate && isSamePerson
+
+        // Construir plan de pagos reconciliando historial y preservando cuotas y fechas originales
+        let planPagos = []
+        let abono1 = 0
+        let fechaAbono1 = null
+        let abono2 = 0
+        let fechaAbono2 = null
+        let abono3 = 0
+        let fechaAbono3 = null
+
+        if (shouldPreserveIdentityAndPayments) {
+          // Reconciliar con el historial existente del cupo para preservar fechas y cuotas pendientes
+          const existingPlan = getSlotStoredPayments(slot)
+          planPagos = existingPlan.map(item => ({ ...item }))
+
+          const reconcileInstallment = (num, importedAmount, defaultLabel) => {
+            if (!importedAmount || importedAmount <= 0) return
+            const idx = planPagos.findIndex(it => Number(it.numero) === num || it.id === String(num))
+            if (idx >= 0) {
+              const current = planPagos[idx]
+              planPagos[idx] = {
+                ...current,
+                numero: num,
+                monto: Number(importedAmount),
+                fecha: current.fecha || today,
+                estado: 'pagado'
+              }
+            } else {
+              planPagos.push({
+                id: String(num),
+                numero: num,
+                label: defaultLabel,
+                monto: Number(importedAmount),
+                fecha: today,
+                estado: 'pagado'
+              })
+            }
+            planPagos.sort((a, b) => (Number(a.numero) || 0) - (Number(b.numero) || 0))
+          }
+
+          if (p.abono_1 > 0) reconcileInstallment(1, p.abono_1, 'Abono 1')
+          if (p.abono_2 > 0) reconcileInstallment(2, p.abono_2, 'Abono 2')
+          if (p.abono_3 > 0) reconcileInstallment(3, p.abono_3, 'Abono 3')
+
+          // Reconciliar columnas individuales de abono preservando fechas originales de forma consistente
+          if (p.abono_1 > 0) {
+            abono1 = Number(p.abono_1)
+            fechaAbono1 = slot.fecha_abono_1 || today
+          } else {
+            abono1 = Number(slot.abono_1) || 0
+            fechaAbono1 = slot.fecha_abono_1 || null
+          }
+
+          if (p.abono_2 > 0) {
+            abono2 = Number(p.abono_2)
+            fechaAbono2 = slot.fecha_abono_2 || today
+          } else {
+            abono2 = Number(slot.abono_2) || 0
+            fechaAbono2 = slot.fecha_abono_2 || null
+          }
+
+          if (p.abono_3 > 0) {
+            abono3 = Number(p.abono_3)
+            fechaAbono3 = slot.fecha_abono_3 || today
+          } else {
+            abono3 = Number(slot.abono_3) || 0
+            fechaAbono3 = slot.fecha_abono_3 || null
+          }
+        } else {
+          // Nuevo pasajero o reemplazo en cupo
+          if (p.abono_1 > 0) planPagos.push({ id: '1', numero: 1, label: 'Abono 1', monto: p.abono_1, fecha: today, estado: 'pagado' })
+          if (p.abono_2 > 0) planPagos.push({ id: '2', numero: 2, label: 'Abono 2', monto: p.abono_2, fecha: today, estado: 'pagado' })
+          if (p.abono_3 > 0) planPagos.push({ id: '3', numero: 3, label: 'Abono 3', monto: p.abono_3, fecha: today, estado: 'pagado' })
+          abono1 = p.abono_1 || 0
+          fechaAbono1 = p.abono_1 > 0 ? today : null
+          abono2 = p.abono_2 || 0
+          fechaAbono2 = p.abono_2 > 0 ? today : null
+          abono3 = p.abono_3 || 0
+          fechaAbono3 = p.abono_3 > 0 ? today : null
+        }
+
+        const agreedPrice = shouldPreserveIdentityAndPayments
+          ? (slot.precio_acordado !== null && slot.precio_acordado !== undefined ? Number(slot.precio_acordado) : Number(bloqueo?.precio_venta_pax || 0))
+          : Number(bloqueo?.precio_venta_pax || 0)
+        const totalPaid = planPagos.filter(item => item.estado === 'pagado').reduce((acc, it) => acc + (Number(it.monto) || 0), 0)
         const isPaid = totalPaid >= agreedPrice && agreedPrice > 0
 
         const payload = {
-          agencia: p.agencia || 'Directo',
-          ciudad: p.ciudad || 'GYE',
-          tipo_servicio: 'PAQUETE COMPLETO',
-          operativo_id: opObj?.id || user?.id || null,
+          agencia: p.has_agency && p.agencia ? p.agencia : (slot.agencia || 'Directo'),
+          ciudad: p.has_city && p.ciudad ? p.ciudad : (slot.ciudad || 'GYE'),
+          tipo_servicio: slot.tipo_servicio || 'PAQUETE COMPLETO',
+          operativo_id: opObj ? opObj.id : (p.operativo_nombre ? null : (slot.operativo_id || user?.id || null)),
           operativo_nombre: opNombre,
-          comercial_id: comObj?.id || null,
+          comercial_id: comObj ? comObj.id : (p.comercial_nombre ? null : (slot.comercial_id || null)),
           comercial_nombre: comNombre,
-          hoteles: p.hoteles || (currentHotels[0]?.nombre || ''),
-          nombres: p.nombres,
-          apellidos: '',
-          tipo_documento: 'Cédula',
-          numero_documento: '',
-          tipo_habitacion: p.tipo_habitacion || 'Doble',
-          categoria_habitacion: 'Clase 2 (Estándar / 4★)',
+          hoteles: p.has_hotel && p.hoteles ? p.hoteles : (slot.hoteles || (currentHotels[0]?.nombre || '')),
+          nombres: finalNombres,
+          apellidos: finalApellidos,
+          tipo_documento: shouldPreserveIdentityAndPayments ? (slot.tipo_documento || 'Cédula') : 'Cédula',
+          numero_documento: shouldPreserveIdentityAndPayments ? (slot.numero_documento || '') : '',
+          fecha_nacimiento: shouldPreserveIdentityAndPayments ? (slot.fecha_nacimiento || null) : null,
+          caducidad_pasaporte: shouldPreserveIdentityAndPayments ? (slot.caducidad_pasaporte || null) : null,
+          nacionalidad: shouldPreserveIdentityAndPayments ? (slot.nacionalidad || null) : null,
+          genero: shouldPreserveIdentityAndPayments ? (slot.genero || null) : null,
+          requerimientos_especiales: shouldPreserveIdentityAndPayments ? (slot.requerimientos_especiales || '') : '',
+          codigo_cotizacion: shouldPreserveIdentityAndPayments ? (slot.codigo_cotizacion || null) : null,
+          cotizacion_id: shouldPreserveIdentityAndPayments ? (slot.cotizacion_id || null) : null,
+          grupo_id: shouldPreserveIdentityAndPayments ? (slot.grupo_id || null) : null,
+          grupo_nombre: shouldPreserveIdentityAndPayments ? (slot.grupo_nombre || null) : null,
+          tipo_habitacion: p.has_room && p.tipo_habitacion ? p.tipo_habitacion : (slot.tipo_habitacion || 'Doble'),
+          categoria_habitacion: slot.categoria_habitacion || 'Clase 2 (Estándar / 4★)',
           precio_acordado: agreedPrice,
-          abono_1: p.abono_1 || 0,
-          fecha_abono_1: p.abono_1 > 0 ? today : null,
-          abono_2: p.abono_2 || 0,
-          fecha_abono_2: p.abono_2 > 0 ? today : null,
-          abono_3: p.abono_3 || 0,
-          fecha_abono_3: p.abono_3 > 0 ? today : null,
+          abono_1: abono1,
+          fecha_abono_1: fechaAbono1,
+          abono_2: abono2,
+          fecha_abono_2: fechaAbono2,
+          abono_3: abono3,
+          fecha_abono_3: fechaAbono3,
           plan_pagos: planPagos,
           estado_pago: isPaid ? 'pagado' : 'pendiente',
-          observaciones: p.observaciones || ''
+          fecha_limite_pago_agencia: shouldPreserveIdentityAndPayments ? (slot.fecha_limite_pago_agencia || null) : null,
+          observaciones: p.observaciones ? p.observaciones : (shouldPreserveIdentityAndPayments ? (slot.observaciones || '') : '')
         }
 
         const { error: updErr } = await supabase
@@ -1842,11 +2150,8 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
           .eq('id', slot.id)
 
         if (updErr) {
-          const { plan_pagos, ...cleanPayload } = payload
-          await supabase
-            .from('bloqueo_pasajeros')
-            .update(cleanPayload)
-            .eq('id', slot.id)
+          const { plan_pagos: _p, ...cleanPayload } = payload
+          await supabase.from('bloqueo_pasajeros').update(cleanPayload).eq('id', slot.id)
         }
 
         return { slotId: slot.id, payload }
@@ -1859,7 +2164,7 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
         const match = results.find(r => r.slotId === s.id)
         if (match) {
           const total = match.payload.precio_acordado
-          const totalAbonado = match.payload.plan_pagos.reduce((acc, it) => acc + (Number(it.monto) || 0), 0)
+          const totalAbonado = match.payload.plan_pagos.filter(item => item.estado === 'pagado').reduce((acc, it) => acc + (Number(it.monto) || 0), 0)
           return {
             ...s,
             ...match.payload,
@@ -1878,27 +2183,27 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
           bloqueoCodigo: bloqueo.codigo,
           destino: bloqueo.destino,
           fechaSalida: bloqueo.fecha_salida,
-          cuposVendidos: assignCount,
-          pasajerosNombres: `Importación Excel (${targetSlots.length} cupos asignados)`,
-          agencia: rawPaxList[0]?.agencia || 'Directo',
-          ciudad: rawPaxList[0]?.ciudad || 'GYE',
+          cuposVendidos: validOps.length,
+          pasajerosNombres: `Sincronización Excel (${updateCount} actualizados, ${newCount} nuevos)`,
+          agencia: validOps[0]?.passenger?.agencia || 'Directo',
+          ciudad: validOps[0]?.passenger?.ciudad || 'GYE',
           operativoNombre: profile?.nombre || 'Operativo',
-          comercialNombre: rawPaxList[0]?.comercial_nombre || '',
-          cuposRestantes: Math.max(0, availableSlots.length - assignCount),
+          comercialNombre: validOps[0]?.passenger?.comercial_nombre || '',
+          cuposRestantes: Math.max(0, metrics.disponibles - newCount),
           cuposTotales: metrics.totalCupos,
-          hoteles: rawPaxList[0]?.hoteles || ''
+          hoteles: validOps[0]?.passenger?.hoteles || ''
         })
       }).catch(e => console.error('Telegram notification error:', e))
 
-      showToast(`¡${assignCount} pasajeros asignados exitosamente desde Excel!`, 'success')
+      showToast(`¡Sincronización completada! ${updateCount} cupos actualizados y ${newCount} nuevos asignados sin duplicar.`, 'success')
       setShowExcelImportModal(false)
       setShowQuickPasteModal(false)
       setExcelImportedData(null)
       setExcelImportRawText('')
       fetchBloqueoData(false)
     } catch (err) {
-      console.error('Error importing passengers from Excel:', err)
-      showToast('Error al importar pasajeros: ' + err.message, 'error')
+      console.error('Error sincronizando pasajeros desde Excel:', err)
+      showToast('Error al sincronizar: ' + err.message, 'error')
     } finally {
       setSaving(false)
     }
@@ -2441,9 +2746,9 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
 
             {showExportMenu && (
               <>
-                <div 
-                  className="fixed inset-0 z-40 bg-transparent" 
-                  onClick={() => setShowExportMenu(false)} 
+                <div
+                  className="fixed inset-0 z-40 bg-transparent"
+                  onClick={() => setShowExportMenu(false)}
                 />
                 <div className="absolute right-0 mt-2 w-72 bg-white rounded-3xl shadow-2xl border border-gray-100 p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
                   <div className="px-3 py-2 border-b border-gray-100">
@@ -2551,9 +2856,9 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
             {showAddPaxMenu && (
               <>
                 {/* Backdrop invisible para cerrar al hacer clic afuera */}
-                <div 
-                  className="fixed inset-0 z-40 bg-transparent" 
-                  onClick={() => setShowAddPaxMenu(false)} 
+                <div
+                  className="fixed inset-0 z-40 bg-transparent"
+                  onClick={() => setShowAddPaxMenu(false)}
                 />
 
                 {/* Menú Desplegable Flotante */}
@@ -2769,8 +3074,8 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
               <strong className={`text-xs sm:text-sm font-black mt-0.5 block ${
                 metrics.inversionCubierta ? 'text-emerald-800' : 'text-amber-900'
               }`}>
-                {metrics.inversionCubierta 
-                  ? `+$${metrics.gananciaLiquidaActual.toLocaleString('es-EC')} USD` 
+                {metrics.inversionCubierta
+                  ? `+$${metrics.gananciaLiquidaActual.toLocaleString('es-EC')} USD`
                   : `$${metrics.faltaRecuperarDinero.toLocaleString('es-EC')} USD`
                 }
               </strong>
@@ -2868,12 +3173,12 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
                           : 'bg-emerald-100 text-emerald-800'
                       }`}
                     >
-                      {isOver 
-                        ? '⚠️ Excedido' 
-                        : isFull 
-                        ? 'Agotado' 
-                        : totCupos === 0 
-                        ? `Abierto · ${metrics.disponibles} libres` 
+                      {isOver
+                        ? '⚠️ Excedido'
+                        : isFull
+                        ? 'Agotado'
+                        : totCupos === 0
+                        ? `Abierto · ${metrics.disponibles} libres`
                         : `${disponibles} libres`}
                     </span>
                   </div>
@@ -4406,8 +4711,8 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
                   type="button"
                   onClick={() => setGdsFormat('amadeus')}
                   className={`flex-1 py-2 px-3 rounded-xl font-black text-xs transition-all ${
-                    gdsFormat === 'amadeus' 
-                      ? 'bg-white text-blue-700 shadow-sm' 
+                    gdsFormat === 'amadeus'
+                      ? 'bg-white text-blue-700 shadow-sm'
                       : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
@@ -4417,8 +4722,8 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
                   type="button"
                   onClick={() => setGdsFormat('web')}
                   className={`flex-1 py-2 px-3 rounded-xl font-black text-xs transition-all ${
-                    gdsFormat === 'web' 
-                      ? 'bg-white text-blue-700 shadow-sm' 
+                    gdsFormat === 'web'
+                      ? 'bg-white text-blue-700 shadow-sm'
                       : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
@@ -4428,8 +4733,8 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
                   type="button"
                   onClick={() => setGdsFormat('simple')}
                   className={`flex-1 py-2 px-3 rounded-xl font-black text-xs transition-all ${
-                    gdsFormat === 'simple' 
-                      ? 'bg-white text-blue-700 shadow-sm' 
+                    gdsFormat === 'simple'
+                      ? 'bg-white text-blue-700 shadow-sm'
                       : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
@@ -4652,6 +4957,55 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
 
             {/* Content Body */}
             <div className="p-6 overflow-y-auto space-y-5 flex-1 text-xs">
+              {/* Selector de Modo de Procesamiento */}
+              <div className="bg-gray-50/90 border border-gray-200/90 rounded-2xl p-3.5 space-y-2">
+                <label className="block text-gray-900 font-black text-xs uppercase tracking-wider">
+                  Modo de Procesamiento:
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setExcelImportMode('sync')}
+                    className={`p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
+                      excelImportMode === 'sync'
+                        ? 'bg-emerald-50/90 border-emerald-400 text-emerald-950 shadow-2xs'
+                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    <RefreshCw size={16} className={`shrink-0 mt-0.5 ${excelImportMode === 'sync' ? 'text-emerald-700' : 'text-gray-400'}`} />
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-black text-xs">Sincronizar y Actualizar</span>
+                        <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-emerald-200/80 text-emerald-900">
+                          Sin Duplicar
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">
+                        Empareja por Nº de Cupo (# PAX) o Nombre. Si el cupo ya existe, actualiza nombres, abonos y hoteles sin duplicar.
+                      </p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setExcelImportMode('append')}
+                    className={`p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
+                      excelImportMode === 'append'
+                        ? 'bg-blue-50/90 border-blue-400 text-blue-950 shadow-2xs'
+                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Plus size={16} className={`shrink-0 mt-0.5 ${excelImportMode === 'append' ? 'text-blue-700' : 'text-gray-400'}`} />
+                    <div>
+                      <span className="font-black text-xs">Solo Asignar en Cupos Libres</span>
+                      <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">
+                        No toca ningún cupo existente. Rellena únicamente los cupos vacíos restantes del bloqueo.
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
               {/* Selector de Pestañas */}
               <div className="flex border-b border-gray-200 gap-6">
                 <button
@@ -4738,110 +5092,156 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
               {/* Previsualización de Datos Interpretados */}
               {excelImportedData && (
                 <div className="space-y-4 pt-3 border-t border-gray-100 animate-in fade-in duration-200">
-                  {/* Tarjetas de Resumen */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-100">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
-                        Pasajeros Detectados
-                      </p>
-                      <p className="text-xl font-black text-emerald-900 mt-0.5">
-                        {excelImportedData.passengers.length}
-                      </p>
-                    </div>
+                  {(() => {
+                    const toUpdateCount = excelImportPlan.filter(it => it.isUpdate).length
+                    const toAssignCount = excelImportPlan.filter(it => !it.isUpdate && it.targetSlot).length
+                    const noSlotCount = excelImportPlan.filter(it => !it.targetSlot).length
 
-                    <div className="p-3 bg-blue-50 rounded-2xl border border-blue-100">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-blue-800">
-                        Cupos Libres en Bloqueo
-                      </p>
-                      <p className="text-xl font-black text-blue-900 mt-0.5">
-                        {metrics.disponibles}
-                      </p>
-                    </div>
+                    return (
+                      <>
+                        {/* Tarjetas de Resumen */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-100">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+                              Pasajeros en Excel
+                            </p>
+                            <p className="text-xl font-black text-emerald-900 mt-0.5">
+                              {excelImportedData.passengers.length}
+                            </p>
+                          </div>
 
-                    <div className="p-3 bg-purple-50 rounded-2xl border border-purple-100">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-purple-800">
-                        Total en Abonos
-                      </p>
-                      <p className="text-xl font-black text-purple-900 mt-0.5">
-                        ${excelImportedData.totalAbonado.toLocaleString('en-US')}
-                      </p>
-                    </div>
+                          <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1">
+                              <RefreshCw size={11} className="text-amber-600" />
+                              <span>Se Actualizarán</span>
+                            </p>
+                            <p className="text-xl font-black text-amber-900 mt-0.5">
+                              {toUpdateCount} cupos
+                            </p>
+                            <span className="text-[10px] text-amber-700 font-medium">Sin duplicar</span>
+                          </div>
 
-                    <div className="p-3 bg-amber-50 rounded-2xl border border-amber-100">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">
-                        Hoteles Detectados
-                      </p>
-                      <p className="text-xs font-black text-amber-900 mt-1 truncate">
-                        {excelImportedData.hotels.length > 0 ? excelImportedData.hotels.join(', ') : 'Ninguno'}
-                      </p>
-                    </div>
-                  </div>
+                          <div className="p-3 bg-blue-50 rounded-2xl border border-blue-200">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-blue-800 flex items-center gap-1">
+                              <Plus size={11} className="text-blue-600" />
+                              <span>Nuevos a Asignar</span>
+                            </p>
+                            <p className="text-xl font-black text-blue-900 mt-0.5">
+                              {toAssignCount} cupos
+                            </p>
+                            <span className="text-[10px] text-blue-700 font-medium">En cupos libres</span>
+                          </div>
 
-                  {excelImportedData.passengers.length > metrics.disponibles && (
-                    <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 font-bold text-xs flex items-center gap-2">
-                      <AlertTriangle size={16} className="text-amber-600 shrink-0" />
-                      <span>
-                        Atención: Hay {excelImportedData.passengers.length} pasajeros en el Excel y solo {metrics.disponibles} cupos libres. Se asignarán los primeros {metrics.disponibles} pasajeros.
-                      </span>
-                    </div>
-                  )}
+                          <div className="p-3 bg-purple-50 rounded-2xl border border-purple-100">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-purple-800">
+                              Total en Abonos
+                            </p>
+                            <p className="text-xl font-black text-purple-900 mt-0.5">
+                              ${excelImportedData.totalAbonado.toLocaleString('en-US')}
+                            </p>
+                          </div>
+                        </div>
 
-                  {/* Tabla de Previsualización */}
-                  <div className="border border-gray-200 rounded-2xl overflow-hidden bg-white shadow-2xs">
-                    <div className="px-4 py-2.5 bg-gray-50/80 border-b border-gray-200 flex items-center justify-between">
-                      <span className="font-black text-gray-700 uppercase tracking-wider text-[11px]">
-                        Listado de Pasajeros a Asignar ({excelImportedData.passengers.length})
-                      </span>
-                      <span className="text-[10px] text-gray-500 font-medium">
-                        Se aplicarán automáticamente a los cupos disponibles
-                      </span>
-                    </div>
+                        {noSlotCount > 0 && (
+                          <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 font-bold text-xs flex items-center gap-2">
+                            <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+                            <span>
+                              Atención: Hay {noSlotCount} pasajeros del Excel que no tienen cupos disponibles en el bloqueo.
+                            </span>
+                          </div>
+                        )}
 
-                    <div className="max-h-60 overflow-y-auto">
-                      <table className="w-full text-left text-xs">
-                        <thead className="bg-gray-50 text-gray-400 font-black uppercase text-[10px] sticky top-0 z-10 border-b border-gray-100">
-                          <tr>
-                            <th className="py-2 px-3">#</th>
-                            <th className="py-2 px-3">Pasajero</th>
-                            <th className="py-2 px-3">Agencia</th>
-                            <th className="py-2 px-3">Ciudad</th>
-                            <th className="py-2 px-3">Habitación</th>
-                            <th className="py-2 px-3">Hotel</th>
-                            <th className="py-2 px-3 text-right">Abonos</th>
-                            <th className="py-2 px-3">Observaciones</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 font-medium text-gray-800">
-                          {excelImportedData.passengers.map((p, idx) => (
-                            <tr key={idx} className="hover:bg-gray-50/60">
-                              <td className="py-2 px-3 font-bold text-gray-500">{p.numero_cupo || idx + 1}</td>
-                              <td className="py-2 px-3 font-black text-gray-900">{p.nombres}</td>
-                              <td className="py-2 px-3 font-semibold text-gray-700">{p.agencia}</td>
-                              <td className="py-2 px-3">
-                                <span className="px-1.5 py-0.5 rounded bg-gray-100 font-bold text-[10px]">
-                                  {p.ciudad}
-                                </span>
-                              </td>
-                              <td className="py-2 px-3">
-                                <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-bold text-[10px]">
-                                  {p.tipo_habitacion}
-                                </span>
-                              </td>
-                              <td className="py-2 px-3 font-bold text-gray-700 truncate max-w-[130px]">
-                                {p.hoteles || '-'}
-                              </td>
-                              <td className="py-2 px-3 text-right font-black text-emerald-700 font-mono">
-                                {p.total_abonos > 0 ? `$${p.total_abonos.toLocaleString('en-US')}` : '-'}
-                              </td>
-                              <td className="py-2 px-3 text-gray-500 truncate max-w-[140px]">
-                                {p.observaciones || '-'}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                        {/* Tabla de Previsualización */}
+                        <div className="border border-gray-200 rounded-2xl overflow-hidden bg-white shadow-2xs">
+                          <div className="px-4 py-2.5 bg-gray-50/80 border-b border-gray-200 flex items-center justify-between">
+                            <span className="font-black text-gray-700 uppercase tracking-wider text-[11px]">
+                              Previsualización de Sincronización ({excelImportPlan.length})
+                            </span>
+                            <span className="text-[10px] text-gray-500 font-medium">
+                              {toUpdateCount} se actualizarán · {toAssignCount} nuevos cupos
+                            </span>
+                          </div>
+
+                          <div className="max-h-60 overflow-y-auto">
+                            <table className="w-full text-left text-xs">
+                              <thead className="bg-gray-50 text-gray-400 font-black uppercase text-[10px] sticky top-0 z-10 border-b border-gray-100">
+                                <tr>
+                                  <th className="py-2 px-3">Acción / Cupo</th>
+                                  <th className="py-2 px-3">Pasajero</th>
+                                  <th className="py-2 px-3">Agencia</th>
+                                  <th className="py-2 px-3">Ciudad</th>
+                                  <th className="py-2 px-3">Habitación</th>
+                                  <th className="py-2 px-3">Hotel</th>
+                                  <th className="py-2 px-3 text-right">Abonos</th>
+                                  <th className="py-2 px-3">Observaciones</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100 font-medium text-gray-800">
+                                {excelImportPlan.map((item, idx) => {
+                                  const p = item.passenger
+                                  return (
+                                    <tr key={idx} className="hover:bg-gray-50/60">
+                                      <td className="py-2 px-3">
+                                        {item.isReplacement ? (
+                                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 font-bold text-[10px]">
+                                            <RefreshCw size={10} className="shrink-0" />
+                                            <span>Reemplaza Cupo #{item.cupoNumber}</span>
+                                          </span>
+                                        ) : item.isUpdate ? (
+                                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-100 text-blue-900 font-bold text-[10px]">
+                                            <RefreshCw size={10} className="shrink-0" />
+                                            <span>Actualiza Cupo #{item.cupoNumber}</span>
+                                          </span>
+                                        ) : item.targetSlot ? (
+                                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 font-bold text-[10px]">
+                                            <Plus size={10} className="shrink-0" />
+                                            <span>Nuevo en Cupo #{item.cupoNumber}</span>
+                                          </span>
+                                        ) : (
+                                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-100 text-red-900 font-bold text-[10px]">
+                                            <AlertTriangle size={10} className="shrink-0" />
+                                            <span>Sin cupo libre</span>
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="py-2 px-3 font-black text-gray-900">
+                                        {p.is_unnamed_reservation && item.targetSlot?.nombres && !item.targetSlot.nombres.includes('(POR ASIGNAR)') && item.targetSlot.nombres !== '-'
+                                          ? [item.targetSlot.nombres, item.targetSlot.apellidos].filter(Boolean).join(' ')
+                                          : p.nombres
+                                        }
+                                      </td>
+                                      <td className="py-2 px-3 font-semibold text-gray-700">
+                                        {p.agencia || (item.targetSlot?.agencia || 'Directo')}
+                                      </td>
+                                      <td className="py-2 px-3">
+                                        <span className="px-1.5 py-0.5 rounded bg-gray-100 font-bold text-[10px]">
+                                          {p.ciudad || (item.targetSlot?.ciudad || 'GYE')}
+                                        </span>
+                                      </td>
+                                      <td className="py-2 px-3">
+                                        <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-bold text-[10px]">
+                                          {p.tipo_habitacion || (item.targetSlot?.tipo_habitacion || 'Doble')}
+                                        </span>
+                                      </td>
+                                      <td className="py-2 px-3 font-bold text-gray-700 truncate max-w-[130px]">
+                                        {p.hoteles || (item.targetSlot?.hoteles || '-')}
+                                      </td>
+                                      <td className="py-2 px-3 text-right font-black text-emerald-700 font-mono">
+                                        {p.total_abonos > 0 ? `$${p.total_abonos.toLocaleString('en-US')}` : '-'}
+                                      </td>
+                                      <td className="py-2 px-3 text-gray-500 truncate max-w-[140px]">
+                                        {p.observaciones || '-'}
+                                      </td>
+                                    </tr>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </>
+                    )
+                  })()}
                 </div>
               )}
             </div>
@@ -4861,12 +5261,15 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
               <button
                 type="button"
                 onClick={handleApplyExcelImport}
-                disabled={saving || !excelImportedData || excelImportedData.passengers.length === 0 || metrics.disponibles === 0}
+                disabled={saving || !excelImportedData || excelImportedData.passengers.length === 0 || excelImportPlan.filter(it => it.targetSlot).length === 0}
                 className="btn-primary px-7 py-3 rounded-2xl font-black uppercase tracking-wider shadow-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2"
               >
                 <Check size={16} />
                 <span>
-                  {saving ? 'Asignando...' : `Asignar ${excelImportedData ? Math.min(excelImportedData.passengers.length, metrics.disponibles) : 0} Pasajeros al Bloqueo`}
+                  {saving
+                    ? 'Sincronizando...'
+                    : `Sincronizar y Aplicar ${excelImportPlan.filter(it => it.targetSlot).length} Pasajeros (Sin Duplicar)`
+                  }
                 </span>
               </button>
             </div>
@@ -5033,7 +5436,7 @@ ${slot.fecha_limite_pago_agencia ? `📅 *Fecha Límite Pago Agencia:* ${slot.fe
 
               {/* Configuración de Hoteles y Habitaciones */}
               <div className="pt-3 border-t border-gray-100 bg-gray-50/70 p-4 rounded-2xl">
-                <BloqueoHotelesConfig 
+                <BloqueoHotelesConfig
                   hoteles={editBloqueoForm.hoteles || []}
                   onChange={(newHoteles) => setEditBloqueoForm({ ...editBloqueoForm, hoteles: newHoteles })}
                   precioBaseSugerido={Number(editBloqueoForm.precio_venta_pax) || Number(bloqueo?.precio_venta_pax) || 0}

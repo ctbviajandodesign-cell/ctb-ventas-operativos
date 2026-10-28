@@ -18,7 +18,8 @@ import {
   Bus,
   Map,
   Zap,
-  Info
+  Info,
+  PhoneCall
 } from 'lucide-react'
 
 export default function VoucherVerificationPage() {
@@ -205,6 +206,23 @@ export default function VoucherVerificationPage() {
                 </p>
               </div>
             </div>
+
+            {/* CONTACTO DE EMERGENCIA */}
+            {voucher.numero_emergencia && (
+              <div className="bg-red-50/70 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-red-100 flex gap-3.5 sm:gap-4 items-center">
+                <div className="bg-red-500 text-white p-2.5 rounded-2xl shrink-0 shadow-md shadow-red-200">
+                  <PhoneCall size={18} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] sm:text-xs font-black text-red-500 uppercase tracking-widest leading-none mb-1">
+                    Número de Emergencia
+                  </p>
+                  <p className="text-xs sm:text-sm font-black text-gray-900 leading-tight break-words">
+                    {voucher.numero_emergencia}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* INCLUSIONES (JSONB) */}
             {voucher.inclusiones && (
