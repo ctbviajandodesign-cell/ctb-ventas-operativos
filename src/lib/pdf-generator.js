@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { parseEmergencyContacts } from '@/utils/emergencyContacts'
 
 export const generateVoucherPDF = async (voucher, qrBase64) => {
   const doc = new jsPDF({
@@ -113,49 +114,118 @@ export const generateVoucherPDF = async (voucher, qrBase64) => {
 
   let currentY = doc.lastAutoTable.finalY + 15
 
+  const ensureSpace = (neededMm = 20) => {
+    if (currentY + neededMm > 235) {
+      doc.addPage()
+      currentY = 25
+    }
+  }
+
   // Destino y Fechas
-  doc.setFontSize(9)
+  ensureSpace(25)
+  doc.setFontSize(8.5)
   doc.setTextColor(...greyColor)
+  doc.setFont('helvetica', 'bold')
   doc.text('DESTINO FINAL', 15, currentY)
   doc.text('PERIODO DE VIAJE', 110, currentY)
 
   doc.setTextColor(...darkColor)
-  doc.setFontSize(12)
+  doc.setFontSize(10.5)
   doc.setFont('helvetica', 'bold')
-  doc.text(voucher.destino || 'EXPLORE', 15, currentY + 6)
-  doc.text(`${voucher.fecha_viaje_desde || '---'} AL ${voucher.fecha_viaje_hasta || '---'}`, 110, currentY + 6)
 
-  currentY += 15
+  let destinoDisplay = voucher.destino || 'EXPLORE'
+  if (destinoDisplay.includes('|')) {
+    const [iatas, name] = destinoDisplay.split('|')
+    destinoDisplay = name ? `${name.trim()} (${iatas.trim()})` : iatas.trim()
+  }
+
+  const destinoLines = doc.splitTextToSize(cleanText(destinoDisplay).toUpperCase(), 85)
+  doc.text(destinoLines, 15, currentY + 5)
+
+  const periodoText = `${voucher.fecha_viaje_desde || '---'} AL ${voucher.fecha_viaje_hasta || '---'}`
+  const periodoLines = doc.splitTextToSize(cleanText(periodoText), 85)
+  doc.text(periodoLines, 110, currentY + 5)
+
+  const destHeight = destinoLines.length * 4.5
+  const perHeight = periodoLines.length * 4.5
+  currentY += Math.max(destHeight, perHeight) + 9
 
   // Contacto de Emergencia
   if (voucher.numero_emergencia) {
-    doc.setFontSize(9)
-    doc.setTextColor(...greyColor)
-    doc.text('NÚMERO DE EMERGENCIA', 15, currentY)
+    const parsedContacts = parseEmergencyContacts(voucher.numero_emergencia)
+      .map(c => {
+        const n = (c.nombre || '').trim()
+        const t = (c.telefono || '').trim()
+        if (n && t) return `${n}: ${t}`
+        return n || t
+      })
+      .filter(Boolean)
 
-    doc.setTextColor(200, 30, 30)
-    doc.setFontSize(11)
-    doc.setFont('helvetica', 'bold')
-    doc.text(cleanText(voucher.numero_emergencia), 15, currentY + 6)
+    if (parsedContacts.length > 0) {
+      ensureSpace(18)
+      doc.setFontSize(8.5)
+      doc.setTextColor(...greyColor)
+      doc.setFont('helvetica', 'bold')
+      doc.text(parsedContacts.length > 1 ? 'NÚMEROS DE EMERGENCIA' : 'NÚMERO DE EMERGENCIA', 15, currentY)
 
-    currentY += 15
+      currentY += 5
+      doc.setTextColor(200, 30, 30)
+      doc.setFontSize(9.5)
+      doc.setFont('helvetica', 'bold')
+
+      parsedContacts.forEach((contactLine) => {
+        const wrapped = doc.splitTextToSize(cleanText(contactLine), 180)
+        const contactHeight = wrapped.length * 4.5 + 2
+
+        if (currentY + contactHeight > 230) {
+          doc.addPage()
+          currentY = 25
+          doc.setFontSize(8.5)
+          doc.setTextColor(...greyColor)
+          doc.setFont('helvetica', 'bold')
+          doc.text('NÚMEROS DE EMERGENCIA (CONT.)', 15, currentY)
+          currentY += 5
+          doc.setTextColor(200, 30, 30)
+          doc.setFontSize(9.5)
+          doc.setFont('helvetica', 'bold')
+        }
+
+        doc.text(wrapped, 15, currentY)
+        currentY += contactHeight
+      })
+
+      currentY += 3
+    }
   }
 
   // Inclusiones
   if (voucher.inclusiones) {
-    doc.setFontSize(9)
-    doc.setTextColor(...greyColor)
-    doc.text('SERVICIOS INCLUIDOS', 15, currentY)
-
     const items = Object.entries(voucher.inclusiones)
       .filter(([_, val]) => val)
       .map(([key]) => key.toUpperCase())
-    
-    doc.setTextColor(...primaryColor)
-    doc.setFontSize(10)
-    doc.text(items.join('  •  '), 15, currentY + 6)
-    
-    currentY += 15
+
+    if (items.length > 0) {
+      const incText = items.join('  •  ')
+      const incWrapped = doc.splitTextToSize(incText, 180)
+      const incHeight = incWrapped.length * 4.5 + 10
+
+      if (currentY + incHeight > 230) {
+        doc.addPage()
+        currentY = 25
+      }
+
+      doc.setFontSize(8.5)
+      doc.setTextColor(...greyColor)
+      doc.setFont('helvetica', 'bold')
+      doc.text('SERVICIOS INCLUIDOS', 15, currentY)
+
+      doc.setTextColor(...primaryColor)
+      doc.setFontSize(9.5)
+      doc.setFont('helvetica', 'bold')
+      doc.text(incWrapped, 15, currentY + 5)
+
+      currentY += incWrapped.length * 4.5 + 7
+    }
   }
 
   // Notas

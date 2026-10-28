@@ -34,6 +34,7 @@ import { showToast } from '@/utils/toast'
 import { useUserSession } from '@/hooks/useUserSession'
 import { CTB_CITIES } from '@/data/cities'
 import VoucherStandaloneModal from '@/components/VoucherStandaloneModal'
+import { parseEmergencyContacts } from '@/utils/emergencyContacts'
 
 export default function VouchersPage() {
   const [vouchers, setVouchers] = useState([])
@@ -831,21 +832,39 @@ export default function VouchersPage() {
                   </div>
                 </div>
 
-                {viewingVoucher.numero_emergencia && (
-                  <div className="flex gap-3 sm:gap-4 items-center bg-red-50 p-3 sm:p-4 rounded-2xl border border-red-100 text-red-900">
-                    <div className="bg-red-100 p-2 rounded-xl text-red-600 shrink-0">
-                      <PhoneCall size={16} />
+                {viewingVoucher.numero_emergencia && (() => {
+                  const contacts = parseEmergencyContacts(viewingVoucher.numero_emergencia)
+                    .filter(c => c.nombre?.trim() || c.telefono?.trim())
+                  if (contacts.length === 0) return null
+
+                  return (
+                    <div className="bg-red-50 p-3 sm:p-4 rounded-2xl border border-red-100 text-red-900 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="bg-red-100 p-1.5 rounded-lg text-red-600 shrink-0">
+                          <PhoneCall size={14} />
+                        </div>
+                        <p className="text-[10px] sm:text-xs font-black text-red-500 uppercase tracking-widest">
+                          {contacts.length > 1 ? 'Contactos / Números de Emergencia' : 'Número de Emergencia'}
+                        </p>
+                      </div>
+                      <div className="space-y-1.5">
+                        {contacts.map((c, idx) => (
+                          <div key={c.id || idx} className="bg-white/80 p-2.5 rounded-xl border border-red-100/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-xs">
+                            {c.nombre && <span className="font-bold text-gray-800 break-words">{c.nombre}</span>}
+                            {c.telefono && (
+                              <a
+                                href={`tel:${c.telefono.replace(/\s+/g, '')}`}
+                                className="font-mono font-black text-red-600 hover:underline shrink-0"
+                              >
+                                {c.telefono}
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[10px] sm:text-xs font-black text-red-500 uppercase tracking-widest">
-                        Número de Emergencia
-                      </p>
-                      <p className="text-xs sm:text-sm font-black break-words">
-                        {viewingVoucher.numero_emergencia}
-                      </p>
-                    </div>
-                  </div>
-                )}
+                  )
+                })()}
               </div>
 
               {viewingVoucher.notas && (

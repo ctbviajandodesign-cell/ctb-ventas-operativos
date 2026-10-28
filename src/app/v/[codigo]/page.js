@@ -21,6 +21,7 @@ import {
   Info,
   PhoneCall
 } from 'lucide-react'
+import { parseEmergencyContacts } from '@/utils/emergencyContacts'
 
 export default function VoucherVerificationPage() {
   const { codigo } = useParams()
@@ -208,21 +209,44 @@ export default function VoucherVerificationPage() {
             </div>
 
             {/* CONTACTO DE EMERGENCIA */}
-            {voucher.numero_emergencia && (
-              <div className="bg-red-50/70 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-red-100 flex gap-3.5 sm:gap-4 items-center">
-                <div className="bg-red-500 text-white p-2.5 rounded-2xl shrink-0 shadow-md shadow-red-200">
-                  <PhoneCall size={18} />
+            {voucher.numero_emergencia && (() => {
+              const contacts = parseEmergencyContacts(voucher.numero_emergencia)
+                .filter(c => c.nombre?.trim() || c.telefono?.trim())
+              if (contacts.length === 0) return null
+
+              return (
+                <div className="bg-red-50/70 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-red-100 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="bg-red-500 text-white p-2 rounded-xl shrink-0 shadow-md shadow-red-200">
+                      <PhoneCall size={16} />
+                    </div>
+                    <p className="text-[10px] sm:text-xs font-black text-red-500 uppercase tracking-widest leading-none">
+                      {contacts.length > 1 ? 'Contactos / Números de Emergencia' : 'Número de Emergencia'}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    {contacts.map((c, idx) => (
+                      <div key={c.id || idx} className="bg-white/90 p-3 rounded-xl border border-red-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4">
+                        {c.nombre && (
+                          <span className="text-xs sm:text-sm font-black text-gray-900 break-words">
+                            {c.nombre}
+                          </span>
+                        )}
+                        {c.telefono && (
+                          <a
+                            href={`tel:${c.telefono.replace(/\s+/g, '')}`}
+                            className="text-xs sm:text-sm font-black text-red-600 font-mono hover:underline flex items-center gap-1 shrink-0"
+                          >
+                            {c.telefono}
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] sm:text-xs font-black text-red-500 uppercase tracking-widest leading-none mb-1">
-                    Número de Emergencia
-                  </p>
-                  <p className="text-xs sm:text-sm font-black text-gray-900 leading-tight break-words">
-                    {voucher.numero_emergencia}
-                  </p>
-                </div>
-              </div>
-            )}
+              )
+            })()}
 
             {/* INCLUSIONES (JSONB) */}
             {voucher.inclusiones && (

@@ -1,13 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { XCircle, Save, PhoneCall } from 'lucide-react'
+import { XCircle, Save, PhoneCall, Plus, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { showToast } from '@/utils/toast'
 import { logActivity } from '@/utils/audit'
+import { parseEmergencyContacts, formatEmergencyContacts } from '@/utils/emergencyContacts'
 
 export default function VoucherEditModal({ voucher, onClose, onSuccess }) {
   const [editingVoucher, setEditingVoucher] = useState(voucher)
+  const [emergencyContacts, setEmergencyContacts] = useState(() => parseEmergencyContacts(voucher?.numero_emergencia))
   const [loading, setLoading] = useState(false)
 
   const handleUpdateVoucher = async (e) => {
@@ -15,6 +17,7 @@ export default function VoucherEditModal({ voucher, onClose, onSuccess }) {
     setLoading(true)
 
     try {
+      const emergencyStr = formatEmergencyContacts(emergencyContacts)
       const pasajerosArr = typeof editingVoucher.pasajeros === 'string'
         ? editingVoucher.pasajeros.split('\n').map(s => s.trim()).filter(Boolean)
         : editingVoucher.pasajeros || []
@@ -26,7 +29,7 @@ export default function VoucherEditModal({ voucher, onClose, onSuccess }) {
         fecha_viaje_desde: editingVoucher.fecha_viaje_desde,
         fecha_viaje_hasta: editingVoucher.fecha_viaje_hasta,
         fecha_caducidad: editingVoucher.fecha_viaje_hasta,
-        numero_emergencia: editingVoucher.numero_emergencia?.trim() || null,
+        numero_emergencia: emergencyStr || null,
         notas: editingVoucher.notas,
         recordatorio_texto: editingVoucher.recordatorio_texto || null,
         recordatorio_dias_antes: editingVoucher.recordatorio_dias_antes || null
@@ -154,18 +157,67 @@ export default function VoucherEditModal({ voucher, onClose, onSuccess }) {
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-xs font-black text-gray-400 uppercase flex items-center gap-1.5">
-              <PhoneCall size={14} className="text-primary" /> Número de Emergencia
-            </label>
-            <input
-              type="text"
-              className="input text-sm font-bold"
-              placeholder="Nombre y número de emergencia (ej: Juan Pérez - +593 99 999 9999)"
-              value={editingVoucher.numero_emergencia || ''}
-              onChange={e => setEditingVoucher({...editingVoucher, numero_emergencia: e.target.value})}
-            />
-            <p className="text-[10px] text-gray-400 font-bold">Nombre y número de contacto en caso de emergencia para el pasajero o guía</p>
+          <div className="space-y-2 bg-gray-50/80 p-3.5 rounded-2xl border border-gray-100">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-black text-gray-500 uppercase flex items-center gap-1.5">
+                <PhoneCall size={14} className="text-primary" /> Contactos / Números de Emergencia
+              </label>
+              <button
+                type="button"
+                onClick={() => setEmergencyContacts([...emergencyContacts, { id: Date.now(), nombre: '', telefono: '' }])}
+                className="text-[11px] font-black text-primary hover:text-primary/80 transition-colors uppercase tracking-wider flex items-center gap-1"
+              >
+                <Plus size={13} /> Añadir destino / contacto
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {emergencyContacts.map((c, idx) => (
+                <div key={c.id || idx} className="grid grid-cols-12 gap-2 items-center">
+                  <div className="col-span-6">
+                    <input
+                      type="text"
+                      className="input font-bold text-xs bg-white"
+                      placeholder="Destino / Nombre (ej: Cartagena - Wainer V.)"
+                      value={c.nombre}
+                      onChange={e => {
+                        const updated = [...emergencyContacts]
+                        updated[idx] = { ...updated[idx], nombre: e.target.value }
+                        setEmergencyContacts(updated)
+                      }}
+                    />
+                  </div>
+                  <div className="col-span-5">
+                    <input
+                      type="text"
+                      className="input font-bold text-xs bg-white font-mono"
+                      placeholder="Teléfono (ej: +57 300 2504385)"
+                      value={c.telefono}
+                      onChange={e => {
+                        const updated = [...emergencyContacts]
+                        updated[idx] = { ...updated[idx], telefono: e.target.value }
+                        setEmergencyContacts(updated)
+                      }}
+                    />
+                  </div>
+                  <div className="col-span-1 flex justify-center">
+                    {emergencyContacts.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setEmergencyContacts(emergencyContacts.filter((_, i) => i !== idx))}
+                        className="text-gray-300 hover:text-danger p-1 transition-colors"
+                        title="Eliminar contacto"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+              Si el viaje tiene varios destinos, añade un contacto y teléfono para cada uno.
+            </p>
           </div>
 
           <div className="space-y-1">
